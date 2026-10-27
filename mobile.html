@@ -418,7 +418,7 @@ function drawPlanets(alpha, now) {
 }
 
 function moonColor(m, p) {
-  const palette = ['#cfc9bd','#b8a898','#9fb0c8','#d8d2c4','#8f9aa8','#c8b090','#a8b8c8'];
+  const palette = ['#d8c090','#8fc8e8','#c87850','#d8d8c8','#b090d0','#e0b070','#90b8a8'];
   let h = 2166136261 >>> 0;
   const key = String(p.seed) + ':' + m.index;
   for (let i=0;i<key.length;i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -441,8 +441,8 @@ function moonLayouts(px, py, pr, p) {
 function drawMoons(px, py, pr, p, alpha, now, focused) {
   const layouts = moonLayouts(px, py, pr, p);
   for (const it of layouts) {
-    ctx.globalAlpha = alpha * (focused ? 0.5 : 0.3);
-    ctx.strokeStyle = 'rgba(180,200,240,.20)'; ctx.lineWidth = 1;
+    ctx.globalAlpha = alpha * (focused ? 0.65 : 0.35);
+    ctx.strokeStyle = moonColor(it.m, p) + '77'; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.ellipse(px, py, it.orbitPx, it.orbitPx*0.8, 0, 0, Math.PI*2); ctx.stroke();
     ctx.globalAlpha = alpha * (focused ? 1 : 0.8);
     ctx.fillStyle = moonColor(it.m, p);
