@@ -363,7 +363,7 @@ function drawPlanets(alpha, now) {
       const visible = px > -pr*4 && px < innerWidth + pr*4 && py > -pr*4 && py < innerHeight + pr*4;
       if (!visible && !starVisible) return;
       const orbitPx = orbitUnits(p) * cam.z;
-      if (starVisible && orbitPx < 2600) {
+      if (starVisible && cam.z < 1400 && orbitPx < 2600) {
         ctx.globalAlpha = alpha * 0.22;
         ctx.strokeStyle = selected && selected.planet === p ? 'rgba(232,207,138,.65)' : 'rgba(214,184,110,.34)';
         ctx.lineWidth = 1;
@@ -416,8 +416,8 @@ function moonLayouts(px, py, pr, p) {
   const t = clock;
   const planetOrbitPx = Math.max(0, orbitUnits(p) * cam.z);
   return moons.map((m, k) => {
-    const ratio = Math.min(9, m.distanceKm / parentRadius);
-    const orbitPx = pr * (1.5 + ratio * 0.55);
+    const ratio = Math.min(18, m.distanceKm / parentRadius);
+    const orbitPx = pr * (1.5 + ratio * 0.45);
     const speed = (Math.PI * 2) / Math.max(80, m.periodTicks * 0.012);
     const a = m.phase * Math.PI * 2 + t * speed;
     return { m, x: px + Math.cos(a) * orbitPx, y: py + Math.sin(a) * orbitPx * 0.8, orbitPx,
