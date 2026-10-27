@@ -211,7 +211,7 @@ function fitGalaxy() {
   catalog.systems.forEach((s, i) => { const p = systemPos(i, s); max = Math.max(max, Math.abs(p.x), Math.abs(p.y)); });
   return Math.min(innerWidth, innerHeight) / (2.25 * max);
 }
-function orbitUnits(p) { return (0.03 + Math.log1p(Math.max(0.01, p.orbitAu)) * 0.10) * 9; }
+function orbitUnits(p) { return (0.03 + Math.log1p(Math.max(0.01, p.orbitAu)) * 0.10) * 6.3; }
 function planetRadiusUnits(p) { return 0.0018 + Math.sqrt(Math.max(0.05, p.diameterEarth)) * 0.0026; }
 function starRadiusUnits(s) {
   const lum = STAR_DATA[s.star]?.lum || 1;
@@ -429,9 +429,10 @@ function moonLayouts(px, py, pr, p) {
   const moons = EUGenerator.moonSpecs(p);
   const t = clock;
   const planetOrbitPx = Math.max(0, orbitUnits(p) * cam.z);
+  const maxRatio = Math.max(1, ...moons.map(m => m.distanceKm / parentRadius));
   return moons.map((m, k) => {
-    const ratio = Math.min(18, m.distanceKm / parentRadius);
-    const orbitPx = pr * (1.5 + ratio * 0.45);
+    const ratio = m.distanceKm / parentRadius;
+    const orbitPx = pr * (1.5 + 4.2 * (ratio / maxRatio));
     const speed = (Math.PI * 2) / Math.max(80, m.periodTicks * 0.012);
     const a = m.phase * Math.PI * 2 + t * speed;
     return { m, x: px + Math.cos(a) * orbitPx, y: py + Math.sin(a) * orbitPx * 0.8, orbitPx,
