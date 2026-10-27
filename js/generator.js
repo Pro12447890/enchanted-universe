@@ -189,7 +189,7 @@ function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
   const planetSeed = r.nextLong();
   return {
     id, designation: desig, name, category, atmosphere, temperatureC: temperature,
-    gravity, radiation, rings, moons, orbitAu: orbit, diameterEarth: diameter,
+    gravity, radiation, gauss, rings, moons, orbitAu: orbit, diameterEarth: diameter,
     biomes: biomeList, composition: comp, archetype, seed: planetSeed.toString(),
     systemIndex, index
   };
@@ -198,7 +198,7 @@ function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
 function solarPlanet(index, name, category, orbit, diameter, gravity, temp, atmosphere, comp, moons, rings, biome, seed) {
   const id = 'enchanted_universe:planet_' + BigInt.asUintN(64, BigInt(seed)).toString(16) + '_sol_' + index;
   return { id, designation: name, name, category, atmosphere, temperatureC: temp, gravity, radiation: 0,
-    rings, moons, orbitAu: orbit, diameterEarth: diameter, biomes: [biome], composition: comp, archetype: '', seed: String(seed) };
+    gauss: 0.5, rings, moons, orbitAu: orbit, diameterEarth: diameter, biomes: [biome], composition: comp, archetype: '', seed: String(seed) };
 }
 
 function solarSystem(worldSeed) {
@@ -223,7 +223,7 @@ function solarSystem(worldSeed) {
     const seed = BigInt.asIntN(64, BigInt(worldSeed) ^ (0x101n * BigInt(x[0] + 1)));
     return { id:'enchanted_universe:planet_'+hex+'_sol_'+x[0], designation:x[1], name:x[1], category:x[2], orbitAu:x[3],
       diameterEarth:x[4], gravity:x[5], temperatureC:x[6], atmosphere:x[7], composition:x[8], moons:x[9], rings:x[10],
-      biomes:['enchanted_universe:'+x[11]].concat(x[0] === 1 ? ['enchanted_universe:beige_regolithbasin','enchanted_universe:ochre_regolithbasin'] : []), radiation:Math.max(0, 20 - x[0]*1.2), seed:seed.toString() };
+      biomes:['enchanted_universe:'+x[11]].concat(x[0] === 1 ? ['enchanted_universe:beige_regolithbasin','enchanted_universe:ochre_regolithbasin'] : []), radiation:Math.max(0, 20 - x[0]*1.2), gauss:0.5, seed:seed.toString() };
   }) };
 }
 
@@ -232,7 +232,7 @@ function demos(worldSeed) {
   function dp(prefix, index, name, category, orbit, diameter, gravity, temp, atmosphere, comp, moons, rings, biome, xor) {
     return { id:'enchanted_universe:planet_demo_'+prefix+'_'+index, designation:name, name, category, orbitAu:orbit,
       diameterEarth:diameter, gravity, temperatureC:temp, atmosphere, composition:comp, moons, rings,
-      biomes:['enchanted_universe:'+biome], radiation:12, seed:BigInt.asIntN(64, W ^ BigInt(xor)).toString() };
+      biomes:['enchanted_universe:'+biome], radiation:12, gauss:0.5, seed:BigInt.asIntN(64, W ^ BigInt(xor)).toString() };
   }
   return [
     { name:'Астерион', formalName:'Asterion', star:'yellow_dwarf', distanceLy:12.0, planets:[
@@ -268,44 +268,69 @@ function moonNameFor(parent, index) {
   if (p.includes('плутон') || p.includes('pluto')) return index === 0 ? 'Харон' : 'Плутон ' + (index + 1);
   return 'Луна ' + (index + 1);
 }
+// Климат луны — те же правила, что в MoonSpec.generate (мод Enchanted Universe):
+// категория, архетип, атмосфера, состав, биомы и температура. Порядок важен.
+function moonClimate(gas, hz, index, radiusKm, dRatio) {
+  if (gas && hz && radiusKm > 2200 && index > 0) return {
+    category: 'habitable', archetype: 'ocean', atmosphere: 'moderate',
+    composition: ['N2', 'O2', 'AR', 'H2O'],
+    biomes: ['greensproutsgroves', 'windy_forest', 'golden_groves'], temperatureC: 14
+  };
+  if (dRatio < 7.5) return {
+    category: 'very_hot', archetype: 'sulfur', atmosphere: 'thin',
+    composition: ['SO2', 'H2S', 'CO2'],
+    biomes: ['very_hot_regolithbasin', 'sulfur_regolithbasin'], temperatureC: 120
+  };
+  if (radiusKm > 2400 && !hz) return {
+    category: 'cold_habitable', archetype: 'moon_titan', atmosphere: 'thick',
+    composition: ['N2', 'CH4', 'H2'],
+    biomes: ['dense_mushroom_groves'], temperatureC: -145
+  };
+  if (dRatio > 12 && dRatio < 28) return {
+    category: 'cold_habitable', archetype: 'ice', atmosphere: 'minimal',
+    composition: ['O2', 'H2O'],
+    biomes: ['icy_groves', 'iced_regolithbasin'], temperatureC: -110
+  };
+  return {
+    category: 'distant', archetype: 'airless', atmosphere: 'none',
+    composition: [], biomes: ['cratered_regolithbasin'], temperatureC: -70
+  };
+}
+
 function moonSpecs(planet) {
   const count = Math.max(0, planet.moons | 0);
   if (!count) return [];
   const parentSeed = BigInt(planet.seed);
   const radiusParent = Math.max(500, 6371 * planet.diameterEarth);
   const gas = radiusParent >= 20000;
+  const gauss = Number(planet.gauss != null ? planet.gauss : 10);
+  const hz = planet.orbitAu >= 0.66 && planet.orbitAu <= 1.5;
   const out = [];
   for (let i = 0; i < count; i++) {
     const seed = BigInt.asIntN(64, parentSeed ^ BigInt.asIntN(64, 0x9E3779B97F4A7C15n * BigInt(i + 1)));
     const u = BigInt.asUintN(64, seed);
-    const dFac = gas
+    const dRatio = gas
       ? 5.5 + (Number((u >> 9n) & 0x3FFFn) / 16383) * 4
       : 30 + (Number((u >> 9n) & 0x3FFFn) / 16383) * 30;
     const radiusFactor = gas
       ? 0.004 + (Number((u >> 25n) & 0x7FFn) / 2047) * 0.036
       : 0.03 + (Number((u >> 25n) & 0x7FFn) / 2047) * 0.24;
-    const radius = Math.max(60, radiusParent * radiusFactor);
-    const ratio = dFac;
-    const gas = planet.category === 'gas_giant';
-    const hz = planet.orbitAu >= 0.66 && planet.orbitAu <= 1.5;
-    let type = 'barren', atm = 'none';
-    if (gas && hz && i > 0 && radius > 2500) { type = 'habitable'; atm = 'moderate'; }
-    else if (gas && !hz && radius > 2500) { type = 'titan'; atm = 'thick'; }
-    else if (gas && ratio < 8) { type = 'volcanic'; atm = 'thin'; }
-    else if (gas && radius > 1200) { type = 'icy'; atm = 'minimal'; }
-    const gauss = 10 + (Number((u >> 5n) % 36n));
-    let belt = 0;
-    if (ratio <= 20) belt = gauss * Math.pow(12 / ratio, 2) * 6;
-    const shield = { none:0, minimal:0.5, thin:0.75, moderate:0.9, medium:0.95, thick:0.99 }[atm] || 0;
+    const radiusKm = Math.max(60, radiusParent * radiusFactor);
+    const climate = moonClimate(gas, hz, i, radiusKm, dRatio);
+    const shield = { none: 0, minimal: 0.25, thin: 0.65, moderate: 0.90, medium: 0.95, thick: 0.99 }[climate.atmosphere] || 0;
+    const belt = dRatio > 0 && dRatio <= 22 ? gauss * Math.pow(12 / dRatio, 2) * 5.5 : 0;
     const radiation = Math.max(0, Math.min(1000, belt * (1 - shield)));
     out.push({
-      index: i, name: moonNameFor(planet.name, i), distanceKm: radiusParent * dFac,
-      radiusKm: radius, gravity: Math.max(0.01, 0.08 + (radius / radiusParent) * 2.2),
+      index: i, name: moonNameFor(planet.name, i), distanceKm: radiusParent * dRatio, radiusKm,
+      gravity: Math.max(0.01, 0.08 + (radiusKm / radiusParent) * 2.2),
       tiltDeg: Number((u >> 7n) % 121n) - 60,
       yawDeg: Number((u >> 23n) % 91n) - 45,
       periodTicks: 22000 + Math.abs(Number((u >> 11n) % 80000n)),
       phase: Number((u >> 31n) & 0xFFFFn) / 65535,
-      type, atmosphere: atm, radiation
+      type: climate.category, category: climate.category, archetype: climate.archetype,
+      atmosphere: climate.atmosphere, composition: climate.composition,
+      biomes: climate.biomes.map(b => 'enchanted_universe:' + b),
+      temperatureC: climate.temperatureC, radiation
     });
   }
   return out;

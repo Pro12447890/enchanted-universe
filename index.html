@@ -82,8 +82,8 @@
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
 <script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
-<script src="js/i18n.js?v=5"></script>
-<script src="js/generator.js?v=5"></script>
+<script src="js/i18n.js?v=6"></script>
+<script src="js/generator.js?v=6"></script>
 <script>
 'use strict';
 const canvas = document.getElementById('map');
@@ -646,9 +646,10 @@ function showMoon(m, p, system) {
       <tr><td>${T('info.diameter')}</td><td>${(m.radiusKm*2).toFixed(0)} ${T('unit.km')}</td></tr>
       <tr><td>${T('info.gravity')}</td><td>${m.gravity.toFixed(2)} ${T('unit.g')}</td></tr>
       <tr><td>${T('info.period')}</td><td>${Math.round(m.periodTicks/1200)} ${T('unit.min')}</td></tr>
-      <tr><td>Тип</td><td>${({habitable:'обитаемая',titan:'титан',volcanic:'вулканическая',icy:'ледяная',barren:'бесплодная'})[m.type] || m.type}</td></tr>
-      <tr><td>Атмосфера</td><td>${T('atm.'+m.atmosphere)}</td></tr>
-      <tr><td>Радиация пояса</td><td>${Math.round(m.radiation)} Рад</td></tr>
+      <tr><td>${T('info.category')}</td><td>${T('cat.'+m.type)}</td></tr>
+      <tr><td>${T('info.atmosphere')}</td><td>${T('atm.'+m.atmosphere)}</td></tr>
+      <tr><td>${T('info.temperature')}</td><td>${m.temperatureC.toFixed(0)} ${T('unit.c')}</td></tr>
+      <tr><td>${T('info.belt_radiation')}</td><td>${Math.round(m.radiation)}</td></tr>
     </table>`;
 }
 
