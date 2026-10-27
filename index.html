@@ -197,7 +197,7 @@ function fitGalaxy() {
   catalog.systems.forEach((s, i) => { const p = systemPos(i, s); max = Math.max(max, Math.abs(p.x), Math.abs(p.y)); });
   return Math.min(innerWidth, innerHeight) / (2.25 * max);
 }
-function orbitUnits(p) { return 0.03 + Math.log1p(Math.max(0.01, p.orbitAu)) * 0.10; }
+function orbitUnits(p) { return (0.03 + Math.log1p(Math.max(0.01, p.orbitAu)) * 0.10) * 3; }
 function planetRadiusUnits(p) { return 0.0018 + Math.sqrt(Math.max(0.05, p.diameterEarth)) * 0.0026; }
 function starRadiusUnits(s) {
   const lum = STAR_DATA[s.star]?.lum || 1;
@@ -274,7 +274,7 @@ function drawGalaxy(alpha, now) {
   catalog.systems.forEach((s, i) => {
     const p = systemPos(i, s);
     const sx = screenX(p.x), sy = screenY(p.y);
-    if (sx < -80 || sy < -80 || sx > innerWidth+80 || sy > innerHeight+80) return;
+    if (sx < -2000 || sy < -2000 || sx > innerWidth+2000 || sy > innerHeight+2000) return;
     const data = STAR_DATA[s.star] || STAR_DATA.yellow_dwarf;
     const base = 2.0 + Math.min(4, Math.sqrt(data.lum) * 0.9);
     const r = Math.max(1.6, Math.min(9, base)) * (i === 0 ? 1.25 : 1);
@@ -354,13 +354,13 @@ function drawPlanets(alpha, now) {
   catalog.systems.forEach((s, i) => {
     const sp = systemPos(i, s);
     const starX = screenX(sp.x), starY = screenY(sp.y);
-    const starVisible = starX > -innerWidth && starX < innerWidth*2 && starY > -innerHeight && starY < innerHeight*2;
+    const starVisible = starX > -innerWidth*6 && starX < innerWidth*7 && starY > -innerHeight*6 && starY < innerHeight*7;
     if (showZones && starVisible) drawZones(s, starX, starY);
     s.planets.forEach((p, j) => {
       const pp = planetPos(i, s, p);
       const px = screenX(pp.x), py = screenY(pp.y);
       const pr = Math.max(1.1, planetRadiusUnits(p) * cam.z);
-      const visible = px > -pr*4 && px < innerWidth + pr*4 && py > -pr*4 && py < innerHeight + pr*4;
+      const visible = px > -pr*30 && px < innerWidth + pr*30 && py > -pr*30 && py < innerHeight + pr*30;
       if (!visible && !starVisible) return;
       const orbitPx = orbitUnits(p) * cam.z;
       if (starVisible && cam.z < 700 && orbitPx < 2600) {
@@ -498,7 +498,8 @@ function drawFocusStar(now) {
     const d = Math.hypot(sx - innerWidth/2, sy - innerHeight/2);
     if (d < bestD) { bestD = d; best = { system: s, sx, sy }; }
   });
-  if (!best || bestD > 180) return;
+  if (!best) return;
+  if (best.sx < -300 || best.sy < -300 || best.sx > innerWidth + 300 || best.sy > innerHeight + 300) return;
   const data = STAR_DATA[best.system.star] || STAR_DATA.yellow_dwarf;
   const r = Math.max(6, starRadiusUnits(best.system) * cam.z);
   const x = best.sx, y = best.sy;
@@ -590,7 +591,7 @@ function focusSystem(i, system) {
   let maxOrbit = 0.1;
   system.planets.forEach(p => maxOrbit = Math.max(maxOrbit, orbitUnits(p)));
   selected = { kind: 'system', system };
-  goal = { x: sp.x, y: sp.y, z: Math.min(900, Math.max(120, (Math.min(innerWidth, innerHeight) * 0.4) / maxOrbit)) };
+  goal = { x: sp.x, y: sp.y, z: 900 };
 }
 
 function showPlanet(p, system) {
