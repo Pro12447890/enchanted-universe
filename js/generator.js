@@ -251,6 +251,47 @@ function demos(worldSeed) {
   ];
 }
 
+
+function moonNameFor(parent, index) {
+  const p = (parent || '').toLowerCase();
+  if (p.includes('земля') || p.includes('earth')) return index === 0 ? 'Луна' : 'Луна ' + (index + 1);
+  if (p.includes('марс') || p.includes('mars')) return index === 0 ? 'Фобос' : index === 1 ? 'Деймос' : 'Марс ' + (index + 1);
+  if (p.includes('юпитер') || p.includes('jupiter')) return ['Ио','Европа','Ганимед','Каллисто'][index] || ('Юпитер ' + (index + 1));
+  if (p.includes('сатурн') || p.includes('saturn')) return ['Мимас','Энцелад','Тефия','Рея','Титан'][index] || ('Сатурн ' + (index + 1));
+  if (p.includes('уран') || p.includes('uranus')) return ['Миранда','Ариэль','Умбриэль','Титания','Оберон'][index] || ('Уран ' + (index + 1));
+  if (p.includes('нептун') || p.includes('neptune')) return ['Тритон','Нереида'][index] || ('Нептун ' + (index + 1));
+  if (p.includes('плутон') || p.includes('pluto')) return index === 0 ? 'Харон' : 'Плутон ' + (index + 1);
+  return 'Луна ' + (index + 1);
+}
+function moonSpecs(planet) {
+  const count = Math.max(0, planet.moons | 0);
+  if (!count) return [];
+  const parentSeed = BigInt(planet.seed);
+  const radiusParent = Math.max(500, 6371 * planet.diameterEarth);
+  const gas = radiusParent >= 20000;
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const seed = BigInt.asIntN(64, parentSeed ^ BigInt.asIntN(64, 0x9E3779B97F4A7C15n * BigInt(i + 1)));
+    const u = BigInt.asUintN(64, seed);
+    const dFac = gas
+      ? 5.5 + (Number((u >> 9n) & 0x3FFFn) / 16383) * 4
+      : 30 + (Number((u >> 9n) & 0x3FFFn) / 16383) * 30;
+    const radiusFactor = gas
+      ? 0.004 + (Number((u >> 25n) & 0x7FFn) / 2047) * 0.036
+      : 0.03 + (Number((u >> 25n) & 0x7FFn) / 2047) * 0.24;
+    const radius = Math.max(60, radiusParent * radiusFactor);
+    out.push({
+      index: i, name: moonNameFor(planet.name, i), distanceKm: radiusParent * dFac,
+      radiusKm: radius, gravity: Math.max(0.01, 0.08 + (radius / radiusParent) * 2.2),
+      tiltDeg: Number((u >> 7n) % 121n) - 60,
+      yawDeg: Number((u >> 23n) % 91n) - 45,
+      periodTicks: 22000 + Math.abs(Number((u >> 11n) % 80000n)),
+      phase: Number((u >> 31n) & 0xFFFFn) / 65535
+    });
+  }
+  return out;
+}
+
 function generateCatalog(worldSeed) {
   worldSeed = BigInt.asIntN(64, BigInt(worldSeed));
   const systems = [solarSystem(worldSeed), ...demos(worldSeed)];
@@ -269,5 +310,5 @@ function generateCatalog(worldSeed) {
   return { worldSeed: worldSeed.toString(), systems };
 }
 
-if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom };
-if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog };
+if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom, moonSpecs };
+if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog, moonSpecs };
