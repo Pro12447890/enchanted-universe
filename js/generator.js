@@ -174,7 +174,12 @@ function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
   const radiation = clamp(baseRad * (1 - { none: 0, minimal: 50, thin: 75, moderate: 90, medium: 95, thick: 99 }[atmosphere] / 100) * magneticFactor(gauss), 0, 1000);
   const rings = category === 'gas_giant' ? r.nextFloat() < 0.55 : r.nextFloat() < 0.12;
   const moons = r.nextInt(6);
-  const biomeList = biomes(r, category, atmosphere, archetype);
+  let biomeList = biomes(r, category, atmosphere, archetype);
+  if (category === 'distant' && orbit > 1.8 && ['red_dwarf','brown_dwarf','magnetar'].includes(star)) {
+    const h = BigInt.asIntN(64, BigInt(worldSeed) ^ (BigInt(systemIndex) * 0x9E3779B97F4A7C15n)
+      ^ (BigInt(index) * 0xBF58476D1CE4E5B9n) ^ 0x4E49474854n);
+    if ((h & 3n) === 0n) biomeList = ['enchanted_universe:night_forest'];
+  }
   const desig = designation(formal, index);
   const nameTag = BigInt.asIntN(64, BigInt(worldSeed) ^ (BigInt(systemIndex) * 0x9E3779B97F4A7C15n) ^ (BigInt(index) * 0xBF58476D1CE4E5B9n));
   let suffix = BigInt.asUintN(64, nameTag).toString(36);
