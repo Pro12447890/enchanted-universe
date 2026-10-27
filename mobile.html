@@ -377,7 +377,7 @@ function drawPlanets(alpha, now) {
       const visible = px > -pr*4 && px < innerWidth + pr*4 && py > -pr*4 && py < innerHeight + pr*4;
       if (!visible && !starVisible) return;
       const orbitPx = orbitUnits(p) * cam.z;
-      if (starVisible && cam.z < 1400 && orbitPx < 2600) {
+      if (starVisible && cam.z < 700 && orbitPx < 2600) {
         ctx.globalAlpha = alpha * 0.22;
         ctx.strokeStyle = selected && selected.planet === p ? 'rgba(232,207,138,.65)' : 'rgba(214,184,110,.34)';
         ctx.lineWidth = 1;
