@@ -218,7 +218,7 @@ function solarSystem(worldSeed) {
     const seed = BigInt.asIntN(64, BigInt(worldSeed) ^ (0x101n * BigInt(x[0] + 1)));
     return { id:'enchanted_universe:planet_'+hex+'_sol_'+x[0], designation:x[1], name:x[1], category:x[2], orbitAu:x[3],
       diameterEarth:x[4], gravity:x[5], temperatureC:x[6], atmosphere:x[7], composition:x[8], moons:x[9], rings:x[10],
-      biomes:['enchanted_universe:'+x[11]], radiation:Math.max(0, 20 - x[0]*1.2), seed:seed.toString() };
+      biomes:['enchanted_universe:'+x[11]].concat(x[0] === 1 ? ['enchanted_universe:beige_regolithbasin','enchanted_universe:ochre_regolithbasin'] : []), radiation:Math.max(0, 20 - x[0]*1.2), seed:seed.toString() };
   }) };
 }
 
