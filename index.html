@@ -197,7 +197,7 @@ function fitGalaxy() {
   catalog.systems.forEach((s, i) => { const p = systemPos(i, s); max = Math.max(max, Math.abs(p.x), Math.abs(p.y)); });
   return Math.min(innerWidth, innerHeight) / (2.25 * max);
 }
-function orbitUnits(p) { return (0.03 + Math.log1p(Math.max(0.01, p.orbitAu)) * 0.10) * 3; }
+function orbitUnits(p) { return (0.03 + Math.log1p(Math.max(0.01, p.orbitAu)) * 0.10) * 9; }
 function planetRadiusUnits(p) { return 0.0018 + Math.sqrt(Math.max(0.05, p.diameterEarth)) * 0.0026; }
 function starRadiusUnits(s) {
   const lum = STAR_DATA[s.star]?.lum || 1;
@@ -510,11 +510,12 @@ function drawFocusStar(now) {
   const disc = ctx.createRadialGradient(x - r*0.2, y - r*0.2, r*0.2, x, y, r);
   disc.addColorStop(0, '#fffbe8'); disc.addColorStop(0.55, data.color); disc.addColorStop(1, shade(data.color, 0.7));
   ctx.fillStyle = disc; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
-  if (r > 18) {
+  const spotAlpha = smooth(12, 46, r);
+  if (spotAlpha > 0.01) {
     ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
     for (let k=0;k<26;k++) {
       const a = k*2.399963, rad = Math.sqrt((k+1)/26) * r*0.95;
-      ctx.globalAlpha = 0.10 + (k%3)*0.03;
+      ctx.globalAlpha = (0.10 + (k%3)*0.03) * spotAlpha;
       ctx.fillStyle = k%2 ? '#ffffff' : '#000000';
       ctx.beginPath(); ctx.arc(x + Math.cos(a)*rad, y + Math.sin(a)*rad, r*(0.05 + (k%5)*0.012), 0, Math.PI*2); ctx.fill();
     }
@@ -669,9 +670,10 @@ function animate(now) {
   lastFrame = now;
   clock += dt;
   if (selected && selected.planet && cam.z > 1200) { const bp = selectedBodyPos(); if (bp) { goal.x = bp.x; goal.y = bp.y; } }
-  const k = 1 - Math.exp(-dt * 6.5);
-  cam.x += (goal.x - cam.x) * k;
-  cam.y += (goal.y - cam.y) * k;
+  const k = 1 - Math.exp(-dt * 7.0);
+  const kPos = 1 - Math.exp(-dt * 15.0);
+  cam.x += (goal.x - cam.x) * kPos;
+  cam.y += (goal.y - cam.y) * kPos;
   cam.z *= Math.pow(goal.z / cam.z, k);
   if (Math.abs(cam.x-goal.x) < 1e-5 && Math.abs(cam.y-goal.y) < 1e-5 && Math.abs(cam.z-goal.z)/goal.z < 1e-4) {
     cam.x = goal.x; cam.y = goal.y; cam.z = goal.z;
