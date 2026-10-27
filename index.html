@@ -48,30 +48,40 @@
   #hint b { color:var(--gold); font-weight:500; }
   .hidden { display:none !important; }
   #loading { position:fixed; inset:0; display:grid; place-items:center; background:#04060c; z-index:20; color:var(--gold); }
+  .modal{position:fixed;inset:0;display:grid;place-items:center;background:#04060ce8;z-index:60}
+  .modal .card{width:min(360px,90vw);background:#0b1220;border:1px solid #2a3550;border-radius:14px;padding:22px;text-align:center}
+  .modal h2{margin:0 0 6px;color:#e8cf8a;font-size:20px}
+  .modal p{margin:0 0 16px;color:#8b97b8;font-size:13px}
+  .modal .langRow{display:flex;gap:10px;justify-content:center}
+  .modal .langRow button{min-width:120px;padding:10px}
   @media (max-width:760px){ #info{width:calc(100% - 24px)} #seedLabel{display:none} }
 </style>
 </head>
 <body>
 <canvas id="map"></canvas>
+<div id="langModal" class="modal hidden"><div class="card"><h2 data-i18n="lang.title">Выберите язык</h2><p data-i18n="lang.prompt">Он запомнится в cookie и больше не появится.</p><div class="langRow"><button data-lang="ru">Русский</button><button data-lang="en">English</button></div></div></div>
 
 <div class="bar">
-  <div class="brand">ENCHANTED UNIVERSE<small>предпросмотр сидов · карта космоса</small></div>
-  <input id="seed" type="text" spellcheck="false" title="Сид мира: десятичный или 0x…">
-  <button id="apply" class="gold">Сгенерировать</button>
-  <button id="random">Случайный сид</button>
+  <div class="brand">ENCHANTED UNIVERSE<small data-i18n="brand.sub">предпросмотр сидов · карта космоса</small></div>
+  <input id="seed" type="text" spellcheck="false" data-i18n-title="seed.title" title="Сид мира: десятичный или 0x…">
+  <button id="apply" class="gold" data-i18n="generate">Сгенерировать</button>
+  <button id="random" data-i18n="random">Случайный сид</button>
   <div id="searchWrap">
-    <input id="search" type="text" spellcheck="false" placeholder="Поиск: планета, система, спутник…">
+    <input id="search" type="text" spellcheck="false" data-i18n-ph="search.ph" placeholder="Поиск: планета, система, спутник…">
     <div id="results"></div>
   </div>
   <div class="grow"></div>
   <span id="seedLabel"></span>
-  <button id="galaxy">Галактика</button>
+  <button id="langBtn">RU</button>
+  <button id="galaxy" data-i18n="galaxy">Галактика</button>
 </div>
 
 <div id="info"></div>
-<div id="hint"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
-<div id="loading">Генерация каталога…</div>
+<div id="hint" data-i18n-html="hint"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
+<div id="loading" data-i18n="loading">Генерация каталога…</div>
 
+<script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
+<script src="js/i18n.js"></script>
 <script src="js/generator.js"></script>
 <script>
 'use strict';
@@ -91,9 +101,7 @@ const dpr = Math.min(2, devicePixelRatio || 1);
 
 const CAT_COLOR = { very_hot:'#c8562e', hot:'#c08050', temperate:'#7fa06a', habitable:'#3f7fc0',
   cold_habitable:'#a8d8f0', distant:'#6a5a80', gas_giant:'#c8a878' };
-const CAT_RU = { very_hot:'очень горячая', hot:'горячая', temperate:'умеренная', habitable:'обитаемая',
-  cold_habitable:'холодная обитаемая', distant:'дальняя', gas_giant:'газовый гигант' };
-const ATM_RU = { none:'нет', minimal:'минимальная', thin:'тонкая', moderate:'умеренная', medium:'средняя', thick:'плотная' };
+const T = (k, v) => EUI18N.t(k, v);
 const STAR_DATA = {
   red_dwarf:{ru:'красный карлик',t:3000,lum:0.20,color:'#ff6a4a'},
   yellow_dwarf:{ru:'жёлтый карлик',t:5800,lum:1.00,color:'#ffe6b0'},
@@ -487,30 +495,31 @@ function showPlanet(p, system) {
   const moons = EUGenerator.moonSpecs(p);
   let moonHtml = '';
   if (moons.length) {
-    moonHtml = '<div class="sub">Спутники · ' + moons.length + '</div>';
+    moonHtml = `<div class="sub">${T('info.moons')} · ${moons.length}</div>`;
     for (const m of moons) {
-      moonHtml += `<div class="moon"><span>${m.name}</span><span>${Math.round(m.distanceKm).toLocaleString('ru-RU')} км · ${m.radiusKm.toFixed(0)} км · ${m.gravity.toFixed(2)} g</span></div>`;
+      moonHtml += `<div class="moon"><span>${m.name}</span><span>${Math.round(m.distanceKm).toLocaleString(EUI18N.current()==='ru'?'ru-RU':'en-US')} ${T('unit.km')} · ${m.radiusKm.toFixed(0)} ${T('unit.km')} · ${m.gravity.toFixed(2)} ${T('unit.g')}</span></div>`;
     }
   } else {
-    moonHtml = '<div class="sub">Спутников нет</div>';
+    moonHtml = `<div class="sub">${T('info.no_moons')}</div>`;
   }
+  const num = v => v.toLocaleString(EUI18N.current()==='ru'?'ru-RU':'en-US');
   info.innerHTML = `
     <h2>${p.designation}</h2>
     <div class="sub">${p.name} · ${system.name}</div>
     <table>
-      <tr><td>Категория</td><td>${CAT_RU[p.category] || p.category}</td></tr>
-      <tr><td>Атмосфера</td><td>${ATM_RU[p.atmosphere] || p.atmosphere}</td></tr>
-      <tr><td>Гравитация</td><td>${p.gravity.toFixed(2)} g</td></tr>
-      <tr><td>Температура</td><td>${p.temperatureC.toFixed(0)} °C</td></tr>
-      <tr><td>Радиация</td><td>${p.radiation.toFixed(0)}</td></tr>
-      <tr><td>Орбита</td><td>${p.orbitAu.toFixed(2)} а.е.</td></tr>
-      <tr><td>Диаметр</td><td>${p.diameterEarth.toFixed(2)} R⊕</td></tr>
-      <tr><td>Кольца</td><td>${p.rings ? 'есть' : 'нет'}</td></tr>
+      <tr><td>${T('info.category')}</td><td>${T('cat.'+p.category)}</td></tr>
+      <tr><td>${T('info.atmosphere')}</td><td>${T('atm.'+p.atmosphere)}</td></tr>
+      <tr><td>${T('info.gravity')}</td><td>${p.gravity.toFixed(2)} ${T('unit.g')}</td></tr>
+      <tr><td>${T('info.temperature')}</td><td>${p.temperatureC.toFixed(0)} ${T('unit.c')}</td></tr>
+      <tr><td>${T('info.radiation')}</td><td>${p.radiation.toFixed(0)}</td></tr>
+      <tr><td>${T('info.orbit')}</td><td>${p.orbitAu.toFixed(2)} ${T('unit.au')}</td></tr>
+      <tr><td>${T('info.diameter')}</td><td>${p.diameterEarth.toFixed(2)} ${T('unit.re')}</td></tr>
+      <tr><td>${T('info.rings')}</td><td>${p.rings ? T('yes') : T('no')}</td></tr>
     </table>
     ${moonHtml}
-    <div class="sub">Биомы</div>
+    <div class="sub">${T('info.biomes')}</div>
     <div class="chips">${(p.biomes||[]).map(b=>`<span>${b.replace('enchanted_universe:','')}</span>`).join('') || '<span>—</span>'}</div>
-    <div class="sub">Сид планеты</div>
+    <div class="sub">${T('info.seed')}</div>
     <div class="seed">${p.seed}</div>`;
 }
 
@@ -519,15 +528,15 @@ function showStar(system) {
   info.style.display = 'block';
   info.innerHTML = `
     <h2>${system.name}</h2>
-    <div class="sub">${system.formalName} · звезда</div>
+    <div class="sub">${system.formalName} · ${T('info.star')}</div>
     <table>
-      <tr><td>Класс</td><td>${data.ru}</td></tr>
-      <tr><td>Температура</td><td>${data.t.toLocaleString('ru-RU')} K</td></tr>
-      <tr><td>Светимость</td><td>${data.lum} L☉</td></tr>
-      <tr><td>Расстояние</td><td>${system.distanceLy.toFixed(1)} св. лет</td></tr>
-      <tr><td>Планет</td><td>${system.planets.length}</td></tr>
+      <tr><td>${T('info.class')}</td><td>${T('star.'+system.star)}</td></tr>
+      <tr><td>${T('info.temp_k')}</td><td>${data.t.toLocaleString(EUI18N.current()==='ru'?'ru-RU':'en-US')} ${T('unit.k')}</td></tr>
+      <tr><td>${T('info.lum')}</td><td>${data.lum} ${T('unit.lsun')}</td></tr>
+      <tr><td>${T('info.distance')}</td><td>${system.distanceLy.toFixed(1)} ${T('unit.ly')}</td></tr>
+      <tr><td>${T('info.planets')}</td><td>${system.planets.length}</td></tr>
     </table>
-    <div class="sub">Планеты</div>
+    <div class="sub">${T('info.planets')}</div>
     <div class="chips">${system.planets.map(p=>`<span>${p.designation}</span>`).join('') || '<span>—</span>'}</div>`;
 }
 
@@ -598,7 +607,7 @@ search.addEventListener('input', () => {
     const d = document.createElement('div');
     d.innerHTML = hit.planet
       ? `<b>${hit.planet.designation}</b><small>${hit.planet.name} · ${hit.sys.name}</small>`
-      : `<b>${hit.sys.name}</b><small>${hit.sys.formalName} · планет: ${hit.sys.planets.length}</small>`;
+      : `<b>${hit.sys.name}</b><small>${hit.sys.formalName} · ${T('system.planets')}: ${hit.sys.planets.length}</small>`;
     d.onclick = () => {
       results.style.display = 'none';
       const idx = catalog.systems.indexOf(hit.sys);
@@ -612,6 +621,8 @@ search.addEventListener('input', () => {
 addEventListener('click', e => { if (!e.target.closest('#searchWrap')) results.style.display = 'none'; });
 
 resize();
+EUI18N.init();
+window.addEventListener('eu-lang', () => { if (!selected) return; if (selected.kind === 'planet') showPlanet(selected.planet, selected.system); else if (selected.kind === 'star') showStar(selected.system); });
 const initial = parseSeed(new URL(location.href).searchParams.get('seed') || '') ?? randomSeed();
 generate(initial);
 nebulae = makeNebula(initial);
