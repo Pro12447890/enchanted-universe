@@ -646,6 +646,9 @@ function showMoon(m, p, system) {
       <tr><td>${T('info.diameter')}</td><td>${(m.radiusKm*2).toFixed(0)} ${T('unit.km')}</td></tr>
       <tr><td>${T('info.gravity')}</td><td>${m.gravity.toFixed(2)} ${T('unit.g')}</td></tr>
       <tr><td>${T('info.period')}</td><td>${Math.round(m.periodTicks/1200)} ${T('unit.min')}</td></tr>
+      <tr><td>Тип</td><td>${({habitable:'обитаемая',titan:'титан',volcanic:'вулканическая',icy:'ледяная',barren:'бесплодная'})[m.type] || m.type}</td></tr>
+      <tr><td>Атмосфера</td><td>${T('atm.'+m.atmosphere)}</td></tr>
+      <tr><td>Радиация пояса</td><td>${Math.round(m.radiation)} Рад</td></tr>
     </table>`;
 }
 

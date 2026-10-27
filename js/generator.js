@@ -285,13 +285,27 @@ function moonSpecs(planet) {
       ? 0.004 + (Number((u >> 25n) & 0x7FFn) / 2047) * 0.036
       : 0.03 + (Number((u >> 25n) & 0x7FFn) / 2047) * 0.24;
     const radius = Math.max(60, radiusParent * radiusFactor);
+    const ratio = dFac;
+    const gas = planet.category === 'gas_giant';
+    const hz = planet.orbitAu >= 0.66 && planet.orbitAu <= 1.5;
+    let type = 'barren', atm = 'none';
+    if (gas && hz && i > 0 && radius > 2500) { type = 'habitable'; atm = 'moderate'; }
+    else if (gas && !hz && radius > 2500) { type = 'titan'; atm = 'thick'; }
+    else if (gas && ratio < 8) { type = 'volcanic'; atm = 'thin'; }
+    else if (gas && radius > 1200) { type = 'icy'; atm = 'minimal'; }
+    const gauss = 10 + (Number((u >> 5n) % 36n));
+    let belt = 0;
+    if (ratio <= 20) belt = gauss * Math.pow(12 / ratio, 2) * 6;
+    const shield = { none:0, minimal:0.5, thin:0.75, moderate:0.9, medium:0.95, thick:0.99 }[atm] || 0;
+    const radiation = Math.max(0, Math.min(1000, belt * (1 - shield)));
     out.push({
       index: i, name: moonNameFor(planet.name, i), distanceKm: radiusParent * dFac,
       radiusKm: radius, gravity: Math.max(0.01, 0.08 + (radius / radiusParent) * 2.2),
       tiltDeg: Number((u >> 7n) % 121n) - 60,
       yawDeg: Number((u >> 23n) % 91n) - 45,
       periodTicks: 22000 + Math.abs(Number((u >> 11n) % 80000n)),
-      phase: Number((u >> 31n) & 0xFFFFn) / 65535
+      phase: Number((u >> 31n) & 0xFFFFn) / 65535,
+      type, atmosphere: atm, radiation
     });
   }
   return out;
