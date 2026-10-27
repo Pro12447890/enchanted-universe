@@ -13,7 +13,7 @@ class JavaRandom {
     do { bits = this.next(31); val = bits % bound; } while (((bits - val + (bound - 1)) | 0) < 0);
     return val;
   }
-  nextFloat() { return this.next(24) / 16777216; }
+  nextFloat() { return Math.fround(this.next(24) / 16777216); }
   nextDouble() { return ((this.next(26) * 134217728) + this.next(27)) / 9007199254740992; }
   nextLong() { const hi = this.next(32) | 0; const lo = this.next(32) | 0; return BigInt.asIntN(64, (BigInt(hi) << 32n) + BigInt(lo)); }
 }
