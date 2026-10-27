@@ -197,7 +197,7 @@ function fitGalaxy() {
   catalog.systems.forEach((s, i) => { const p = systemPos(i, s); max = Math.max(max, Math.abs(p.x), Math.abs(p.y)); });
   return Math.min(innerWidth, innerHeight) / (2.25 * max);
 }
-function orbitUnits(p) { return 0.16 + Math.log1p(Math.max(0.01, p.orbitAu)) * 0.075; }
+function orbitUnits(p) { return 0.03 + Math.log1p(Math.max(0.01, p.orbitAu)) * 0.10; }
 function planetRadiusUnits(p) { return 0.0018 + Math.sqrt(Math.max(0.05, p.diameterEarth)) * 0.0026; }
 function starRadiusUnits(s) {
   const lum = STAR_DATA[s.star]?.lum || 1;
