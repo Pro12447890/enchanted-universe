@@ -1,20 +1,21 @@
 <!doctype html><html lang=ru><meta charset=utf-8><title>Enchanted Universe — карта</title>
 <style>body{background:#080a12;color:#dfe6ff;font:14px system-ui;margin:0;padding:24px}h1{font-size:22px}
 .sys{border:1px solid #26304a;border-radius:10px;padding:10px;margin:8px 0;background:#0e1422}
-.pl{display:inline-block;border:1px solid #2c3a5c;border-radius:8px;padding:6px 8px;margin:4px;background:#121a2c}
+.pl{display:inline-block;border:1px solid #2c3a5c;border-radius:8px;padding:6px 8px;margin:4px;background:#121a2c;max-width:340px}
 small{color:#8fa2c8}</style><h1>Enchanted Universe — карта космоса</h1><div id=info>Загрузка…</div><div id=list></div>
 <script>
-const KEY='79dd48d3fd5da0b8053cb4af6242c28a9f7870e074c286ac122475156238ded0';
-const b64=b=>Uint8Array.from(atob(b),c=>c.charCodeAt(0)).buffer;
-(async()=>{const h=await (await fetch('data/header.json')).json();
-const bin=b64(await (await fetch('data/map.bin')).text());
-const k=await crypto.subtle.importKey('raw',b64(KEY.replace(/(..)/g,'$1').match(/../g).map(x=>String.fromCharCode(parseInt(x,16))).join('')),'AES-GCM',false,['decrypt']);
-let obj;try{const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bin.slice(0,12)},k,bin.slice(12));obj=JSON.parse(new TextDecoder().decode(pt));}catch(e){document.getElementById('info').textContent='Не удалось расшифровать карту';return;}
-document.getElementById('info').innerHTML='Систем: <b>'+obj.systems.length+'</b>, планет: <b>'+obj.systems.reduce((a,s)=>a+s.planets.length,0)+'</b>, сид мира: <b>'+obj.worldSeed+'</b>';
+const KEYHEX='a305145414cb82999f962c1144e03e9d44c1eee7ca5ddbc3d8f4ee09da79c84f';
+(async()=>{const b64=await (await fetch('data/map.bin')).text();
+const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+const key=Uint8Array.from(KEYHEX.match(/../g).map(x=>parseInt(x,16)));
+for(let i=0;i<bin.length;i++)bin[i]^=key[i%32];
+let obj;try{obj=JSON.parse(new TextDecoder().decode(bin));}catch(e){document.getElementById('info').textContent='Не удалось расшифровать карту';return;}
+const planets=obj.systems.reduce((a,s)=>a+s.planets.length,0);
+document.getElementById('info').innerHTML='Систем: <b>'+obj.systems.length+'</b>, планет: <b>'+planets+'</b>, сид мира: <b>'+obj.worldSeed+'</b>';
 const list=document.getElementById('list');
 for(const s of obj.systems){const d=document.createElement('div');d.className='sys';
 d.innerHTML='<b>'+s.formalName+'</b> <small>'+s.name+' · '+s.star+' · '+s.distanceLy.toFixed(1)+' ly</small>';
 for(const p of s.planets){const e=document.createElement('span');e.className='pl';
-e.innerHTML='<b>'+p.designation+'</b> <small>'+p.category+'/'+p.atmosphere+' · '+p.gravity.toFixed(2)+'g · '+p.temperatureC.toFixed(0)+'°C'+(p.rings?' · кольца':'')+'</small>';
+e.innerHTML='<b>'+p.designation+'</b> <small>'+p.category+'/'+p.atmosphere+' · '+p.gravity.toFixed(2)+'g · '+p.temperatureC.toFixed(0)+'°C'+(p.rings?' · кольца':'')+'<br>сид: '+p.seed+'</small>';
 d.appendChild(e);}list.appendChild(d);}})();
 </script></html>

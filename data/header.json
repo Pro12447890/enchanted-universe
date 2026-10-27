@@ -1,6 +1,7 @@
 {
   "format": "enchanted-universe-map",
-  "version": 1,
+  "version": 2,
+  "cipher": "xor-sha256",
   "systems": 101,
   "planets": 301,
   "worldSeed": -8694351148783804641
