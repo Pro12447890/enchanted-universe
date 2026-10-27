@@ -1,21 +1,441 @@
-<!doctype html><html lang=ru><meta charset=utf-8><title>Enchanted Universe — карта</title>
-<style>body{background:#080a12;color:#dfe6ff;font:14px system-ui;margin:0;padding:24px}h1{font-size:22px}
-.sys{border:1px solid #26304a;border-radius:10px;padding:10px;margin:8px 0;background:#0e1422}
-.pl{display:inline-block;border:1px solid #2c3a5c;border-radius:8px;padding:6px 8px;margin:4px;background:#121a2c;max-width:340px}
-small{color:#8fa2c8}</style><h1>Enchanted Universe — карта космоса</h1><div id=info>Загрузка…</div><div id=list></div>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enchanted Universe — предпросмотр сидов</title>
+<style>
+  :root { --gold:#e8cf8a; --dim:#8b97b8; --line:#2a3550; --panel:rgba(10,14,24,.92); }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#05070d; color:#dfe7ff;
+              font:14px/1.35 "Segoe UI",system-ui,sans-serif; }
+  #map { position:fixed; inset:0; display:block; cursor:grab; }
+  #map.drag { cursor:grabbing; }
+  .bar { position:fixed; top:0; left:0; right:0; display:flex; gap:8px; align-items:center;
+         padding:10px 14px; background:linear-gradient(#070b14ee,#070b1400); z-index:5; flex-wrap:wrap; }
+  .brand { font-weight:700; letter-spacing:.08em; color:var(--gold); margin-right:10px; white-space:nowrap; }
+  .brand small { display:block; font-weight:400; letter-spacing:0; color:var(--dim); font-size:11px; }
+  input[type=text] { background:#0b1220; border:1px solid var(--line); color:#e8eeff; padding:7px 10px;
+                     border-radius:7px; outline:none; min-width:190px; font-family:ui-monospace,Consolas,monospace; }
+  input[type=text]:focus { border-color:#5b74a8; }
+  button { background:#111a2c; border:1px solid var(--line); color:#dfe7ff; padding:7px 11px;
+           border-radius:7px; cursor:pointer; white-space:nowrap; }
+  button:hover { border-color:#5b74a8; background:#16223a; }
+  button.gold { border-color:#6b5a2a; color:var(--gold); background:#1a1608; }
+  .grow { flex:1; }
+  #seedLabel { color:var(--dim); font-family:ui-monospace,Consolas,monospace; font-size:12px; }
+  #searchWrap { position:relative; }
+  #results { position:absolute; top:38px; left:0; width:340px; max-height:320px; overflow:auto;
+             background:var(--panel); border:1px solid var(--line); border-radius:8px; display:none; z-index:8; }
+  #results div { padding:7px 10px; border-bottom:1px solid #182033; cursor:pointer; }
+  #results div:hover { background:#16223a; }
+  #results small { color:var(--dim); display:block; }
+  #info { position:fixed; right:12px; top:64px; width:320px; max-height:calc(100% - 90px); overflow:auto;
+          background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; z-index:4;
+          backdrop-filter:blur(6px); display:none; }
+  #info h2 { margin:0 0 2px; font-size:19px; color:var(--gold); font-weight:600; }
+  #info .sub { color:var(--dim); margin-bottom:10px; }
+  #info table { width:100%; border-collapse:collapse; }
+  #info td { padding:3px 0; vertical-align:top; }
+  #info td:first-child { color:var(--dim); width:44%; }
+  #info .seed { font-family:ui-monospace,Consolas,monospace; font-size:11px; word-break:break-all; color:#a9b8dd; }
+  .chips span { display:inline-block; border:1px solid #2c3a5c; border-radius:6px; padding:2px 6px;
+                margin:2px 3px 0 0; font-size:11px; color:#b9c8ea; }
+  #hint { position:fixed; left:14px; bottom:12px; color:var(--dim); font-size:12px; z-index:3; }
+  #hint b { color:var(--gold); font-weight:500; }
+  .hidden { display:none !important; }
+  #loading { position:fixed; inset:0; display:grid; place-items:center; background:#05070d; z-index:20; color:var(--gold); }
+  @media (max-width:760px){ #info{width:calc(100% - 24px)} #seedLabel{display:none} }
+</style>
+</head>
+<body>
+<canvas id="map"></canvas>
+
+<div class="bar">
+  <div class="brand">ENCHANTED UNIVERSE<small>предпросмотр сидов · карта космоса</small></div>
+  <input id="seed" type="text" spellcheck="false" title="Сид мира: десятичный или 0x…">
+  <button id="apply" class="gold">Сгенерировать</button>
+  <button id="random">Случайный сид</button>
+  <div id="searchWrap">
+    <input id="search" type="text" spellcheck="false" placeholder="Поиск: планета, система…">
+    <div id="results"></div>
+  </div>
+  <div class="grow"></div>
+  <span id="seedLabel"></span>
+  <button id="galaxy">Галактика</button>
+</div>
+
+<div id="info"></div>
+<div id="hint"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — система/планета · <b>Esc</b> — назад</div>
+<div id="loading">Генерация каталога…</div>
+
+<script src="js/generator.js"></script>
 <script>
-const KEYHEX='a305145414cb82999f962c1144e03e9d44c1eee7ca5ddbc3d8f4ee09da79c84f';
-(async()=>{const b64=await (await fetch('data/map.bin')).text();
-const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-const key=Uint8Array.from(KEYHEX.match(/../g).map(x=>parseInt(x,16)));
-for(let i=0;i<bin.length;i++)bin[i]^=key[i%32];
-let obj;try{obj=JSON.parse(new TextDecoder().decode(bin));}catch(e){document.getElementById('info').textContent='Не удалось расшифровать карту';return;}
-const planets=obj.systems.reduce((a,s)=>a+s.planets.length,0);
-document.getElementById('info').innerHTML='Систем: <b>'+obj.systems.length+'</b>, планет: <b>'+planets+'</b>, сид мира: <b>'+obj.worldSeed+'</b>';
-const list=document.getElementById('list');
-for(const s of obj.systems){const d=document.createElement('div');d.className='sys';
-d.innerHTML='<b>'+s.formalName+'</b> <small>'+s.name+' · '+s.star+' · '+s.distanceLy.toFixed(1)+' ly</small>';
-for(const p of s.planets){const e=document.createElement('span');e.className='pl';
-e.innerHTML='<b>'+p.designation+'</b> <small>'+p.category+'/'+p.atmosphere+' · '+p.gravity.toFixed(2)+'g · '+p.temperatureC.toFixed(0)+'°C'+(p.rings?' · кольца':'')+'<br>сид: '+p.seed+'</small>';
-d.appendChild(e);}list.appendChild(d);}})();
-</script></html>
+'use strict';
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+const seedInput = document.getElementById('seed');
+const seedLabel = document.getElementById('seedLabel');
+const info = document.getElementById('info');
+const results = document.getElementById('results');
+const search = document.getElementById('search');
+let catalog = null;
+let mode = 'galaxy';
+let focus = null;
+let selectedPlanet = null;
+let zoom = 1, panX = 0, panY = 0;
+let dpr = Math.min(2, devicePixelRatio || 1);
+let stars = [];
+
+const CAT_COLOR = { very_hot:'#c8562e', hot:'#c08050', temperate:'#7fa06a', habitable:'#3f7fc0',
+  cold_habitable:'#a8d8f0', distant:'#6a5a80', gas_giant:'#c8a878' };
+const CAT_RU = { very_hot:'очень горячая', hot:'горячая', temperate:'умеренная', habitable:'обитаемая',
+  cold_habitable:'холодная обитаемая', distant:'дальняя', gas_giant:'газовый гигант' };
+const ATM_RU = { none:'нет', minimal:'минимальная', thin:'тонкая', moderate:'умеренная', medium:'средняя', thick:'плотная' };
+
+function resize() {
+  canvas.width = Math.floor(innerWidth * dpr);
+  canvas.height = Math.floor(innerHeight * dpr);
+  canvas.style.width = innerWidth + 'px';
+  canvas.style.height = innerHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+addEventListener('resize', () => { resize(); draw(); });
+
+function parseSeed(text) {
+  let t = text.trim().toLowerCase().replace(/_/g, '');
+  if (!t) return null;
+  const neg = t.startsWith('-');
+  if (neg) t = t.slice(1);
+  try {
+    let v;
+    if (t.startsWith('0x')) v = BigInt('0x' + t.slice(2));
+    else if (/^[0-9a-f]+$/.test(t) && /[a-f]/.test(t)) v = BigInt('0x' + t);
+    else v = BigInt(t);
+    if (neg) v = -v;
+    return BigInt.asIntN(64, v);
+  } catch { return null; }
+}
+function randomSeed() {
+  const a = new BigInt64Array(1);
+  crypto.getRandomValues(a);
+  return a[0];
+}
+
+function generate(seed) {
+  document.getElementById('loading').classList.remove('hidden');
+  setTimeout(() => {
+    catalog = EUGenerator.generateCatalog(seed);
+    seedInput.value = seed.toString();
+    seedLabel.textContent = 'сид: ' + seed.toString();
+    const url = new URL(location.href);
+    url.searchParams.set('seed', seed.toString());
+    history.replaceState(null, '', url);
+    stars = makeStars(seed);
+    mode = 'galaxy'; focus = null; selectedPlanet = null; info.style.display = 'none';
+    zoom = fitGalaxy(); panX = 0; panY = 0;
+    document.getElementById('loading').classList.add('hidden');
+    draw();
+  }, 20);
+}
+
+function makeStars(seed) {
+  let s = BigInt.asUintN(64, seed);
+  const rnd = () => { s = (s * 6364136223846793005n + 1442695040888963407n) & ((1n<<64n)-1n);
+    return Number((s >> 33n) & 0xffffn) / 65535; };
+  const out = [];
+  for (let i = 0; i < 420; i++) out.push({ x: rnd(), y: rnd(), r: rnd()*1.4+0.25, a: rnd()*0.7+0.18 });
+  return out;
+}
+
+function systemPos(i, s) {
+  if (i === 0) return { x: 0, y: 0 };
+  if (i <= 4) {
+    const dist = [12, 640, 26, 860][i-1];
+    const ang = -1.1 + (i-1) * 0.9;
+    const r = 40 + Math.sqrt(Math.max(1, dist)) * 16;
+    return { x: Math.cos(ang)*r, y: Math.sin(ang)*r };
+  }
+  const idx = i - 5;
+  const ang = idx * 2.399963229728653;
+  const r = 120 + Math.sqrt(Math.max(1, s.distanceLy)) * 42;
+  return { x: Math.cos(ang)*r, y: Math.sin(ang)*r };
+}
+function fitGalaxy() {
+  let max = 1;
+  catalog.systems.forEach((s, i) => { const p = systemPos(i, s); max = Math.max(max, Math.abs(p.x), Math.abs(p.y)); });
+  return Math.min(innerWidth, innerHeight) / (2.15 * max);
+}
+function planetRadius(d) { return Math.max(1.6, Math.min(9, 1.2 + Math.sqrt(Math.max(0.01, d)) * 2.2)); }
+function shade(color, f) {
+  const c = parseInt(color.slice(1), 16);
+  const r = Math.min(255, Math.round(((c>>16)&255)*f)), g = Math.min(255, Math.round(((c>>8)&255)*f)), b = Math.min(255, Math.round((c&255)*f));
+  return `rgb(${r},${g},${b})`;
+}
+
+function draw() {
+  const w = innerWidth, h = innerHeight;
+  ctx.clearRect(0, 0, w, h);
+  const grd = ctx.createRadialGradient(w*0.5, h*0.45, 10, w*0.5, h*0.45, Math.max(w,h)*0.8);
+  grd.addColorStop(0, '#0a1020'); grd.addColorStop(1, '#03050a');
+  ctx.fillStyle = grd; ctx.fillRect(0,0,w,h);
+  for (const s of stars) {
+    ctx.globalAlpha = s.a; ctx.fillStyle = '#cfe0ff';
+    ctx.beginPath(); ctx.arc(s.x*w, s.y*h, s.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (mode === 'galaxy') drawGalaxy(); else drawSystem();
+}
+
+function drawGalaxy() {
+  const w = innerWidth, h = innerHeight;
+  ctx.save();
+  ctx.translate(w/2 + panX, h/2 + panY);
+  ctx.scale(zoom, zoom);
+  catalog.systems.forEach((s, i) => {
+    const p = systemPos(i, s);
+    const r = (i === 0 ? 4.2 : 2.2 + (s.distanceLy < 50 ? 1 : 0.7)) / Math.max(0.7, Math.sqrt(zoom));
+    const col = starColor(s.star);
+    ctx.globalAlpha = 0.18; ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r*4.5, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1; ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2); ctx.fill();
+    if (zoom > 0.75 || i < 5) {
+      ctx.font = `${Math.max(10, 11/zoom)}px "Segoe UI",system-ui`;
+      ctx.fillStyle = i === 0 ? '#ffe6b0' : '#9fb0d8'; ctx.textAlign = 'left';
+      ctx.fillText(s.name, p.x + r + 4/zoom, p.y + 3/zoom);
+    }
+  });
+  ctx.restore();
+}
+
+function starColor(star) {
+  return { red_dwarf:'#ff6a4a', yellow_dwarf:'#ffe6b0', white_yellow_dwarf:'#fff4d6', white_dwarf:'#e8f0ff',
+    blue_dwarf:'#9fc8ff', white_giant:'#f2f6ff', blue_giant:'#9fc0ff', yellow_giant:'#ffd98a',
+    red_giant:'#ff7a4a', yellow_supergiant:'#ffd070', red_supergiant:'#ff6040', carbon_star:'#ff8844',
+    brown_dwarf:'#8a3a2a', magnetar:'#bfe0ff' }[star] || '#ffe6b0';
+}
+
+function orbitPx(p, z) { return (34 + Math.log1p(Math.max(0.01, p.orbitAu)) * 82) * z; }
+function planetAngle(sys, p, i) {
+  return (i / Math.max(1, sys.planets.length)) * Math.PI * 2 - Math.PI/2 + hashAngle(p) * 0.35;
+}
+function drawSystem() {
+  const sys = focus.system;
+  const cx = innerWidth/2 + panX, cy = innerHeight/2 + panY;
+  const starCol = starColor(sys.star);
+  const sr = 10 + 4*Math.sqrt(zoom);
+  const halo = ctx.createRadialGradient(cx, cy, sr*0.2, cx, cy, sr*7);
+  halo.addColorStop(0, starCol); halo.addColorStop(0.25, 'rgba(255,220,150,.35)'); halo.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, sr*7, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = starCol; ctx.beginPath(); ctx.arc(cx, cy, sr, 0, Math.PI*2); ctx.fill();
+  // фон-туманность системы
+  const neb = ctx.createRadialGradient(cx, cy, sr, cx, cy, Math.max(innerWidth, innerHeight) * 0.55);
+  neb.addColorStop(0, 'rgba(70,90,150,.12)'); neb.addColorStop(0.5, 'rgba(40,30,80,.06)'); neb.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = neb;
+  ctx.fillRect(0, 0, innerWidth, innerHeight); ctx.restore();
+  ctx.font = '600 15px "Segoe UI",system-ui'; ctx.textAlign='center'; ctx.fillStyle='#ffe6b0';
+  ctx.fillText(sys.name + ' · ' + sys.formalName, innerWidth/2, 86);
+
+  sys.planets.forEach((p, i) => {
+    const orbit = orbitPx(p, zoom);
+    const ang = planetAngle(sys, p, i);
+    const px = cx + Math.cos(ang) * orbit;
+    const py = cy + Math.sin(ang) * orbit * 0.86;
+    ctx.strokeStyle = selectedPlanet === p ? 'rgba(232,207,138,.55)' : 'rgba(214,184,110,.20)';
+    ctx.lineWidth = selectedPlanet === p ? 1.4 : 1;
+    ctx.beginPath(); ctx.ellipse(cx, cy, orbit, orbit*0.86, 0, 0, Math.PI*2); ctx.stroke();
+    const r = planetRadius(p.diameterEarth) * Math.min(2.2, Math.max(0.72, zoom));
+    if (p.rings) drawRing(px, py, r, true);
+    drawPlanet(px, py, r, p);
+    if (p.rings) drawRing(px, py, r, false);
+    if (selectedPlanet === p) {
+      ctx.strokeStyle = '#ffe6b0'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px, py, r + 5, 0, Math.PI*2); ctx.stroke();
+    }
+    const right = Math.cos(ang) >= 0;
+    const lx = px + (right ? 1 : -1) * (r + 9);
+    const ly = py + Math.sin(ang) * (r * 0.4) + 3;
+    ctx.font = '11px "Segoe UI",system-ui'; ctx.textAlign = right ? 'left' : 'right';
+    ctx.fillStyle = selectedPlanet === p ? '#ffe6b0' : '#c6d4f2';
+    ctx.fillText(p.designation, lx, ly);
+  });
+}
+
+function hashAngle(p) {
+  let h = 2166136261 >>> 0;
+  for (let i=0;i<p.seed.length;i++) { h ^= p.seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) / 4294967295;
+}
+
+function drawPlanet(x, y, r, p) {
+  const base = CAT_COLOR[p.category] || '#8a8aa0';
+  const g = ctx.createRadialGradient(x - r*0.35, y - r*0.35, r*0.15, x, y, r*1.05);
+  g.addColorStop(0, shade(base, 1.45)); g.addColorStop(0.55, base); g.addColorStop(1, shade(base, 0.45));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+  if (p.category === 'gas_giant') {
+    ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+    for (let k=-2;k<=2;k++) {
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = k % 2 ? shade(base,1.3) : shade(base,0.7);
+      ctx.beginPath(); ctx.ellipse(x, y + k*r*0.32, r*1.2, r*0.12, 0, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+  // кратеры/пятна для каменистых миров — детерминированно от сида
+  if (p.category !== 'gas_giant') {
+    let h = 2166136261 >>> 0;
+    for (let i=0;i<p.seed.length;i++) { h ^= p.seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+    ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+    for (let k=0;k<5;k++) {
+      h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+      const a = ((h >>> 0) / 4294967295) * Math.PI * 2;
+      const rad = Math.sqrt(((h >>> 8) & 255) / 255) * r * 0.75;
+      const cr = Math.max(0.7, r * (0.10 + ((h >>> 16) & 15) / 100));
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = k % 2 ? shade(base, 1.35) : shade(base, 0.6);
+      ctx.beginPath(); ctx.arc(x + Math.cos(a)*rad, y + Math.sin(a)*rad, cr, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore(); ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath(); ctx.arc(x + r*0.28, y + r*0.18, r*0.82, 0, Math.PI*2); ctx.fill();
+}
+function drawRing(x, y, r, back) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(226,208,164,.75)';
+  ctx.lineWidth = Math.max(1, r*0.28);
+  ctx.beginPath();
+  if (back) ctx.ellipse(x, y, r*2.15, r*0.55, 0, Math.PI, Math.PI*2);
+  else ctx.ellipse(x, y, r*2.15, r*0.55, 0, 0, Math.PI);
+  ctx.stroke(); ctx.restore();
+}
+
+function screenToWorld(sx, sy) { return { x: (sx - innerWidth/2 - panX) / zoom, y: (sy - innerHeight/2 - panY) / zoom }; }
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const before = screenToWorld(e.clientX, e.clientY);
+  zoom *= Math.exp(-e.deltaY * 0.0015);
+  zoom = Math.max(mode === 'galaxy' ? 0.25 : 0.35, Math.min(mode === 'galaxy' ? 12 : 5, zoom));
+  const after = screenToWorld(e.clientX, e.clientY);
+  panX += (after.x - before.x) * zoom; panY += (after.y - before.y) * zoom;
+  draw();
+}, { passive:false });
+
+let dragging = false, lastX = 0, lastY = 0, moved = 0;
+canvas.addEventListener('pointerdown', e => { dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY; canvas.classList.add('drag'); });
+addEventListener('pointerup', e => {
+  canvas.classList.remove('drag');
+  if (dragging && moved < 5) clickAt(e.clientX, e.clientY);
+  dragging = false;
+});
+addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  moved += Math.abs(dx) + Math.abs(dy);
+  lastX = e.clientX; lastY = e.clientY;
+  panX += dx; panY += dy; draw();
+});
+
+function clickAt(sx, sy) {
+  if (mode === 'galaxy') {
+    let best = null, bestD = 28;
+    catalog.systems.forEach((s, i) => {
+      const p = systemPos(i, s);
+      const x = innerWidth/2 + panX + p.x*zoom, y = innerHeight/2 + panY + p.y*zoom;
+      const d = Math.hypot(x - sx, y - sy);
+      if (d < bestD) { bestD = d; best = { system: s, index: i }; }
+    });
+    if (best) openSystem(best);
+  } else {
+    const sys = focus.system;
+    let best = null, bestD = 26;
+    sys.planets.forEach((p, i) => {
+      const orbit = orbitPx(p, zoom);
+      const ang = planetAngle(sys, p, i);
+      const x = innerWidth/2 + panX + Math.cos(ang)*orbit;
+      const y = innerHeight/2 + panY + Math.sin(ang)*orbit*0.86;
+      const r = planetRadius(p.diameterEarth) * Math.min(2.2, Math.max(0.55, zoom));
+      const d = Math.hypot(x - sx, y - sy);
+      if (d < Math.max(bestD, r + 8)) { bestD = d; best = p; }
+    });
+    if (best) showPlanet(best);
+  }
+}
+
+function openSystem(f) {
+  focus = f; mode = 'system';
+  const maxOrbit = Math.max(1, ...f.system.planets.map(p => 34 + Math.log1p(Math.max(0.01, p.orbitAu)) * 82));
+  zoom = Math.max(0.28, Math.min(2.0, (Math.min(innerWidth, innerHeight) * 0.42) / maxOrbit));
+  panX = 0; panY = 0; selectedPlanet = null; info.style.display = 'none';
+  draw();
+}
+
+function showPlanet(p) {
+  selectedPlanet = p; draw(); info.style.display = 'block';
+  info.innerHTML = `
+    <h2>${p.designation}</h2>
+    <div class="sub">${p.name} · ${focus ? focus.system.name : ''}</div>
+    <table>
+      <tr><td>Категория</td><td>${CAT_RU[p.category] || p.category}</td></tr>
+      <tr><td>Атмосфера</td><td>${ATM_RU[p.atmosphere] || p.atmosphere}</td></tr>
+      <tr><td>Гравитация</td><td>${p.gravity.toFixed(2)} g</td></tr>
+      <tr><td>Температура</td><td>${p.temperatureC.toFixed(0)} °C</td></tr>
+      <tr><td>Радиация</td><td>${p.radiation.toFixed(0)}</td></tr>
+      <tr><td>Орбита</td><td>${p.orbitAu.toFixed(2)} а.е.</td></tr>
+      <tr><td>Диаметр</td><td>${p.diameterEarth.toFixed(2)} R⊕</td></tr>
+      <tr><td>Кольца / луны</td><td>${p.rings ? 'есть' : 'нет'} / ${p.moons}</td></tr>
+    </table>
+    <div style="margin-top:8px" class="sub">Биомы</div>
+    <div class="chips">${(p.biomes||[]).map(b=>`<span>${b.replace('enchanted_universe:','')}</span>`).join('') || '<span>—</span>'}</div>
+    <div style="margin-top:8px" class="sub">Сид планеты</div>
+    <div class="seed">${p.seed}</div>`;
+}
+
+document.getElementById('galaxy').addEventListener('click', () => {
+  mode = 'galaxy'; focus = null; selectedPlanet = null; info.style.display='none';
+  zoom = fitGalaxy(); panX = 0; panY = 0; draw();
+});
+document.getElementById('apply').addEventListener('click', () => {
+  const s = parseSeed(seedInput.value);
+  if (s === null) { seedInput.style.borderColor = '#c04040'; return; }
+  seedInput.style.borderColor = ''; generate(s);
+});
+seedInput.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('apply').click(); });
+document.getElementById('random').addEventListener('click', () => generate(randomSeed()));
+addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('galaxy').click(); });
+
+search.addEventListener('input', () => {
+  const q = search.value.trim().toLowerCase();
+  results.innerHTML = '';
+  if (!q) { results.style.display = 'none'; return; }
+  const hits = [];
+  for (const sys of catalog.systems) {
+    if (sys.name.toLowerCase().includes(q) || sys.formalName.toLowerCase().includes(q)) hits.push({ sys, planet:null });
+    for (const p of sys.planets) if (p.designation.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) hits.push({ sys, planet:p });
+    if (hits.length > 12) break;
+  }
+  for (const hit of hits.slice(0, 12)) {
+    const d = document.createElement('div');
+    d.innerHTML = hit.planet
+      ? `<b>${hit.planet.designation}</b><small>${hit.planet.name} · ${hit.sys.name}</small>`
+      : `<b>${hit.sys.name}</b><small>${hit.sys.formalName} · планет: ${hit.sys.planets.length}</small>`;
+    d.onclick = () => {
+      results.style.display = 'none';
+      if (hit.planet) {
+        focus = { system: hit.sys, index: catalog.systems.indexOf(hit.sys) };
+        mode = 'system'; zoom = 1.3; panX = 0; panY = 0; draw(); showPlanet(hit.planet);
+      } else openSystem({ system: hit.sys, index: catalog.systems.indexOf(hit.sys) });
+    };
+    results.appendChild(d);
+  }
+  results.style.display = hits.length ? 'block' : 'none';
+});
+addEventListener('click', e => { if (!e.target.closest('#searchWrap')) results.style.display = 'none'; });
+
+resize();
+const initial = parseSeed(new URL(location.href).searchParams.get('seed') || '') ?? randomSeed();
+generate(initial);
+</script>
+</body>
+</html>

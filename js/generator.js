@@ -1,0 +1,275 @@
+'use strict';
+// Порт SpaceGenerator/NameGenerator/PlanetArchetype из мода Enchanted Universe.
+// Один и тот же сид даёт тот же каталог, что и в игре.
+
+const MASK48 = (1n << 48n) - 1n;
+class JavaRandom {
+  constructor(seed) { this.seed = (BigInt.asUintN(64, BigInt(seed)) ^ 0x5DEECE66Dn) & MASK48; }
+  next(bits) { this.seed = (this.seed * 0x5DEECE66Dn + 0xBn) & MASK48; return Number(this.seed >> BigInt(48 - bits)); }
+  nextInt(bound) {
+    if (bound <= 0) throw new Error('bound');
+    if ((bound & -bound) === bound) return Number((BigInt(bound) * BigInt(this.next(31))) >> 31n);
+    let bits, val;
+    do { bits = this.next(31); val = bits % bound; } while (((bits - val + (bound - 1)) | 0) < 0);
+    return val;
+  }
+  nextFloat() { return this.next(24) / 16777216; }
+  nextDouble() { return ((this.next(26) * 134217728) + this.next(27)) / 9007199254740992; }
+  nextLong() { const hi = this.next(32) | 0; const lo = this.next(32) | 0; return BigInt.asIntN(64, (BigInt(hi) << 32n) + BigInt(lo)); }
+}
+
+const PREFIX = ['Ael','Bore','Cryo','Dra','Eos','Fen','Gal','Hel','Iri','Jor','Kae','Lum','Mir','Nyx','Oph','Pyr','Quel','Rho','Sol','Tau','Ura','Vex','Wyn','Xen','Yr','Zeph','Astr','Cind','Dorn','Eld'];
+const SUFFIX = ['ara','ion','eus','ora','ith','yn','ax','is','un','eth','alis','oria','ium','ae','os','ir','ea','yx','ora','es'];
+const FORMAL_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+function systemName(r) { return PREFIX[r.nextInt(PREFIX.length)] + SUFFIX[r.nextInt(SUFFIX.length)]; }
+function formalName(r) {
+  return FORMAL_LETTERS[r.nextInt(FORMAL_LETTERS.length)] + FORMAL_LETTERS[r.nextInt(FORMAL_LETTERS.length)]
+    + FORMAL_LETTERS[r.nextInt(FORMAL_LETTERS.length)] + '-' + (1000 + r.nextInt(9000));
+}
+function designation(formal, index) { return formal + ' ' + String.fromCharCode(98 + Math.max(0, index)); }
+
+const STAR = {
+  red_dwarf: 0.20, yellow_dwarf: 1.00, white_yellow_dwarf: 2.00, white_dwarf: 0.05,
+  blue_dwarf: 5.00, white_giant: 40.0, blue_giant: 80.0, yellow_giant: 60.0,
+  red_giant: 50.0, yellow_supergiant: 300.0, red_supergiant: 400.0,
+  carbon_star: 25.0, brown_dwarf: 0.01, magnetar: 0.001
+};
+const STAR_COLOR = {
+  red_dwarf: '#ff6a4a', yellow_dwarf: '#ffe6b0', white_yellow_dwarf: '#fff4d6', white_dwarf: '#e8f0ff',
+  blue_dwarf: '#9fc8ff', white_giant: '#f2f6ff', blue_giant: '#9fc0ff', yellow_giant: '#ffd98a',
+  red_giant: '#ff7a4a', yellow_supergiant: '#ffd070', red_supergiant: '#ff6040',
+  carbon_star: '#ff8844', brown_dwarf: '#8a3a2a', magnetar: '#bfe0ff'
+};
+
+const CATEGORIES = {
+  very_hot: [0.25, 0.45, false], hot: [0.45, 0.66, false], temperate: [0.66, 1.00, false],
+  habitable: [0.66, 1.50, false], cold_habitable: [1.50, 1.70, false],
+  distant: [1.80, 2.50, false], gas_giant: [1.20, 2.50, true]
+};
+
+const ARCH = {
+  very_hot: ['lava','airless','sulfur','iron','ultrahot'],
+  hot: ['mars_like','desert','airless','iron','rocky_thin','chthonian'],
+  temperate: ['desert','tundra','rocky_thin','ocean','carbon','sulfur'],
+  habitable: ['ocean','tidal_eyeball','hycean','snowball','circumbinary','desert','rocky_thin'],
+  cold_habitable: ['snowball','tundra','ice','ocean'],
+  distant: ['ice','dwarf_planet','airless','carbon','moon_icy'],
+  gas_giant: ['gas_giant','ice_giant','hot_jupiter','puffy','super_puff','helium_giant','brown_dwarf']
+};
+
+const GASES = ['H2','HE','CH4','NH3','H2O','CO2','CO','O2','N2','AR','NE','SO2','H2S','HCL','HF','CL2','F2','O3','NO','NO2','N2O','C2H6','C3H8','C2H2','C2H4','C6H6','CH3OH','C2H5OH','HCN','NH2OH','PH3','PCL3','SIH4','SIF4','SF6','CF4','CCL4','BF3','B2H6','HBR','HI','KR','XE','RN','COS','CS2','OCS','N2H4','CLO2','H2O2'];
+
+const HOT_BIOMES = ['very_hot_regolithbasin','hot_regolithbasin','light_regolithbasin','cratered_regolithbasin','yellow_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin'];
+const TEMPERATE_BIOMES = ['brown_regolithbasin','regolithbasin','cratered_regolithbasin','light_regolithbasin'];
+const HABITABLE_BIOMES = ['ashy_forest','scarlet_forest','scarlet_plains','golden_groves','windy_forest','windy_plains','greensproutsgroves','dense_mushroom_groves','night_forest','minecraft:plains','minecraft:forest'];
+const COLD_BIOMES = ['icy_groves','minecraft:snowy_plains','minecraft:snowy_taiga','minecraft:frozen_peaks','minecraft:ice_spikes'];
+const DRY_BIOMES = ['regolithbasin','stone_regolith','cratered_regolithbasin','brown_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin'];
+
+function pickCategory(r, index) {
+  const f = r.nextFloat();
+  if (index === 0) {
+    if (f < 0.18) return 'very_hot'; if (f < 0.42) return 'hot';
+    if (f < 0.72) return 'temperate'; return 'habitable';
+  }
+  if (index === 1) {
+    if (f < 0.22) return 'hot'; if (f < 0.55) return 'temperate';
+    if (f < 0.85) return 'habitable'; if (f < 0.93) return 'cold_habitable';
+    return 'gas_giant';
+  }
+  if (f < 0.15) return 'habitable'; if (f < 0.35) return 'cold_habitable';
+  if (f < 0.75) return 'distant'; return 'gas_giant';
+}
+function pickAtmosphere(r, category) {
+  if (category === 'very_hot' || category === 'hot') return 'none';
+  const f = r.nextFloat();
+  if (f < 0.12) return 'none'; if (f < 0.28) return 'minimal'; if (f < 0.46) return 'thin';
+  if (f < 0.68) return 'moderate'; if (f < 0.87) return 'medium'; return 'thick';
+}
+function composition(r, atmosphere, category) {
+  if (atmosphere === 'none') return [];
+  const out = [];
+  if (category === 'habitable' || category === 'cold_habitable') {
+    out.push('N2', 'O2');
+    if (r.nextFloat() < 0.5) out.push('Ar');
+    if (r.nextFloat() < 0.35) out.push('H2O');
+  } else {
+    const count = 1 + r.nextInt(4);
+    for (let i = 0; i < count; i++) {
+      const gas = GASES[r.nextInt(GASES.length)];
+      if (!out.includes(gas)) out.push(gas);
+    }
+  }
+  return out;
+}
+function baseRadiation(r, category) {
+  const has = r.nextFloat() < 0.15;
+  if (category === 'very_hot' || category === 'hot') return r.nextFloat() < 0.85 ? 200 : 0;
+  if (category === 'cold_habitable' || category === 'distant') return r.nextFloat() < 0.15 ? 30 : 0;
+  return has ? 100 : 0;
+}
+function magneticFactor(gauss) {
+  if (gauss < 6) return 1; if (gauss < 11) return 0.9; if (gauss < 16) return 0.8;
+  if (gauss < 21) return 0.65; if (gauss < 26) return 0.5; if (gauss < 30) return 1.1; return 1.25;
+}
+function temperatureFor(category, orbit, star) {
+  const base = { very_hot: 450, hot: 220, temperate: 15, habitable: 10, cold_habitable: -25, distant: -120, gas_giant: -80 }[category];
+  return base + (1 - Math.min(2.5, orbit)) * 35 + (STAR[star] - 1) * 2;
+}
+function shuffle(list, r) {
+  for (let i = list.length; i > 1; i--) { const j = r.nextInt(i); const t = list[i - 1]; list[i - 1] = list[j]; list[j] = t; }
+}
+function biomes(r, category, atmosphere, archetype) {
+  if (category === 'gas_giant') return [];
+  if (['gas_giant','ice_giant','hot_jupiter'].includes(archetype)) return [];
+  let pool;
+  if (archetype === 'ocean' || archetype === 'hycean') pool = HABITABLE_BIOMES;
+  else if (['ice','snowball','moon_icy'].includes(archetype)) pool = COLD_BIOMES;
+  else if (['sulfur','lava','ultrahot'].includes(archetype)) pool = HOT_BIOMES;
+  else if (category === 'distant' || atmosphere === 'none' || atmosphere === 'minimal') pool = DRY_BIOMES;
+  else pool = { very_hot: HOT_BIOMES, hot: HOT_BIOMES, temperate: TEMPERATE_BIOMES, habitable: HABITABLE_BIOMES, cold_habitable: COLD_BIOMES, distant: DRY_BIOMES, gas_giant: HABITABLE_BIOMES }[category];
+  const list = pool.slice();
+  shuffle(list, new JavaRandom(r.nextLong()));
+  const count = 2 + r.nextInt(4);
+  const selected = list.slice(0, Math.min(count, list.length));
+  const forest = 'enchanted_universe:scarlet_forest', plains = 'enchanted_universe:scarlet_plains';
+  const hasForest = selected.includes(forest), hasPlains = selected.includes(plains);
+  if (hasForest !== hasPlains) {
+    selected.push(hasForest ? plains : forest);
+    if (selected.length > 5) {
+      for (let i = selected.length - 1; i >= 0; i--) if (selected[i] !== forest && selected[i] !== plains) selected.splice(i, 1);
+    }
+  }
+  return selected.map(id => id.includes(':') ? id : 'enchanted_universe:' + id);
+}
+function pickStar(r) {
+  const roll = r.nextInt(100);
+  if (roll < 25) return 'red_dwarf'; if (roll < 50) return 'yellow_dwarf';
+  if (roll < 62) return 'white_yellow_dwarf'; if (roll < 67) return 'white_dwarf';
+  if (roll < 72) return 'blue_dwarf'; if (roll < 75) return 'white_giant';
+  if (roll < 77) return 'blue_giant'; if (roll < 82) return 'yellow_giant';
+  if (roll < 87) return 'red_giant'; if (roll < 89) return 'yellow_supergiant';
+  if (roll < 91) return 'red_supergiant'; if (roll < 95) return 'carbon_star';
+  if (roll < 98) return 'brown_dwarf'; return 'magnetar';
+}
+function mix(seed, index) {
+  let z = BigInt.asUintN(64, BigInt(seed) + 0x9E3779B97F4A7C15n * BigInt(index + 1));
+  z = BigInt.asUintN(64, (z ^ (z >> 30n)) * 0xBF58476D1CE4E5B9n);
+  z = BigInt.asUintN(64, (z ^ (z >> 27n)) * 0x94D049BB133111EBn);
+  return BigInt.asIntN(64, z ^ (z >> 31n));
+}
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
+  const category = pickCategory(r, index);
+  let orbit = CATEGORIES[category][0] + r.nextDouble() * (CATEGORIES[category][1] - CATEGORIES[category][0]);
+  orbit *= Math.sqrt(Math.max(0.01, STAR[star]));
+  const diameter = 0.2 + r.nextDouble() * 3.8;
+  const gravity = clamp(diameter * (0.55 + r.nextDouble() * 0.65), 0.15, 4.0);
+  const temperature = temperatureFor(category, orbit, star);
+  const atmosphere = pickAtmosphere(r, category);
+  const archetype = ARCH[category][r.nextInt(ARCH[category].length)];
+  const comp = composition(r, atmosphere, category);
+  const baseRad = baseRadiation(r, category);
+  const gauss = 0.5 + r.nextDouble() * 44.5;
+  const radiation = clamp(baseRad * (1 - { none: 0, minimal: 50, thin: 75, moderate: 90, medium: 95, thick: 99 }[atmosphere] / 100) * magneticFactor(gauss), 0, 1000);
+  const rings = category === 'gas_giant' ? r.nextFloat() < 0.55 : r.nextFloat() < 0.12;
+  const moons = r.nextInt(6);
+  const biomeList = biomes(r, category, atmosphere, archetype);
+  const desig = designation(formal, index);
+  const nameTag = BigInt.asIntN(64, BigInt(worldSeed) ^ (BigInt(systemIndex) * 0x9E3779B97F4A7C15n) ^ (BigInt(index) * 0xBF58476D1CE4E5B9n));
+  let suffix = BigInt.asUintN(64, nameTag).toString(36);
+  if (suffix.length < 3) suffix = '00' + suffix;
+  const name = systemName(r) + '-' + suffix.slice(-3);
+  const id = 'enchanted_universe:planet_' + BigInt.asUintN(64, BigInt(worldSeed)).toString(16) + '_' + systemIndex + '_' + index;
+  const planetSeed = r.nextLong();
+  return {
+    id, designation: desig, name, category, atmosphere, temperatureC: temperature,
+    gravity, radiation, rings, moons, orbitAu: orbit, diameterEarth: diameter,
+    biomes: biomeList, composition: comp, archetype, seed: planetSeed.toString(),
+    systemIndex, index
+  };
+}
+
+function solarPlanet(index, name, category, orbit, diameter, gravity, temp, atmosphere, comp, moons, rings, biome, seed) {
+  const id = 'enchanted_universe:planet_' + BigInt.asUintN(64, BigInt(seed)).toString(16) + '_sol_' + index;
+  return { id, designation: name, name, category, atmosphere, temperatureC: temp, gravity, radiation: 0,
+    rings, moons, orbitAu: orbit, diameterEarth: diameter, biomes: [biome], composition: comp, archetype: '', seed: String(seed) };
+}
+
+function solarSystem(worldSeed) {
+  const p = [
+    [0,'Меркурий','hot',0.39,0.38,0.38,167,'none',[],0,false,'cratered_regolithbasin'],
+    [1,'Венера','very_hot',0.72,0.95,0.90,464,'thick',['CO2','N2','SO2'],0,false,'very_hot_regolithbasin'],
+    [2,'Земля','habitable',1.0,1.0,1.0,15,'moderate',['N2','O2','AR'],1,false,'greensproutsgroves'],
+    [3,'Марс','hot',1.52,0.53,0.38,-60,'thin',['CO2','N2','AR'],2,false,'oxidized_plains'],
+    [4,'Церера','distant',2.77,0.07,0.03,-105,'none',[],0,false,'cratered_regolithbasin'],
+    [5,'Юпитер','gas_giant',5.2,11.2,2.53,-145,'thick',['H2','HE','CH4','NH3'],4,true,'brown_regolithbasin'],
+    [6,'Сатурн','gas_giant',9.58,9.45,1.07,-178,'thick',['H2','HE','CH4'],5,true,'brown_regolithbasin'],
+    [7,'Уран','gas_giant',19.2,4.0,0.89,-224,'medium',['H2','HE','CH4'],5,true,'cratered_regolithbasin'],
+    [8,'Нептун','gas_giant',30.1,3.88,1.14,-218,'thick',['H2','HE','CH4'],5,true,'cratered_regolithbasin'],
+    [9,'Плутон','distant',39.5,0.19,0.06,-229,'minimal',['N2','CH4'],5,false,'iced_regolithbasin'],
+    [10,'Хаумеа','distant',43.1,0.16,0.04,-241,'none',[],2,true,'iced_regolithbasin'],
+    [11,'Кваоар','distant',43.7,0.11,0.03,-220,'none',[],2,false,'cratered_regolithbasin'],
+    [12,'Макемаке','distant',45.8,0.14,0.03,-239,'none',[],1,false,'iced_regolithbasin'],
+    [13,'Эрида','distant',67.8,0.23,0.08,-231,'none',[],1,false,'iced_regolithbasin']
+  ];
+  const hex = BigInt.asUintN(64, BigInt(worldSeed)).toString(16);
+  return { name:'Солнечная система', formalName:'Sol', star:'yellow_dwarf', distanceLy:0, planets: p.map(x => {
+    const seed = BigInt.asIntN(64, BigInt(worldSeed) ^ (0x101n * BigInt(x[0] + 1)));
+    return { id:'enchanted_universe:planet_'+hex+'_sol_'+x[0], designation:x[1], name:x[1], category:x[2], orbitAu:x[3],
+      diameterEarth:x[4], gravity:x[5], temperatureC:x[6], atmosphere:x[7], composition:x[8], moons:x[9], rings:x[10],
+      biomes:['enchanted_universe:'+x[11]], radiation:0, seed:seed.toString() };
+  }) };
+}
+
+function demos() {
+  return [
+    { name:'Астерион', formalName:'Asterion', star:'yellow_dwarf', distanceLy:12.0, planets:[
+      ['Терра Нова','habitable',1.00,1.02,1.0,22,'moderate',['N2','O2','AR'],1,false,'greensproutsgroves'],
+      ['Аэрис','habitable',1.15,0.94,0.9,28,'medium',['O2','N2','AR'],0,false,'windy_forest'],
+      ['Веспер','very_hot',0.58,0.95,0.9,462,'thick',['CO2','SO2','N2'],0,false,'very_hot_regolithbasin'],
+      ['Ноктис','habitable',1.35,0.72,0.6,16,'moderate',['N2','O2','AR'],2,false,'night_forest'],
+      ['Кронос','gas_giant',5.2,9.5,2.3,-145,'thick',['H2','HE','CH4'],4,true,'brown_regolithbasin']
+    ].map((x,i)=>({ id:'enchanted_universe:planet_demo_asterion_'+i, designation:x[0], name:x[0], category:x[1], orbitAu:x[2],
+      diameterEarth:x[3], gravity:x[4], temperatureC:x[5], atmosphere:x[6], composition:x[7], moons:x[8], rings:x[9],
+      biomes:['enchanted_universe:'+x[10]], radiation:0, seed:'0' })) },
+    { name:'Бетельгейзе', formalName:'Betelgeuse', star:'red_supergiant', distanceLy:640.0, planets:[
+      ['Пепел','hot',2.4,1.4,1.5,180,'thin',['CO2','N2','SO2'],1,false,'oxidized_plains'],
+      ['Исполин','gas_giant',7.5,13.0,3.0,900,'thick',['H2','HE','FE'],5,true,'brown_regolithbasin']
+    ].map((x,i)=>({ id:'enchanted_universe:planet_demo_betelgeuse_'+i, designation:x[0], name:x[0], category:x[1], orbitAu:x[2],
+      diameterEarth:x[3], gravity:x[4], temperatureC:x[5], atmosphere:x[6], composition:x[7], moons:x[8], rings:x[9],
+      biomes:['enchanted_universe:'+x[10]], radiation:0, seed:'0' })) },
+    { name:'Сингулярность', formalName:'Singularity', star:'magnetar', distanceLy:26.0, planets:[
+      ['Обсидиан','hot',0.7,0.55,0.4,40,'none',[],0,false,'cratered_regolithbasin']
+    ].map((x,i)=>({ id:'enchanted_universe:planet_demo_singularity_'+i, designation:x[0], name:x[0], category:x[1], orbitAu:x[2],
+      diameterEarth:x[3], gravity:x[4], temperatureC:x[5], atmosphere:x[6], composition:x[7], moons:x[8], rings:x[9],
+      biomes:['enchanted_universe:'+x[10]], radiation:0, seed:'0' })) },
+    { name:'Ригель', formalName:'Rigel', star:'blue_giant', distanceLy:860.0, planets:[
+      ['Лазурь','habitable',4.0,1.1,1.1,12,'moderate',['N2','O2','AR'],1,false,'windy_plains'],
+      ['Пух','gas_giant',12.0,6.0,0.3,300,'minimal',['H2','HE'],2,false,'brown_regolithbasin']
+    ].map((x,i)=>({ id:'enchanted_universe:planet_demo_rigel_'+i, designation:x[0], name:x[0], category:x[1], orbitAu:x[2],
+      diameterEarth:x[3], gravity:x[4], temperatureC:x[5], atmosphere:x[6], composition:x[7], moons:x[8], rings:x[9],
+      biomes:['enchanted_universe:'+x[10]], radiation:0, seed:'0' })) }
+  ];
+}
+
+function generateCatalog(worldSeed) {
+  worldSeed = BigInt.asIntN(64, BigInt(worldSeed));
+  const systems = [solarSystem(worldSeed), ...demos()];
+  for (let i = 0; i < 96; i++) {
+    const systemSeed = mix(worldSeed, i);
+    const r = new JavaRandom(systemSeed);
+    const distance = 4.0 + i * 3.15 + r.nextDouble() * 0.8;
+    const star = pickStar(r);
+    const name = systemName(r);
+    const formal = formalName(r);
+    const planetCount = 1 + r.nextInt(5);
+    const planets = [];
+    for (let p = 0; p < planetCount; p++) planets.push(createPlanet(r, i, p, formal, star, worldSeed));
+    systems.push({ name, formalName: formal, star, distanceLy: distance, planets, systemIndex: i, id: 'system_' + i });
+  }
+  return { worldSeed: worldSeed.toString(), systems };
+}
+
+if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom };
+if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog };
