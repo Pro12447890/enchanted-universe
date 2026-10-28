@@ -242,7 +242,7 @@ function solarSystem(worldSeed) {
     const seed = BigInt.asIntN(64, BigInt(worldSeed) ^ (0x101n * BigInt(x[0] + 1)));
     return { id:'enchanted_universe:planet_'+hex+'_sol_'+x[0], designation:x[1], name:x[1], category:x[2], orbitAu:x[3],
       diameterEarth:x[4], gravity:Math.max(0.20, x[5]), temperatureC:x[6], atmosphere:x[7], composition:x[8], moons:x[9], rings:x[10],
-      biomes:['enchanted_universe:'+x[11]].concat(x[0] === 1 ? ['enchanted_universe:beige_regolithbasin','enchanted_universe:ochre_regolithbasin'] : []), radiation:Math.max(0, 20 - x[0]*1.2), gauss:0.5, seed:seed.toString() };
+      biomes: x[2] === 'gas_giant' ? [] : ['enchanted_universe:'+x[11]].concat(x[0] === 1 ? ['enchanted_universe:beige_regolithbasin','enchanted_universe:ochre_regolithbasin'] : []), radiation:Math.max(0, 20 - x[0]*1.2), gauss:0.5, seed:seed.toString() };
   }) };
 }
 
@@ -251,7 +251,7 @@ function demos(worldSeed) {
   function dp(prefix, index, name, category, orbit, diameter, gravity, temp, atmosphere, comp, moons, rings, biome, xor) {
     return { id:'enchanted_universe:planet_demo_'+prefix+'_'+index, designation:name, name, category, orbitAu:orbit,
       diameterEarth:diameter, gravity:Math.max(0.20, gravity), temperatureC:temp, atmosphere, composition:comp, moons, rings,
-      biomes:['enchanted_universe:'+biome], radiation:12, gauss:0.5, seed:BigInt.asIntN(64, W ^ BigInt(xor)).toString() };
+      biomes: category === 'gas_giant' ? [] : ['enchanted_universe:'+biome], radiation:12, gauss:0.5, seed:BigInt.asIntN(64, W ^ BigInt(xor)).toString() };
   }
   return [
     { name:'Астерион', formalName:'Asterion', star:'yellow_dwarf', distanceLy:12.0, planets:[
