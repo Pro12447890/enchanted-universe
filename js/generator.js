@@ -72,11 +72,11 @@ const AQUARIA_BIOMES = [
 ];
 const COLOR_GASES = ['SO2','H2S','NO2','CL2','F2','I2','HI','BR2','O3','CH4','NH3','C6H6','CLO2','FE','HCN','SIH4','CS2','COS','OCS','HBR'];
 
-const HOT_BIOMES = ['very_hot_regolithbasin','hot_regolithbasin','light_regolithbasin','cratered_regolithbasin','yellow_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:desert','minecraft:badlands','minecraft:eroded_badlands','minecraft:savanna'];
+const HOT_BIOMES = ['very_hot_regolithbasin','hot_regolithbasin','light_regolithbasin','cratered_regolithbasin','yellow_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:savanna'];
 const TEMPERATE_BIOMES = ['brown_regolithbasin','regolithbasin','cratered_regolithbasin','light_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:plains','minecraft:sunflower_plains','minecraft:flower_forest','minecraft:cherry_grove','minecraft:meadow','minecraft:beach','minecraft:savanna','minecraft:savanna_plateau','minecraft:stony_shore','minecraft:windswept_hills','minecraft:windswept_forest'];
 const HABITABLE_BIOMES = ['ashy_forest','scarlet_forest','scarlet_plains','golden_groves','windy_forest','windy_plains','greensproutsgroves','dense_mushroom_groves','night_forest','minecraft:plains','minecraft:forest','minecraft:flower_forest','minecraft:birch_forest','minecraft:dark_forest','minecraft:cherry_grove','minecraft:meadow','minecraft:jungle','minecraft:sparse_jungle','minecraft:bamboo_jungle','minecraft:savanna','minecraft:sunflower_plains','minecraft:mushroom_fields','minecraft:beach','minecraft:mangrove_swamp','minecraft:swamp','minecraft:pale_garden','minecraft:windswept_forest','minecraft:windswept_hills'];
 const COLD_BIOMES = ['icy_groves','minecraft:snowy_plains','minecraft:snowy_taiga','minecraft:frozen_peaks','minecraft:ice_spikes','minecraft:taiga','minecraft:old_growth_pine_taiga','minecraft:old_growth_spruce_taiga','minecraft:snowy_beach','minecraft:frozen_river','minecraft:grove','minecraft:snowy_slopes','minecraft:jagged_peaks'];
-const DRY_BIOMES = ['regolithbasin','stone_regolith','cratered_regolithbasin','brown_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:desert','minecraft:badlands','minecraft:eroded_badlands','minecraft:windswept_savanna','minecraft:beach'];
+const DRY_BIOMES = ['regolithbasin','stone_regolith','cratered_regolithbasin','brown_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:windswept_savanna','minecraft:beach'];
 
 function pickCategory(r, index) {
   const f = r.nextFloat();
@@ -145,7 +145,7 @@ function biomes(r, category, atmosphere, archetype) {
   else if (archetype === 'ocean' || archetype === 'hycean') pool = HABITABLE_BIOMES;
   else if (['ice','snowball','moon_icy','cryovolcanic'].includes(archetype)) pool = COLD_BIOMES;
   else if (['sulfur','lava','ultrahot','pulsar'].includes(archetype)) pool = HOT_BIOMES;
-  else if (category === 'distant' || atmosphere === 'none') pool = DRY_BIOMES;
+  else if (category !== 'habitable' && (category === 'distant' || atmosphere === 'none')) pool = DRY_BIOMES;
   else pool = { very_hot: HOT_BIOMES, hot: HOT_BIOMES, temperate: TEMPERATE_BIOMES, habitable: HABITABLE_BIOMES, cold_habitable: COLD_BIOMES, distant: DRY_BIOMES, gas_giant: HABITABLE_BIOMES }[category];
   const list = pool.slice();
   shuffle(list, new JavaRandom(r.nextLong()));
