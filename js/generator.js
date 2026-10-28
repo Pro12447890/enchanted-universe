@@ -57,7 +57,14 @@ const ARCH = {
   gas_giant: ['gas_giant','ice_giant','hot_jupiter','puffy','super_puff','helium_giant','brown_dwarf']
 };
 
-const GASES = ['H2','HE','CH4','NH3','H2O','CO2','CO','O2','N2','AR','NE','SO2','H2S','HCL','HF','CL2','F2','O3','NO','NO2','N2O','C2H6','C3H8','C2H2','C2H4','C6H6','CH3OH','C2H5OH','HCN','NH2OH','PH3','PCL3','SIH4','SIF4','SF6','CF4','CCL4','BF3','B2H6','HBR','HI','KR','XE','RN','COS','CS2','OCS','N2H4','CLO2','H2O2'];
+const AEROSOL_BY_ARCH = {
+  mars_like:'dust', desert:'dust', super_earth:'dust',
+  sulfur:'sulfur', moon_volcanic:'sulfur',
+  carbon:'smoke', rogue:'smoke', evaporating:'smoke'
+};
+
+const GASES = ['H2','HE','CH4','NH3','H2O','CO2','CO','O2','N2','AR','NE','SO2','H2S','HCL','HF','CL2','F2','BR2','I2','FE','O3','NO','NO2','N2O','C2H6','C3H8','C2H2','C2H4','C6H6','CH3OH','C2H5OH','HCN','NH2OH','PH3','PCL3','SIH4','SIF4','SF6','CF4','CCL4','BF3','B2H6','HBR','HI','KR','XE','RN','COS','CS2','OCS','N2H4','CLO2','H2O2'];
+const COLOR_GASES = ['SO2','H2S','NO2','CL2','F2','I2','HI','BR2','O3','CH4','NH3','C6H6','CLO2','FE','HCN','SIH4','CS2','COS','OCS','HBR'];
 
 const HOT_BIOMES = ['very_hot_regolithbasin','hot_regolithbasin','light_regolithbasin','cratered_regolithbasin','yellow_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin'];
 const TEMPERATE_BIOMES = ['brown_regolithbasin','regolithbasin','cratered_regolithbasin','light_regolithbasin'];
@@ -94,7 +101,12 @@ function composition(r, atmosphere, category) {
     if (r.nextFloat() < 0.35) out.push('H2O');
   } else {
     const count = 1 + r.nextInt(4);
-    for (let i = 0; i < count; i++) {
+    // «Цветной» газ в большинстве миров — как в Java-генераторе.
+    if (r.nextFloat() < 0.65) {
+      const colored = COLOR_GASES[r.nextInt(COLOR_GASES.length)];
+      if (!out.includes(colored)) out.push(colored);
+    }
+    for (let i = out.length; i < count; i++) {
       const gas = GASES[r.nextInt(GASES.length)];
       if (!out.includes(gas)) out.push(gas);
     }
@@ -168,6 +180,7 @@ function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
   const temperature = temperatureFor(category, orbit, star);
   const atmosphere = pickAtmosphere(r, category);
   const archetype = ARCH[category][r.nextInt(ARCH[category].length)];
+  const aerosol = AEROSOL_BY_ARCH[archetype] || 'none';
   const comp = composition(r, atmosphere, category);
   const baseRad = baseRadiation(r, category);
   const gauss = 0.5 + r.nextDouble() * 44.5;
@@ -190,7 +203,7 @@ function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
   return {
     id, designation: desig, name, category, atmosphere, temperatureC: temperature,
     gravity, radiation, gauss, rings, moons, orbitAu: orbit, diameterEarth: diameter,
-    biomes: biomeList, composition: comp, archetype, seed: planetSeed.toString(),
+    biomes: biomeList, composition: comp, archetype, aerosol, seed: planetSeed.toString(),
     systemIndex, index
   };
 }

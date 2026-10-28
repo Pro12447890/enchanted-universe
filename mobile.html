@@ -96,8 +96,8 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=6"></script>
-<script src="js/generator.js?v=6"></script>
+<script src="js/i18n.js?v=7"></script>
+<script src="js/generator.js?v=7"></script>
 <script>
 'use strict';
 const canvas = document.getElementById('map');
@@ -314,24 +314,155 @@ function drawGalaxy(alpha, now) {
 }
 
 
-const ATM_COLORS = { H2:'#e8f0ff', HE:'#f0f0ff', CH4:'#a0d0e0', NH3:'#c8b8e8', H2O:'#b8d8f0', CO2:'#d0d0c0',
-  CO:'#b0a0a0', O2:'#a0d8ff', N2:'#c0d8ff', AR:'#e0e0f0', NE:'#ff8040', SO2:'#e0c040', H2S:'#c8d060',
-  HCL:'#d0ffc0', HF:'#e0ffe0', CL2:'#c0ff80', F2:'#ffff80', O3:'#90b0ff', NO:'#b0c0e0', NO2:'#d08040',
-  N2O:'#d0e0d0', C2H6:'#c0d0c0', C3H8:'#d0c0a0', CH3OH:'#d0e0e0', C2H5OH:'#e0e0d0', HCN:'#a0c0e0',
-  PH3:'#e0c080', SIH4:'#c0c0e0', SF6:'#e0e0e0', CF4:'#e0f0f0', KR:'#e8e8ff', XE:'#c8c8ff', RN:'#e0c0ff' };
-const ATM_DENSITY = { none:0, minimal:0.12, thin:0.22, moderate:0.34, medium:0.46, thick:0.6 };
-function atmosphereColor(p) {
-  let r=0,g=0,b=0,w=0;
-  for (const raw of (p.composition || [])) {
-    const formula = String(raw).split(':')[0].trim().toUpperCase();
-    const hex = ATM_COLORS[formula];
-    if (!hex) continue;
-    const c = parseInt(hex.slice(1),16);
-    const weight = 1;
-    r += ((c>>16)&255)*weight; g += ((c>>8)&255)*weight; b += (c&255)*weight; w += weight;
+const SKY_DENSITY = { none:0, minimal:0.15, thin:0.35, moderate:0.55, medium:0.75, thick:0.9 };
+const AEROSOL = { none:[0,0x000000], dust:[3,0xC9A47A], sulfur:[1.5,0xE8D060], smoke:[5,0x6A4A38] };
+const BIOME_SKY = [
+  ['night_forest',0x152640], ['mushroom',0x1C2238], ['scarlet',0x8A2222], ['golden',0xC29624],
+  ['icy',0xC8E4F0], ['iced',0xC8E4F0], ['frozen',0xC8E4F0], ['ashy',0x3C3D3A], ['windy',0x324838],
+  ['oxidized',0xC9A47A], ['brown',0xC9A47A], ['greensprouts',0x3A78D8], ['forest',0x3A78D8], ['plains',0x3A78D8]
+];
+const GAS_OPTICS = {
+  H2:[0.05,0x2C4E86,[0,0,0]],
+  HE:[0.02,0x2C4E86,[0,0,0]],
+  CH4:[2.4,0x3FB6C6,[0,0.02,0.10]],
+  NH3:[2.5,0xD8DCE8,[0.05,0.02,0.02]],
+  H2O:[1.1,0x3F74C8,[0,0,0]],
+  CO2:[2.2,0x6E96D2,[0,0,0]],
+  CO:[1.0,0x3F74C8,[0,0,0]],
+  O2:[0.9,0x3FB6C6,[0,0,0]],
+  N2:[1.0,0x3F74C8,[0,0,0]],
+  AR:[0.9,0x3F74C8,[0,0,0]],
+  NE:[0.3,0x3F74C8,[0,0,0]],
+  SO2:[2.6,0xC6C478,[0.12,0.03,0.01]],
+  H2S:[2.3,0xC6C478,[0.12,0.03,0.01]],
+  HCL:[1.8,0xD8DCE8,[0,0,0]],
+  HF:[1.2,0xD8DCE8,[0,0,0]],
+  CL2:[3.0,0xAFCB6A,[0.45,0.10,0]],
+  F2:[2.2,0xE4E2A4,[0.30,0.06,0]],
+  BR2:[3.6,0xA07050,[0.50,0.25,0.05]],
+  I2:[4.0,0x7C5CA6,[0.08,0.30,0.45]],
+  FE:[4.2,0xA07050,[0.20,0.12,0.06]],
+  O3:[1.6,0x3558BE,[0.08,0.45,0.25]],
+  NO:[1.1,0x3F74C8,[0.05,0.01,0]],
+  NO2:[2.0,0xA07A55,[1.60,0.45,0.10]],
+  N2O:[1.8,0x3F74C8,[0,0,0]],
+  C2H6:[2.6,0x3F74C8,[0,0,0]],
+  C3H8:[3.4,0x3F74C8,[0,0,0]],
+  C2H2:[2.6,0xA07A55,[0.02,0.01,0.01]],
+  C2H4:[2.6,0xA07A55,[0,0,0]],
+  C6H6:[5.0,0x6E665E,[0.25,0.18,0.12]],
+  CH3OH:[2.2,0x3F74C8,[0,0,0]],
+  C2H5OH:[3.2,0x3F74C8,[0,0,0]],
+  HCN:[1.8,0x6E665E,[0,0,0]],
+  NH2OH:[2.0,0x3F74C8,[0,0,0]],
+  PH3:[2.8,0x3F74C8,[0,0,0]],
+  PCL3:[6.0,0xD8DCE8,[0,0,0]],
+  SIH4:[3.0,0xA07A55,[0,0,0]],
+  SIF4:[2.4,0xD8DCE8,[0,0,0]],
+  SF6:[4.5,0xD8DCE8,[0,0,0]],
+  CF4:[2.6,0x6E96D2,[0,0,0]],
+  CCL4:[5.5,0x6E96D2,[0,0,0]],
+  BF3:[2.2,0xD8DCE8,[0,0,0]],
+  B2H6:[3.2,0x6E96D2,[0,0,0]],
+  HBR:[2.4,0xA07A55,[0.10,0.20,0.30]],
+  HI:[3.2,0x7C5CA6,[0.05,0.20,0.35]],
+  KR:[1.6,0x3F74C8,[0,0,0]],
+  XE:[3.0,0x6E96D2,[0,0,0]],
+  RN:[3.4,0x3F74C8,[0,0,0]],
+  COS:[2.8,0xC6C478,[0.10,0.03,0.01]],
+  CS2:[4.0,0xC6C478,[0.12,0.04,0.01]],
+  OCS:[2.8,0xC6C478,[0.10,0.03,0.01]],
+  N2H4:[2.0,0x3F74C8,[0,0,0]],
+  CLO2:[3.0,0xAFCB6A,[0.40,0.10,0]],
+  H2O2:[1.2,0xD8DCE8,[0,0,0]]
+};
+function hsvToRgb(h, s, v) {
+  h = ((h % 360) + 360) % 360 / 60;
+  const c = v * s, x = c * (1 - Math.abs(h % 2 - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 1) { r = c; g = x; }
+  else if (h < 2) { r = x; g = c; }
+  else if (h < 3) { g = c; b = x; }
+  else if (h < 4) { g = x; b = c; }
+  else if (h < 5) { r = x; b = c; }
+  else { r = c; b = x; }
+  return [r + m, g + m, b + m];
+}
+function rgbToHsv(r, g, b) {
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d > 1e-5) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
   }
-  if (!w) return p.atmosphere === 'none' ? '#000000' : '#9fb8d8';
-  return `rgb(${Math.round(r/w)},${Math.round(g/w)},${Math.round(b/w)})`;
+  return [h, max <= 1e-5 ? 0 : d / max, max];
+}
+function atmosphereColor(p) {
+  if (p.atmosphere === 'none') return '#000000';
+  const raw = (p.composition || []).map(v => String(v));
+  let total = 0;
+  const parts = raw.map(v => {
+    const split = v.split(':');
+    const f = split.length > 1 ? Math.max(0, parseFloat(split[1]) || 0) : 1;
+    total += f;
+    return [split[0].trim().toUpperCase(), f];
+  });
+  if (!total) return '#9fb8d8';
+  const dens = SKY_DENSITY[p.atmosphere] || 0;
+  let hx = 0, hy = 0, sw = 0, satSum = 0, valSum = 0;
+  let bestW = -1, bestH = 215, bestS = 0.55, bestV = 0.72;
+  const tau = [0, 0, 0];
+  for (const [gas, f0] of parts) {
+    const opt = GAS_OPTICS[gas];
+    if (!opt) continue;
+    const f = f0 / total;
+    const beta = Math.max(0.05, opt[0]);
+    const w = f * beta;
+    const sky = opt[1];
+    const hsv = rgbToHsv(((sky >> 16) & 255) / 255, ((sky >> 8) & 255) / 255, (sky & 255) / 255);
+    const rad = hsv[0] * Math.PI / 180;
+    hx += Math.cos(rad) * w; hy += Math.sin(rad) * w;
+    satSum += hsv[1] * w; valSum += hsv[2] * w; sw += w;
+    if (w > bestW) { bestW = w; bestH = hsv[0]; bestS = hsv[1]; bestV = hsv[2]; }
+    const abs = opt[2] || [0, 0, 0];
+    for (let i = 0; i < 3; i++) tau[i] += f * abs[i];
+  }
+  if (!sw) return '#9fb8d8';
+  let hue = bestH, sat = bestS;
+  if (Math.hypot(hx, hy) / sw >= 0.18) {
+    hue = Math.atan2(hy, hx) * 180 / Math.PI; if (hue < 0) hue += 360;
+    sat = satSum / sw;
+  }
+  const val = Math.max(0.34, Math.min(0.92, valSum / sw));
+  const rgb = hsvToRgb(hue, Math.max(0.18, Math.min(0.82, sat)), val);
+  const path = 1 + 1.8 * dens;
+  for (let i = 0; i < 3; i++) rgb[i] *= Math.exp(-tau[i] * path * 2.2);
+  const wash = Math.max(0, Math.min(0.30, (dens - 0.5) * 0.55));
+  for (let i = 0; i < 3; i++) rgb[i] = rgb[i] * (1 - wash) + wash;
+  // Аэрозоль поверх химии: 1−e^(−τ/2), как в Java.
+  const air = AEROSOL[p.aerosol || 'none'];
+  if (air && air[0] > 0) {
+    const k = Math.min(0.85, 1 - Math.exp(-air[0] / 2));
+    const tint = air[1];
+    rgb[0] = rgb[0] * (1 - k) + (((tint >> 16) & 255) / 255) * k;
+    rgb[1] = rgb[1] * (1 - k) + (((tint >> 8) & 255) / 255) * k;
+    rgb[2] = rgb[2] * (1 - k) + ((tint & 255) / 255) * k;
+  }
+  const max = Math.max(rgb[0], rgb[1], rgb[2]);
+  if (max > 1e-5) { const k = val / max; for (let i = 0; i < 3; i++) rgb[i] = Math.max(0, Math.min(1, rgb[i] * k)); }
+  // Биом даёт оттенок ПОВЕРХ готовой палитры (45 %), как biomePalette в Java.
+  const biomeName = String((p.biomes && p.biomes[0]) || '').toLowerCase();
+  const biome = BIOME_SKY.find(([key]) => biomeName.includes(key));
+  if (biome) {
+    const tint = biome[1];
+    const tr = ((tint >> 16) & 255) / 255, tg = ((tint >> 8) & 255) / 255, tb = (tint & 255) / 255;
+    rgb[0] = rgb[0] * 0.55 + tr * 0.45;
+    rgb[1] = rgb[1] * 0.55 + tg * 0.45;
+    rgb[2] = rgb[2] * 0.55 + tb * 0.45;
+  }
+  return `rgb(${Math.round(rgb[0] * 255)},${Math.round(rgb[1] * 255)},${Math.round(rgb[2] * 255)})`;
 }
 function auPx(au, z) { return orbitUnits({ orbitAu: au }) * z; }
 function drawZones(s, sx, sy) {
