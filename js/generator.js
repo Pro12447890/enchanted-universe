@@ -48,13 +48,13 @@ const CATEGORIES = {
 };
 
 const ARCH = {
-  very_hot: ['lava','airless','sulfur','iron','ultrahot'],
-  hot: ['mars_like','desert','airless','iron','rocky_thin','chthonian'],
-  temperate: ['desert','tundra','rocky_thin','ocean','carbon','sulfur'],
-  habitable: ['ocean','tidal_eyeball','hycean','snowball','circumbinary','desert','rocky_thin'],
-  cold_habitable: ['snowball','tundra','ice','ocean'],
-  distant: ['ice','dwarf_planet','airless','carbon','moon_icy'],
-  gas_giant: ['gas_giant','ice_giant','hot_jupiter','puffy','super_puff','helium_giant','brown_dwarf']
+  very_hot: ['lava','airless','sulfur','iron','ultrahot','cryovolcanic','pulsar'],
+  hot: ['mars_like','desert','airless','iron','rocky_thin','chthonian','toroidal'],
+  temperate: ['desert','tundra','rocky_thin','ocean','carbon','sulfur','ammonia'],
+  habitable: ['ocean','tidal_eyeball','hycean','snowball','circumbinary','desert','rocky_thin','panthalassic'],
+  cold_habitable: ['snowball','tundra','ice','ocean','ammonia','cryovolcanic','panthalassic'],
+  distant: ['ice','dwarf_planet','airless','carbon','moon_icy','cryovolcanic','toroidal'],
+  gas_giant: ['gas_giant','ice_giant','hot_jupiter','puffy','super_puff','helium_giant','brown_dwarf','gas_dwarf']
 };
 
 const AEROSOL_BY_ARCH = {
@@ -72,11 +72,11 @@ const AQUARIA_BIOMES = [
 ];
 const COLOR_GASES = ['SO2','H2S','NO2','CL2','F2','I2','HI','BR2','O3','CH4','NH3','C6H6','CLO2','FE','HCN','SIH4','CS2','COS','OCS','HBR'];
 
-const HOT_BIOMES = ['very_hot_regolithbasin','hot_regolithbasin','light_regolithbasin','cratered_regolithbasin','yellow_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin'];
-const TEMPERATE_BIOMES = ['brown_regolithbasin','regolithbasin','cratered_regolithbasin','light_regolithbasin'];
-const HABITABLE_BIOMES = ['ashy_forest','scarlet_forest','scarlet_plains','golden_groves','windy_forest','windy_plains','greensproutsgroves','dense_mushroom_groves','night_forest','minecraft:plains','minecraft:forest'];
-const COLD_BIOMES = ['icy_groves','minecraft:snowy_plains','minecraft:snowy_taiga','minecraft:frozen_peaks','minecraft:ice_spikes'];
-const DRY_BIOMES = ['regolithbasin','stone_regolith','cratered_regolithbasin','brown_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin'];
+const HOT_BIOMES = ['very_hot_regolithbasin','hot_regolithbasin','light_regolithbasin','cratered_regolithbasin','yellow_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:desert','minecraft:badlands','minecraft:eroded_badlands','minecraft:savanna'];
+const TEMPERATE_BIOMES = ['brown_regolithbasin','regolithbasin','cratered_regolithbasin','light_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:plains','minecraft:sunflower_plains','minecraft:flower_forest','minecraft:cherry_grove','minecraft:meadow','minecraft:beach','minecraft:savanna','minecraft:savanna_plateau','minecraft:stony_shore','minecraft:windswept_hills','minecraft:windswept_forest'];
+const HABITABLE_BIOMES = ['ashy_forest','scarlet_forest','scarlet_plains','golden_groves','windy_forest','windy_plains','greensproutsgroves','dense_mushroom_groves','night_forest','minecraft:plains','minecraft:forest','minecraft:flower_forest','minecraft:birch_forest','minecraft:dark_forest','minecraft:cherry_grove','minecraft:meadow','minecraft:jungle','minecraft:sparse_jungle','minecraft:bamboo_jungle','minecraft:savanna','minecraft:sunflower_plains','minecraft:mushroom_fields','minecraft:beach','minecraft:mangrove_swamp','minecraft:swamp','minecraft:pale_garden','minecraft:windswept_forest','minecraft:windswept_hills'];
+const COLD_BIOMES = ['icy_groves','minecraft:snowy_plains','minecraft:snowy_taiga','minecraft:frozen_peaks','minecraft:ice_spikes','minecraft:taiga','minecraft:old_growth_pine_taiga','minecraft:old_growth_spruce_taiga','minecraft:snowy_beach','minecraft:frozen_river','minecraft:grove','minecraft:snowy_slopes','minecraft:jagged_peaks'];
+const DRY_BIOMES = ['regolithbasin','stone_regolith','cratered_regolithbasin','brown_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:desert','minecraft:badlands','minecraft:eroded_badlands','minecraft:windswept_savanna','minecraft:beach'];
 
 function pickCategory(r, index) {
   const f = r.nextFloat();
@@ -140,10 +140,12 @@ function biomes(r, category, atmosphere, archetype) {
   if (category === 'gas_giant') return [];
   if (['gas_giant','ice_giant','hot_jupiter'].includes(archetype)) return [];
   let pool;
-  if (archetype === 'ocean' || archetype === 'hycean') pool = HABITABLE_BIOMES;
-  else if (['ice','snowball','moon_icy'].includes(archetype)) pool = COLD_BIOMES;
-  else if (['sulfur','lava','ultrahot'].includes(archetype)) pool = HOT_BIOMES;
-  else if (category === 'distant' || atmosphere === 'none' || atmosphere === 'minimal') pool = DRY_BIOMES;
+  if (archetype === 'panthalassic') return AQUARIA_BIOMES.slice();
+  if (archetype === 'ammonia') pool = COLD_BIOMES;
+  else if (archetype === 'ocean' || archetype === 'hycean') pool = HABITABLE_BIOMES;
+  else if (['ice','snowball','moon_icy','cryovolcanic'].includes(archetype)) pool = COLD_BIOMES;
+  else if (['sulfur','lava','ultrahot','pulsar'].includes(archetype)) pool = HOT_BIOMES;
+  else if (category === 'distant' || atmosphere === 'none') pool = DRY_BIOMES;
   else pool = { very_hot: HOT_BIOMES, hot: HOT_BIOMES, temperate: TEMPERATE_BIOMES, habitable: HABITABLE_BIOMES, cold_habitable: COLD_BIOMES, distant: DRY_BIOMES, gas_giant: HABITABLE_BIOMES }[category];
   const list = pool.slice();
   shuffle(list, new JavaRandom(r.nextLong()));
@@ -377,5 +379,36 @@ function generateCatalog(worldSeed) {
   return { worldSeed: worldSeed.toString(), systems };
 }
 
-if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom, moonSpecs };
-if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog, moonSpecs };
+
+function planetClass(p) {
+  const archetype = String(p.archetype || '');
+  let base = 'терра';
+  if (['ferria','iron'].includes(archetype)) base = 'феррия';
+  else if (['carbonia','carbon'].includes(archetype)) base = 'карбония';
+  else if (['aquaria','ocean','hycean','ice','snowball','moon_icy','panthalassic','ammonia','cryovolcanic'].includes(archetype)) base = 'аквария';
+  else if (['neptune','ice_giant','mini_neptune','gas_dwarf'].includes(archetype)) base = 'нептун';
+  else if (['jupiter','gas_giant','hot_jupiter','puffy','super_puff','helium_giant'].includes(archetype)) base = 'юпитер';
+  else if (['chthonia','chthonian'].includes(archetype)) base = 'хтония';
+  else if (archetype === 'brown_dwarf') base = 'коричневый карлик';
+  else if (archetype === 'tidal_eyeball') base = 'приливно-захваченная планета';
+  else if (['asteroid','comet'].includes(archetype)) base = 'астероид';
+  const temp = ({
+    very_hot:'раскалённая', hot:'горячая', temperate:'тёплая', habitable:'умеренная',
+    cold_habitable:'прохладная', distant:'холодная', gas_giant:'холодная'
+  })[p.category] || '';
+  const d = Number(p.diameterEarth || 1);
+  const size = d < 0.5 ? 'мини-' : d < 0.8 ? 'суб-' : d > 1.5 ? 'супер-' : '';
+  return (temp + ' ' + size + base).trim();
+}
+
+function starSpectral(star) {
+  return ({
+    red_dwarf:'M4V', yellow_dwarf:'G2V', white_yellow_dwarf:'F8V', white_dwarf:'DA2',
+    blue_dwarf:'B8V', white_giant:'A2III', blue_giant:'O9III', yellow_giant:'G8III',
+    red_giant:'K5III', yellow_supergiant:'G2I', red_supergiant:'M2I',
+    carbon_star:'C5III', brown_dwarf:'T6V', magnetar:'NS'
+  })[star] || '';
+}
+
+if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom, moonSpecs, planetClass, starSpectral };
+if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog, moonSpecs, planetClass, starSpectral };
