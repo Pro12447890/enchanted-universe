@@ -64,6 +64,12 @@ const AEROSOL_BY_ARCH = {
 };
 
 const GASES = ['H2','HE','CH4','NH3','H2O','CO2','CO','O2','N2','AR','NE','SO2','H2S','HCL','HF','CL2','F2','BR2','I2','FE','O3','NO','NO2','N2O','C2H6','C3H8','C2H2','C2H4','C6H6','CH3OH','C2H5OH','HCN','NH2OH','PH3','PCL3','SIH4','SIF4','SF6','CF4','CCL4','BF3','B2H6','HBR','HI','KR','XE','RN','COS','CS2','OCS','N2H4','CLO2','H2O2'];
+const AQUARIA_BIOMES = [
+  'minecraft:ocean','minecraft:deep_ocean','minecraft:warm_ocean','minecraft:lukewarm_ocean',
+  'minecraft:deep_lukewarm_ocean','minecraft:cold_ocean','minecraft:deep_cold_ocean',
+  'minecraft:frozen_ocean','minecraft:deep_frozen_ocean','minecraft:river','minecraft:frozen_river',
+  'minecraft:jungle','minecraft:sparse_jungle','minecraft:bamboo_jungle','minecraft:plains','minecraft:sunflower_plains'
+];
 const COLOR_GASES = ['SO2','H2S','NO2','CL2','F2','I2','HI','BR2','O3','CH4','NH3','C6H6','CLO2','FE','HCN','SIH4','CS2','COS','OCS','HBR'];
 
 const HOT_BIOMES = ['very_hot_regolithbasin','hot_regolithbasin','light_regolithbasin','cratered_regolithbasin','yellow_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin'];
@@ -253,7 +259,11 @@ function demos(worldSeed) {
       dp('asterion',1,'Аэрис','habitable',1.15,0.94,0.9,28,'medium',['O2:0.86','N2:0.11','AR:0.03'],0,false,'windy_forest',0xA2),
       dp('asterion',2,'Веспер','very_hot',0.58,0.95,0.9,462,'thick',['CO2:0.95','SO2:0.04','N2:0.01'],0,false,'very_hot_regolithbasin',0xA3),
       dp('asterion',3,'Ноктис','habitable',1.35,0.72,0.6,16,'moderate',['N2:0.74','O2:0.23','AR:0.03'],2,false,'night_forest',0xA4),
-      dp('asterion',4,'Кронос','gas_giant',5.2,9.5,2.3,-145,'thick',['H2:0.86','HE:0.12','CH4:0.02'],4,true,'brown_regolithbasin',0xA5)
+      dp('asterion',4,'Кронос','gas_giant',5.2,9.5,2.3,-145,'thick',['H2:0.86','HE:0.12','CH4:0.02'],4,true,'brown_regolithbasin',0xA5),
+      { id:'enchanted_universe:planet_demo_aquaria', designation:'Аквария', name:'Аквария', category:'habitable',
+        orbitAu:1.05, diameterEarth:1.08, gravity:1.0, temperatureC:24, atmosphere:'moderate',
+        composition:['N2:0.78','O2:0.21','AR:0.01'], moons:2, rings:false, biomes:AQUARIA_BIOMES,
+        radiation:12, gauss:0.5, seed: BigInt.asIntN(64, W ^ 0xA6n).toString() }
     ] },
     { name:'Бетельгейзе', formalName:'Betelgeuse', star:'red_supergiant', distanceLy:640.0, planets:[
       dp('betelgeuse',0,'Пепел','hot',2.4,1.4,1.5,180,'thin',['CO2:0.80','N2:0.15','SO2:0.05'],1,false,'oxidized_plains',0xB1),
@@ -287,7 +297,7 @@ function moonClimate(gas, hz, index, radiusKm, dRatio) {
   if (gas && hz && radiusKm > 2200 && index > 0) return {
     category: 'habitable', archetype: 'ocean', atmosphere: 'moderate',
     composition: ['N2', 'O2', 'AR', 'H2O'],
-    biomes: ['greensproutsgroves', 'windy_forest', 'golden_groves'], temperatureC: 14
+    biomes: AQUARIA_BIOMES, temperatureC: 14
   };
   if (dRatio < 7.5) return {
     category: 'very_hot', archetype: 'sulfur', atmosphere: 'thin',
@@ -342,7 +352,7 @@ function moonSpecs(planet) {
       phase: Number((u >> 31n) & 0xFFFFn) / 65535,
       type: climate.category, category: climate.category, archetype: climate.archetype,
       atmosphere: climate.atmosphere, composition: climate.composition,
-      biomes: climate.biomes.map(b => 'enchanted_universe:' + b),
+      biomes: climate.biomes.map(b => String(b).includes(':') ? b : 'enchanted_universe:' + b),
       temperatureC: climate.temperatureC, radiation
     });
   }
