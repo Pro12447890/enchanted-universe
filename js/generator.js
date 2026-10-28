@@ -385,8 +385,14 @@ function planetClass(p) {
   let base = 'терра';
   if (['ferria','iron'].includes(archetype)) base = 'феррия';
   else if (['carbonia','carbon'].includes(archetype)) base = 'карбония';
-  else if (['aquaria','ocean','hycean','ice','snowball','moon_icy','panthalassic','ammonia','cryovolcanic'].includes(archetype)) base = 'аквария';
-  else if (['neptune','ice_giant','mini_neptune','gas_dwarf'].includes(archetype)) base = 'нептун';
+  else if (archetype === 'ammonia') base = 'аммиачная аквария';
+  else if (archetype === 'panthalassic') base = 'панталассическая аквария';
+  else if (archetype === 'cryovolcanic') base = 'криовулканическая аквария';
+  else if (archetype === 'pulsar') base = 'пульсарная терра';
+  else if (archetype === 'toroidal') base = 'тороидальная терра';
+  else if (archetype === 'gas_dwarf') base = 'газовый карлик';
+  else if (['aquaria','ocean','hycean','ice','snowball','moon_icy'].includes(archetype)) base = 'аквария';
+  else if (['neptune','ice_giant','mini_neptune'].includes(archetype)) base = 'нептун';
   else if (['jupiter','gas_giant','hot_jupiter','puffy','super_puff','helium_giant'].includes(archetype)) base = 'юпитер';
   else if (['chthonia','chthonian'].includes(archetype)) base = 'хтония';
   else if (archetype === 'brown_dwarf') base = 'коричневый карлик';
