@@ -176,7 +176,7 @@ function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
   let orbit = CATEGORIES[category][0] + r.nextDouble() * (CATEGORIES[category][1] - CATEGORIES[category][0]);
   orbit *= Math.sqrt(Math.max(0.01, STAR[star]));
   const diameter = 0.2 + r.nextDouble() * 3.8;
-  const gravity = clamp(diameter * (0.55 + r.nextDouble() * 0.65), 0.15, 4.0);
+  const gravity = clamp(diameter * (0.55 + r.nextDouble() * 0.65), 0.20, 4.0);
   const temperature = temperatureFor(category, orbit, star);
   const atmosphere = pickAtmosphere(r, category);
   const archetype = ARCH[category][r.nextInt(ARCH[category].length)];
@@ -235,7 +235,7 @@ function solarSystem(worldSeed) {
   return { name:'Солнечная система', formalName:'Sol', star:'yellow_dwarf', distanceLy:0, planets: p.map(x => {
     const seed = BigInt.asIntN(64, BigInt(worldSeed) ^ (0x101n * BigInt(x[0] + 1)));
     return { id:'enchanted_universe:planet_'+hex+'_sol_'+x[0], designation:x[1], name:x[1], category:x[2], orbitAu:x[3],
-      diameterEarth:x[4], gravity:x[5], temperatureC:x[6], atmosphere:x[7], composition:x[8], moons:x[9], rings:x[10],
+      diameterEarth:x[4], gravity:Math.max(0.20, x[5]), temperatureC:x[6], atmosphere:x[7], composition:x[8], moons:x[9], rings:x[10],
       biomes:['enchanted_universe:'+x[11]].concat(x[0] === 1 ? ['enchanted_universe:beige_regolithbasin','enchanted_universe:ochre_regolithbasin'] : []), radiation:Math.max(0, 20 - x[0]*1.2), gauss:0.5, seed:seed.toString() };
   }) };
 }
@@ -244,7 +244,7 @@ function demos(worldSeed) {
   const W = BigInt(worldSeed);
   function dp(prefix, index, name, category, orbit, diameter, gravity, temp, atmosphere, comp, moons, rings, biome, xor) {
     return { id:'enchanted_universe:planet_demo_'+prefix+'_'+index, designation:name, name, category, orbitAu:orbit,
-      diameterEarth:diameter, gravity, temperatureC:temp, atmosphere, composition:comp, moons, rings,
+      diameterEarth:diameter, gravity:Math.max(0.20, gravity), temperatureC:temp, atmosphere, composition:comp, moons, rings,
       biomes:['enchanted_universe:'+biome], radiation:12, gauss:0.5, seed:BigInt.asIntN(64, W ^ BigInt(xor)).toString() };
   }
   return [
@@ -335,7 +335,7 @@ function moonSpecs(planet) {
     const radiation = Math.max(0, Math.min(1000, belt * (1 - shield)));
     out.push({
       index: i, name: moonNameFor(planet.name, i), distanceKm: radiusParent * dRatio, radiusKm,
-      gravity: Math.max(0.01, 0.08 + (radiusKm / radiusParent) * 2.2),
+      gravity: Math.max(0.20, 0.08 + (radiusKm / radiusParent) * 2.2),
       tiltDeg: Number((u >> 7n) % 121n) - 60,
       yawDeg: Number((u >> 23n) % 91n) - 45,
       periodTicks: 22000 + Math.abs(Number((u >> 11n) % 80000n)),
