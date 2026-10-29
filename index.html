@@ -1,14 +1,16 @@
 <!doctype html>
 <html lang="ru">
 <head>
+<script>if (location.protocol === 'http:') location.replace('https://' + location.host + location.pathname + location.search + location.hash);</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="canonical" href="https://enchanted.daymix.dpns.org/">
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+<link rel="canonical" href="https://enchanted.daymix.dpdns.org/">
 <meta name="description" content="Enchanted Universe — интерактивная карта сидов, планет и симбиозных миров Смешарии.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Enchanted Universe — карта сидов">
 <meta property="og:description" content="Планеты, биомы, системы Смешарии и карта сидов.">
-<meta property="og:url" content="https://enchanted.daymix.dpns.org/">
+<meta property="og:url" content="https://enchanted.daymix.dpdns.org/">
 <meta name="twitter:card" content="summary_large_image">
 
 <title>Enchanted Universe — предпросмотр сидов</title>
@@ -99,8 +101,8 @@
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
 <script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
-<script src="js/i18n.js?v=26"></script>
-<script src="js/generator.js?v=26"></script>
+<script src="js/i18n.js?v=27"></script>
+<script src="js/generator.js?v=27"></script>
 <script>
 'use strict';
 const canvas = document.getElementById('map');
