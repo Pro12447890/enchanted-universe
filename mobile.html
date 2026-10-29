@@ -82,6 +82,9 @@
     #hint{display:none}
     #langModal .card{padding:18px}
  #info{width:calc(100% - 24px)} #seedLabel{display:none} }
+  .zoomctl { position:fixed; right:14px; bottom:14px; display:flex; flex-direction:column; gap:6px; z-index:8; }
+  .zoomctl button { width:34px; height:34px; padding:0; font-size:20px; line-height:1; border-radius:9px; background:#0d1526dd; border:1px solid #3a4d70; color:#dfe7ff; cursor:pointer; }
+  .zoomctl button:hover { background:#17233a; border-color:#6b86b8; }
 </style>
 </head>
 <body>
@@ -115,8 +118,12 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=28"></script>
-<script src="js/generator.js?v=28"></script>
+<script src="js/i18n.js?v=29"></script>
+<script src="js/generator.js?v=29"></script>
+<div class="zoomctl">
+  <button id="zoomIn" title="Приблизить">+</button>
+  <button id="zoomOut" title="Отдалить">−</button>
+</div>
 <script>
 'use strict';
 const canvas = document.getElementById('map');
@@ -191,7 +198,7 @@ function generate(seed) {
     stars = makeStars(seed);
     nebulae = makeNebula(seed);
     selected = null; info.style.display = 'none';
-    const fit = fitGalaxy() * 1.2;
+    const fit = fitGalaxy();
     goal = { x: 0, y: 0, z: fit }; cam = { x: 0, y: 0, z: fit };
     document.getElementById('loading').classList.add('hidden');
   }, 15);
@@ -1034,6 +1041,9 @@ canvas.addEventListener('pointercancel', endPointer);
 document.getElementById('zin').addEventListener('click', () => { goal.z = Math.min(12000, goal.z * 1.55); });
 document.getElementById('zout').addEventListener('click', () => { goal.z = Math.max(0.04, goal.z / 1.55); });
 
+function nudgeZoom(f) { goal.z = Math.max(0.0005, Math.min(20000, goal.z * f)); }
+document.getElementById('zoomIn').addEventListener('click', () => nudgeZoom(1.3));
+document.getElementById('zoomOut').addEventListener('click', () => nudgeZoom(0.77));
 document.getElementById('zones').addEventListener('click', () => { showZones = !showZones; document.getElementById('zones').style.color = showZones ? '#7dff9a' : ''; });
 document.getElementById('smeshariaVersion').addEventListener('change', () => {
   showSmesharia = document.getElementById('smeshariaVersion').checked;
