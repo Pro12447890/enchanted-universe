@@ -301,7 +301,20 @@ function smeshariaSystems(worldSeed) {
   const nbc = [
     p('nbc_3301_1','NBC-3301 1','NBC-3301 1','temperate','moderate',['N2:0.76','O2:0.22','AR:0.02'],0.92,18,0.85,0.95,0,false,['enchanted_universe:greensproutsgroves'],0xE101),
     p('nbc_3301_2','NBC-3301 2','NBC-3301 2','temperate','moderate',['N2:0.74','O2:0.24','AR:0.02'],0.95,16,1.10,0.96,0,false,['enchanted_universe:windy_forest'],0xE102),
-    p('nbc_3301_3','NBC-3301 3','NBC-3301 3','gas_giant','thick',['H2:0.82','HE:0.14','CH4:0.04'],2.6,-120,2.2,9.2,6,false,icy,0xE103),
+    (() => {
+      const parent = p('nbc_3301_3','NBC-3301 3','NBC-3301 3','gas_giant','thick',['H2:0.82','HE:0.14','CH4:0.04'],2.6,-120,2.2,9.2,6,false,icy,0xE103);
+      const names = ['A','B','C','D','E','F'];
+      parent.customMoons = names.map((n, i) => ({
+        index: i, name: n, distanceKm: 380000 + i * 90000, radiusKm: i === 2 ? 2700 : 800,
+        gravity: i === 2 ? 0.8 : 0.15, tiltDeg: 12 + i * 4, yawDeg: 8 - i * 2,
+        periodTicks: 24000 + i * 900, phase: i / 6,
+        category: i === 2 ? 'cold_habitable' : 'distant',
+        archetype: i === 2 ? 'ice' : 'forbidden', atmosphere: i === 2 ? 'minimal' : 'none',
+        composition: i === 2 ? ['O2','H2O'] : [], biomes: i === 2 ? ['enchanted_universe:icy_groves'] : ['enchanted_universe:cratered_regolithbasin'],
+        temperatureC: i === 2 ? -40 : -120, radiation: 4
+      }));
+      return parent;
+    })(),
     p('nbc_3301_4','NBC-3301 4','NBC-3301 4','cold_habitable','thin',['N2:0.80','CH4:0.18','AR:0.02'],0.72,-85,1.6,0.7,0,false,icy,0xE104)
   ];
   const dvn = [
@@ -364,6 +377,7 @@ function moonClimate(gas, hz, index, radiusKm, dRatio) {
 }
 
 function moonSpecs(planet) {
+  if (planet.customMoons) return planet.customMoons;
   const count = Math.max(0, planet.moons | 0);
   if (!count) return [];
   const parentSeed = BigInt(planet.seed);
