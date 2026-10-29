@@ -50,7 +50,7 @@ const CATEGORIES = {
 const ARCH = {
   very_hot: ['lava','airless','sulfur','iron','ultrahot','cryovolcanic','pulsar'],
   hot: ['mars_like','desert','airless','iron','rocky_thin','chthonian','toroidal'],
-  temperate: ['desert','tundra','rocky_thin','ocean','carbon','sulfur','ammonia'],
+  temperate: ['desert','tundra','rocky_thin','ocean','carbon','sulfur','ammonia','withered'],
   habitable: ['ocean','tidal_eyeball','hycean','snowball','circumbinary','desert','rocky_thin','panthalassic'],
   cold_habitable: ['snowball','tundra','ice','ocean','ammonia','cryovolcanic','panthalassic'],
   distant: ['ice','dwarf_planet','airless','carbon','moon_icy','cryovolcanic','toroidal'],
@@ -140,6 +140,7 @@ function biomes(r, category, atmosphere, archetype) {
   if (category === 'gas_giant') return [];
   if (['gas_giant','ice_giant','hot_jupiter'].includes(archetype)) return [];
   let pool;
+  if (archetype === 'withered') return ['enchanted_universe:ashy_groves'];
   if (archetype === 'panthalassic') return AQUARIA_BIOMES.slice();
   if (archetype === 'ammonia') pool = COLD_BIOMES;
   else if (archetype === 'ocean' || archetype === 'hycean') pool = HABITABLE_BIOMES;
@@ -180,16 +181,22 @@ function mix(seed, index) {
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
 function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
-  const category = pickCategory(r, index);
+  let category = pickCategory(r, index);
   let orbit = CATEGORIES[category][0] + r.nextDouble() * (CATEGORIES[category][1] - CATEGORIES[category][0]);
   orbit *= Math.sqrt(Math.max(0.01, STAR[star]));
   const diameter = 0.2 + r.nextDouble() * 3.8;
   const gravity = clamp(diameter * (0.55 + r.nextDouble() * 0.65), 0.20, 4.0);
   const temperature = temperatureFor(category, orbit, star);
-  const atmosphere = pickAtmosphere(r, category);
-  const archetype = ARCH[category][r.nextInt(ARCH[category].length)];
+  let atmosphere = pickAtmosphere(r, category);
+  let archetype = ARCH[category][r.nextInt(ARCH[category].length)];
+  if (archetype === 'withered') {
+    category = 'temperate';
+    orbit = 0.80 + r.nextDouble() * 0.10;
+    atmosphere = 'thick';
+  }
   const aerosol = AEROSOL_BY_ARCH[archetype] || 'none';
-  const comp = composition(r, atmosphere, category);
+  let comp = composition(r, atmosphere, category);
+  if (archetype === 'withered') comp = ['N2:0.70','CO2:0.18','SO2:0.08','AR:0.04'];
   const baseRad = baseRadiation(r, category);
   const gauss = 0.5 + r.nextDouble() * 44.5;
   const radiation = clamp(baseRad * (1 - { none: 0, minimal: 50, thin: 75, moderate: 90, medium: 95, thick: 99 }[atmosphere] / 100) * magneticFactor(gauss), 0, 1000);
@@ -397,6 +404,7 @@ function planetClass(p) {
   else if (['chthonia','chthonian'].includes(archetype)) base = 'хтония';
   else if (archetype === 'brown_dwarf') base = 'коричневый карлик';
   else if (archetype === 'tidal_eyeball') base = 'приливно-захваченная планета';
+  else if (archetype === 'withered') base = 'вянущая терра';
   else if (['asteroid','comet'].includes(archetype)) base = 'астероид';
   const temp = ({
     very_hot:'раскалённая', hot:'горячая', temperate:'тёплая', habitable:'умеренная',
