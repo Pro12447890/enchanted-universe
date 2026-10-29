@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="canonical" href="https://enchanted.daymix.dpdns.org/">
+<link rel="canonical" href="https://enchanted.daymix.dpns.org/">
 <meta name="description" content="Enchanted Universe — интерактивная карта сидов, планет и симбиозных миров Смешарии.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Enchanted Universe — карта сидов">
 <meta property="og:description" content="Планеты, биомы, системы Смешарии и карта сидов.">
-<meta property="og:url" content="https://enchanted.daymix.dpdns.org/">
+<meta property="og:url" content="https://enchanted.daymix.dpns.org/">
 <meta name="twitter:card" content="summary_large_image">
 
 <title>Enchanted Universe — предпросмотр сидов</title>
@@ -99,8 +99,8 @@
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
 <script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
-<script src="js/i18n.js?v=25"></script>
-<script src="js/generator.js?v=25"></script>
+<script src="js/i18n.js?v=26"></script>
+<script src="js/generator.js?v=26"></script>
 <script>
 'use strict';
 const canvas = document.getElementById('map');
@@ -113,7 +113,8 @@ const search = document.getElementById('search');
 let catalog = null, stars = [];
 let cam = { x: 0, y: 0, z: 1 }, goal = { x: 0, y: 0, z: 1 };
 let dragging = false, lastX = 0, lastY = 0, moved = 0;
-let selected = null, clock = 0, showZones = false, showSmesharia = false; // {kind:'planet'|'star', system, planet}
+let selected = null, clock = 0, showZones = false, showSmesharia = false;
+let pointerX = -1, pointerY = -1; // {kind:'planet'|'star', system, planet}
 let lastFrame = performance.now();
 const dpr = Math.min(2, devicePixelRatio || 1);
 
@@ -174,7 +175,7 @@ function generate(seed) {
     stars = makeStars(seed);
     nebulae = makeNebula(seed);
     selected = null; info.style.display = 'none';
-    const fit = fitGalaxy();
+    const fit = fitGalaxy() * 2;
     goal = { x: 0, y: 0, z: fit }; cam = { x: 0, y: 0, z: fit };
     document.getElementById('loading').classList.add('hidden');
   }, 15);
@@ -197,18 +198,29 @@ function makeNebula(seed) {
 }
 let nebulae = [];
 
+function systemJitter(i, s) {
+  let h = 2166136261 >>> 0;
+  const key = String(catalog ? catalog.worldSeed : '') + '|' + i + '|' + s.name;
+  for (let k = 0; k < key.length; k++) { h ^= key.charCodeAt(k); h = Math.imul(h, 16777619); }
+  h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15;
+  const scale = i <= 4 ? 18 : 90;
+  return { x: (((h >>> 0) % 2000) / 1000 - 1) * scale,
+           y: ((((h >>> 11) >>> 0) % 2000) / 1000 - 1) * scale };
+}
 function systemPos(i, s) {
   if (i === 0) return { x: 0, y: 0 };
   if (i <= 4) {
     const dist = [12, 640, 26, 860][i-1];
     const ang = -1.1 + (i-1) * 0.9;
     const r = 55 + Math.sqrt(Math.max(1, dist)) * 18;
-    return { x: Math.cos(ang)*r, y: Math.sin(ang)*r };
+    const j = systemJitter(i, s);
+    return { x: Math.cos(ang)*r + j.x, y: Math.sin(ang)*r + j.y };
   }
   const idx = i - 5;
   const ang = idx * 2.399963229728653;
   const r = 150 + Math.sqrt(Math.max(1, s.distanceLy)) * 48;
-  return { x: Math.cos(ang)*r, y: Math.sin(ang)*r };
+  const j = systemJitter(i, s);
+  return { x: Math.cos(ang)*r + j.x, y: Math.sin(ang)*r + j.y };
 }
 function fitGalaxy() {
   let max = 1;
@@ -550,6 +562,9 @@ function drawPlanets(alpha, now) {
       const pp = planetPos(i, s, p);
       const px = screenX(pp.x), py = screenY(pp.y);
       const pr = Math.max(1.1, planetRadiusUnits(p) * cam.z);
+      const hovered = cam.z > 45 && pointerX >= 0 && Math.hypot(pointerX - px, pointerY - py) <= Math.max(10, pr * 1.7 + 8);
+      p._hover = (p._hover || 0) + ((hovered ? 1 : 0) - (p._hover || 0)) * 0.22;
+      const drawR = pr * (1 + 0.28 * p._hover);
       const visible = px > -pr*30 && px < innerWidth + pr*30 && py > -pr*30 && py < innerHeight + pr*30;
       if (!visible && !starVisible) return;
       const orbitPx = orbitUnits(p) * cam.z;
@@ -562,32 +577,39 @@ function drawPlanets(alpha, now) {
       if (visible) {
         ctx.globalAlpha = alpha;
         if (p.smesharia) drawSmeshariaAura(px, py, Math.max(5, pr * 2.6), alpha);
-        if (p.rings) drawRings(px, py, pr, true);
-        drawPlanet(px, py, pr, p, starX, starY);
-        if (p.rings) drawRings(px, py, pr, false);
+        if (p.rings) drawRings(px, py, drawR, true);
+        drawPlanet(px, py, drawR, p, starX, starY);
+        if (p.rings) drawRings(px, py, drawR, false);
+        if (p._hover > 0.015) {
+          ctx.save();
+          ctx.globalAlpha = 0.20 * p._hover;
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.arc(px, py, drawR, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+        }
         const density = ATM_DENSITY[p.atmosphere] || 0;
-        if (pr > 1.4 && density > 0) {
+        if (drawR > 1.4 && density > 0) {
           const ac = atmosphereColor(p);
-          const gl = ctx.createRadialGradient(px, py, pr*0.92, px, py, pr*(1.35 + density*0.8));
+          const gl = ctx.createRadialGradient(px, py, drawR*0.92, px, py, drawR*(1.35 + density*0.8));
           gl.addColorStop(0, ac.replace('rgb(', 'rgba(').replace(')', ',' + (0.30*density) + ')'));
           gl.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(px, py, pr*(1.35 + density*0.8), 0, Math.PI*2); ctx.fill();
+          ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(px, py, drawR*(1.35 + density*0.8), 0, Math.PI*2); ctx.fill();
         }
         if (selected && selected.planet === p) {
           ctx.strokeStyle = '#ffe6b0'; ctx.lineWidth = 1.4;
-          ctx.beginPath(); ctx.arc(px, py, pr + 5, 0, Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(px, py, drawR + 5, 0, Math.PI*2); ctx.stroke();
         }
       }
       const focused = selected && selected.planet === p;
       const moonAlpha = alpha * smooth(600, 1600, cam.z) * (focused ? 1 : (cam.z > 2200 ? 0.65 : 0));
-      if (moonAlpha > 0.02 && p.moons > 0) drawMoons(px, py, pr, p, moonAlpha, now, focused);
+      if (moonAlpha > 0.02 && p.moons > 0) drawMoons(px, py, drawR, p, moonAlpha, now, focused);
       const labelA = alpha * (1 - smooth(1600, 3000, cam.z)) * smooth(55, 110, cam.z);
       if (labelA > 0.02 && visible) {
         const right = Math.cos(planetAngle(p)) >= 0;
         ctx.globalAlpha = labelA;
         ctx.font = '11px "Segoe UI",system-ui';
         ctx.textAlign = right ? 'left' : 'right'; ctx.fillStyle = focused ? '#ffe6b0' : '#c6d4f2';
-        ctx.fillText(p.designation, px + (right ? 1 : -1)*(pr + 8), py + 3);
+        ctx.fillText(p.designation, px + (right ? 1 : -1)*(drawR + 8), py + 3);
       }
     });
   });
@@ -793,7 +815,8 @@ function clickAt(sx, sy) {
         const pp = planetPos(i, s, p);
         const px = screenX(pp.x), py = screenY(pp.y);
         const pr = Math.max(8, planetRadiusUnits(p) * cam.z);
-        if (Math.hypot(px - sx, py - sy) <= Math.max(12, pr + 8)) {
+        const hit = Math.max(12, pr * (1 + 0.28 * (p._hover || 0)) + 10);
+        if (Math.hypot(px - sx, py - sy) <= hit) {
           focusPlanet(i, s, p); return;
         }
       }
@@ -951,12 +974,14 @@ canvas.addEventListener('wheel', e => {
 }, { passive:false });
 
 canvas.addEventListener('pointerdown', e => { dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY; canvas.classList.add('drag'); });
+canvas.addEventListener('pointerleave', () => { pointerX = -1; pointerY = -1; });
 addEventListener('pointerup', e => {
   canvas.classList.remove('drag');
   if (dragging && moved < 6) clickAt(e.clientX, e.clientY);
   dragging = false;
 });
 addEventListener('pointermove', e => {
+  pointerX = e.clientX; pointerY = e.clientY;
   if (!dragging) return;
   const dx = e.clientX - lastX, dy = e.clientY - lastY;
   moved += Math.abs(dx) + Math.abs(dy);
