@@ -120,8 +120,8 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=34"></script>
-<script src="js/generator.js?v=34"></script>
+<script src="js/i18n.js?v=35"></script>
+<script src="js/generator.js?v=35"></script>
 <div class="zoomctl">
   <button id="zoomIn" title="Приблизить">+</button>
   <button id="zoomOut" title="Отдалить">−</button>
@@ -671,9 +671,9 @@ function drawPlanets(alpha, now) {
       if (visible) {
         ctx.globalAlpha = alpha;
         if (p.smesharia) drawSmeshariaAura(px, py, Math.max(5, pr * 2.6), alpha);
-        if (p.rings) drawRings(px, py, drawR, true);
+        if (p.rings) drawRings(px, py, drawR, true, p);
         drawPlanet(px, py, drawR, p, starX, starY);
-        if (p.rings) drawRings(px, py, drawR, false);
+        if (p.rings) drawRings(px, py, drawR, false, p);
         if (p._hover > 0.015) {
           ctx.save();
           ctx.globalAlpha = 0.20 * p._hover;
@@ -829,13 +829,26 @@ function orbitalSite(p) {
   for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619); }
   return (h >>> 0) % 100 < 15;
 }
-function drawRings(x, y, r, back) {
+function ringStyle(p) {
+  const n = String(p && p.name || '').toLowerCase();
+  if (n.includes('сатурн') || n.includes('saturn')) return { color: 'rgba(235,218,166,.92)', width: 0.17, radius: 2.15 };
+  if (n.includes('юпитер') || n.includes('jupiter')) return { color: 'rgba(184,112,78,.62)', width: 0.035, radius: 2.05 };
+  if (n.includes('уран') || n.includes('uranus')) return { color: 'rgba(95,105,120,.62)', width: 0.03, radius: 2.0 };
+  if (n.includes('нептун') || n.includes('neptune')) return { color: 'rgba(58,68,78,.45)', width: 0.025, radius: 1.95 };
+  let h = 2166136261 >>> 0;
+  const src = String(p && (p.id || p.seed) || '');
+  for (let i=0;i<src.length;i++){h ^= src.charCodeAt(i); h = Math.imul(h,16777619);}
+  const palette = ['rgba(180,120,80,.55)','rgba(190,170,120,.55)','rgba(110,120,145,.55)','rgba(90,150,150,.55)','rgba(140,100,160,.55)','rgba(180,90,100,.55)','rgba(140,150,90,.55)','rgba(100,130,180,.55)'];
+  return { color: palette[(h >>> 0) % palette.length], width: 0.03 + ((h >>> 8) % 4) * 0.008, radius: 2.0 };
+}
+function drawRings(x, y, r, back, p) {
+  const st = ringStyle(p);
   ctx.save();
-  ctx.strokeStyle = 'rgba(226,208,164,.72)';
-  ctx.lineWidth = Math.max(0.8, r*0.26);
+  ctx.strokeStyle = st.color;
+  ctx.lineWidth = Math.max(0.8, r * st.width);
   ctx.beginPath();
-  if (back) ctx.ellipse(x, y, r*2.1, r*0.54, 0, Math.PI, Math.PI*2);
-  else ctx.ellipse(x, y, r*2.1, r*0.54, 0, 0, Math.PI);
+  if (back) ctx.ellipse(x, y, r*st.radius, r*0.54, 0, Math.PI, Math.PI*2);
+  else ctx.ellipse(x, y, r*st.radius, r*0.54, 0, 0, Math.PI);
   ctx.stroke(); ctx.restore();
 }
 
