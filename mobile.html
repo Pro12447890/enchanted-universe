@@ -120,8 +120,8 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=31"></script>
-<script src="js/generator.js?v=31"></script>
+<script src="js/i18n.js?v=32"></script>
+<script src="js/generator.js?v=32"></script>
 <div class="zoomctl">
   <button id="zoomIn" title="Приблизить">+</button>
   <button id="zoomOut" title="Отдалить">−</button>
@@ -361,6 +361,17 @@ function draw(now) {
   }
 }
 
+function companionPosition(system, sx, sy, r) {
+  if (!system || !system.companion) return null;
+  let h = 2166136261 >>> 0;
+  const key = String(system.companion.name || '') + String(system.formalName || '');
+  for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const phase = (h >>> 0) / 4294967295 * Math.PI * 2;
+  const angle = clock * 0.55 + phase;
+  const orbit = Math.max(r * 3.6, 26);
+  return { x: sx + Math.cos(angle) * orbit, y: sy + Math.sin(angle) * orbit * 0.55,
+           r: Math.max(1.2, r * 0.5), angle, orbit };
+}
 function drawGalaxy(alpha, now) {
   catalog.systems.forEach((s, i) => {
     const p = systemPos(i, s);
@@ -378,13 +389,14 @@ function drawGalaxy(alpha, now) {
     ctx.globalAlpha = alpha; ctx.fillStyle = starColor;
     ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
     if (s.companion) {
+      const cp = companionPosition(s, sx, sy, r);
       const cd = STAR_DATA[s.companion.star] || STAR_DATA.white_dwarf;
-      const cr = Math.max(1, r * 0.55);
-      const cx = sx + r * 2.6, cy = sy - r * 1.5;
-      ctx.globalAlpha = alpha * 0.9; ctx.fillStyle = cd.color;
-      ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI*2); ctx.fill();
-      ctx.globalAlpha = alpha * 0.35; ctx.strokeStyle = cd.color;
-      ctx.beginPath(); ctx.arc(sx, sy, r * 3.4, 0, Math.PI*2); ctx.stroke();
+      if (cp) {
+        ctx.globalAlpha = alpha * 0.22; ctx.strokeStyle = cd.color;
+        ctx.beginPath(); ctx.ellipse(sx, sy, cp.orbit, cp.orbit * 0.55, 0, 0, Math.PI*2); ctx.stroke();
+        ctx.globalAlpha = alpha * 0.95; ctx.fillStyle = cd.color;
+        ctx.beginPath(); ctx.arc(cp.x, cp.y, Math.max(1, cp.r), 0, Math.PI*2); ctx.fill();
+      }
     }
     if (i === 0) {
       ctx.globalAlpha = alpha*0.9; ctx.strokeStyle = '#ffe6b0'; ctx.lineWidth = 1;
@@ -847,13 +859,14 @@ function drawFocusStar(now) {
     ctx.restore(); ctx.globalAlpha = 1;
   }
   if (best.system.companion) {
+    const cp = companionPosition(best.system, x, y, r);
     const cd = STAR_DATA[best.system.companion.star] || STAR_DATA.white_dwarf;
-    const cr = Math.max(2, r * 0.38);
-    const cx = x + r * 2.8, cy = y - r * 1.2;
-    ctx.globalAlpha = 0.95; ctx.fillStyle = cd.color;
-    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI*2); ctx.fill();
-    ctx.globalAlpha = 0.35; ctx.strokeStyle = cd.color;
-    ctx.beginPath(); ctx.ellipse(x, y, r * 3.1, r * 1.9, -0.35, 0, Math.PI*2); ctx.stroke();
+    if (cp) {
+      ctx.globalAlpha = 0.35; ctx.strokeStyle = cd.color;
+      ctx.beginPath(); ctx.ellipse(x, y, cp.orbit, cp.orbit * 0.55, 0, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 0.95; ctx.fillStyle = cd.color;
+      ctx.beginPath(); ctx.arc(cp.x, cp.y, Math.max(2, cp.r), 0, Math.PI*2); ctx.fill();
+    }
   }
   ctx.globalAlpha = 0.9; ctx.font = `${Math.max(11, Math.min(16, r*0.35))}px "Segoe UI",system-ui`;
   ctx.textAlign = 'center'; ctx.fillStyle = '#ffe6b0';
@@ -897,6 +910,19 @@ function clickAt(sx, sy) {
           focusPlanet(i, s, p); return;
         }
       }
+    }
+  }
+  // Компаньон кликается раньше главной звезды.
+  for (const [i, s] of catalog.systems.entries()) {
+    if (!s.companion) continue;
+    const p = systemPos(i, s);
+    const sx0 = screenX(p.x), sy0 = screenY(p.y);
+    const r0 = Math.max(6, starRadiusUnits(s) * cam.z);
+    const cp = companionPosition(s, sx0, sy0, r0);
+    if (cp && Math.hypot(cp.x - sx, cp.y - sy) <= Math.max(12, cp.r + 8)) {
+      selected = { kind: 'companion', system: s, index: i };
+      showCompanion(s);
+      return;
     }
   }
   let best = null, bestD = 30;
@@ -1003,6 +1029,24 @@ function showMoon(m, p, system) {
     </table>`;
 }
 
+function showCompanion(system) {
+  const c = system.companion;
+  const data = STAR_DATA[c.star] || STAR_DATA.white_dwarf;
+  info.style.display = 'block';
+  info.innerHTML = `
+    ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
+    <h2>${c.name}</h2>
+    <div class="sub">${system.name} · ${EUI18N.current() === 'ru' ? 'компаньон' : 'companion'}</div>
+    <table>
+      <tr><td>${T('info.class')}</td><td>${T('star.'+c.star)}</td></tr>
+      <tr><td>${EUI18N.current() === 'ru' ? 'Спектр' : 'Spectral'}</td><td>${EUGenerator.starSpectral(c.star)}</td></tr>
+      <tr><td>${T('info.temp_k')}</td><td>${data.t.toLocaleString(EUI18N.current()==='ru'?'ru-RU':'en-US')} ${T('unit.k')}</td></tr>
+      <tr><td>${T('info.lum')}</td><td>${data.lum} ${T('unit.lsun')}</td></tr>
+      <tr><td>${EUI18N.current() === 'ru' ? 'Орбита' : 'Orbit'}</td><td>${Number(c.orbitAu).toFixed(2)} ${T('unit.au')}</td></tr>
+      <tr><td>${T('info.planets')}</td><td>${system.planets.length}</td></tr>
+    </table>
+    <div class="sub">${EUI18N.current() === 'ru' ? 'Главная звезда' : 'Primary'}: ${system.name}</div>`;
+}
 function showStar(system) {
   const data = STAR_DATA[system.star] || STAR_DATA.yellow_dwarf;
   info.style.display = 'block';
