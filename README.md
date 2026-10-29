@@ -29,34 +29,21 @@
 
 ## Домен
 
-Целевой адрес: **https://enchanted.daymix.dpdns.org/** (защищённое соединение).
+Домен активен: **https://enchanted.daymix.dpdns.org/**.
+DNS-запись и GitHub Pages настроены, `Enforce HTTPS` включён; HTTP отвечает
+`301` на HTTPS.
 
-В репозитории лежит `CNAME.ready` — он **не активирует** домен, пока DNS
-не настроен, поэтому текущий `pro12447890.github.io` продолжает работать.
-
-После создания DNS:
-
-1. В GitHub: Settings → Pages → Custom domain → `enchanted.daymix.dpdns.org` → Save.
-   GitHub сам создаст/обновит `CNAME` (или переименуй `CNAME.ready` в `CNAME`).
-2. Дождись проверки DNS и включи **Enforce HTTPS**.
-
-DNS в панели DigitalPlat для зоны `daymix.dpdns.org`:
+Параметры DNS (если понадобится пересоздать):
 
 | Поле | Значение |
 |---|---|
 | Type | `CNAME` |
-| Name / Host | `enchanted` (если панель уже подставляет `daymix.dpdns.org`); иначе `enchanted.daymix` |
+| Name / Host | `enchanted` (панель сама добавляет `daymix.dpdns.org`) |
 | Value / Target | `pro12447890.github.io` |
 | TTL | `3600` / Auto |
 
-Не добавляй `https://`, порт или путь в Target. Удали конфликтующие A/AAAA
-для этого имени. Прокси/CDN (оранжевое облако) на первом этапе лучше выключить:
-GitHub Pages должен сам выпустить сертификат.
-
-Проверка:
+`CNAME` лежит в корне репозитория. Проверка:
 
 ```powershell
 Resolve-DnsName enchanted.daymix.dpdns.org -Type CNAME
 ```
-
-Должен вернуться `pro12447890.github.io`. DNS может обновляться до 24 часов.
