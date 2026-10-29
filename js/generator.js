@@ -70,6 +70,20 @@ const AQUARIA_BIOMES = [
   'minecraft:frozen_ocean','minecraft:deep_frozen_ocean','minecraft:river','minecraft:frozen_river',
   'minecraft:jungle','minecraft:sparse_jungle','minecraft:bamboo_jungle','minecraft:plains','minecraft:sunflower_plains'
 ];
+
+// Каждый биом получает тег wet/dry; аквария — только если >= 2/3 биомов мокрые.
+const WET_BIOME_RE = /(^|:)(ocean|deep_ocean|warm_ocean|lukewarm_ocean|deep_lukewarm_ocean|cold_ocean|deep_cold_ocean|frozen_ocean|deep_frozen_ocean|river|frozen_river)$/;
+function isWetBiome(id) {
+  const key = String(id || '').includes(':') ? String(id).split(':').pop() : String(id || '');
+  return WET_BIOME_RE.test(key);
+}
+function biomeTag(id) { return isWetBiome(id) ? 'wet' : 'dry'; }
+function wetCount(list) { return (list || []).filter(isWetBiome).length; }
+function isAquaria(planet) {
+  const list = planet && planet.biomes || [];
+  return list.length > 0 && wetCount(list) / list.length >= 2 / 3;
+}
+
 const COLOR_GASES = ['SO2','H2S','NO2','CL2','F2','I2','HI','BR2','O3','CH4','NH3','C6H6','CLO2','FE','HCN','SIH4','CS2','COS','OCS','HBR'];
 
 const HOT_BIOMES = ['very_hot_regolithbasin','hot_regolithbasin','light_regolithbasin','cratered_regolithbasin','yellow_regolithbasin','beige_regolithbasin','burgundy_regolithbasin','pale_beige_regolithbasin','ochre_regolithbasin','sulfur_regolithbasin','enchanted_universe:desert_bare','enchanted_universe:badlands_bare','minecraft:savanna'];
@@ -141,9 +155,8 @@ function biomes(r, category, atmosphere, archetype) {
   if (['gas_giant','ice_giant','hot_jupiter'].includes(archetype)) return [];
   let pool;
   if (archetype === 'withered') return ['enchanted_universe:ashy_groves'];
-  if (archetype === 'panthalassic') return AQUARIA_BIOMES.slice();
+  if (archetype === 'panthalassic' || archetype === 'ocean' || archetype === 'hycean') return AQUARIA_BIOMES.slice();
   if (archetype === 'ammonia') pool = COLD_BIOMES;
-  else if (archetype === 'ocean' || archetype === 'hycean') pool = HABITABLE_BIOMES;
   else if (['ice','snowball','moon_icy','cryovolcanic'].includes(archetype)) pool = COLD_BIOMES;
   else if (['sulfur','lava','ultrahot','pulsar'].includes(archetype)) pool = HOT_BIOMES;
   else if (category !== 'habitable' && (category === 'distant' || atmosphere === 'none')) pool = DRY_BIOMES;
@@ -180,7 +193,7 @@ function mix(seed, index) {
 }
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
-function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
+function createPlanet(r, systemIndex, index, formal, star, worldSeed, previousOrbit = 0) {
   let category = pickCategory(r, index);
   let orbit = CATEGORIES[category][0] + r.nextDouble() * (CATEGORIES[category][1] - CATEGORIES[category][0]);
   orbit *= Math.sqrt(Math.max(0.01, STAR[star]));
@@ -194,6 +207,8 @@ function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
     orbit = 0.80 + r.nextDouble() * 0.10;
     atmosphere = 'thick';
   }
+  // Не даём планетам слипаться в одну орбиту: минимум 34% разноса.
+  if (previousOrbit > 0) orbit = Math.max(orbit, previousOrbit * 1.34 + 0.22);
   const aerosol = AEROSOL_BY_ARCH[archetype] || 'none';
   let comp = composition(r, atmosphere, category);
   if (archetype === 'withered') comp = ['N2:0.70','CO2:0.18','SO2:0.08','AR:0.04'];
@@ -208,6 +223,8 @@ function createPlanet(r, systemIndex, index, formal, star, worldSeed) {
       ^ (BigInt(index) * 0xBF58476D1CE4E5B9n) ^ 0x4E49474854n);
     if ((h & 3n) === 0n) biomeList = ['enchanted_universe:night_forest'];
   }
+  // Аквария определяется биомами, а не названием архетипа.
+  if (biomeList.length && wetCount(biomeList) / biomeList.length >= 2 / 3) archetype = 'ocean';
   const desig = designation(formal, index);
   const nameTag = BigInt.asIntN(64, BigInt(worldSeed) ^ (BigInt(systemIndex) * 0x9E3779B97F4A7C15n) ^ (BigInt(index) * 0xBF58476D1CE4E5B9n));
   let suffix = BigInt.asUintN(64, nameTag).toString(36);
@@ -422,9 +439,24 @@ function moonSpecs(planet) {
   return out;
 }
 
+function companionFor(r, formal, star) {
+  if (r.nextFloat() >= 0.15) return null;
+  const giants = ['white_giant','blue_giant','yellow_giant','red_giant','yellow_supergiant','red_supergiant'];
+  const kind = giants.includes(star) ? 'giant_white_dwarf' : 'binary';
+  let comp = star;
+  if (kind === 'giant_white_dwarf') comp = 'white_dwarf';
+  else if (r.nextFloat() >= 0.5) {
+    const pool = ['red_dwarf','yellow_dwarf','white_yellow_dwarf','blue_dwarf','white_dwarf','red_giant','yellow_giant'];
+    comp = pool[r.nextInt(pool.length)];
+  }
+  return { star: comp, name: formal + ' B', orbitAu: 1.5 + r.nextDouble() * 4.5, kind };
+}
+
 function generateCatalog(worldSeed, options = {}) {
   worldSeed = BigInt.asIntN(64, BigInt(worldSeed));
   const systems = [solarSystem(worldSeed), ...demos(worldSeed)];
+  const betel = systems.find(x => x.formalName === 'Betelgeuse');
+  if (betel) betel.companion = { star: 'white_dwarf', name: 'Сиварха', orbitAu: 4.0, kind: 'giant_white_dwarf', real: true };
   if (options && options.smesharia) systems.push(...smeshariaSystems(worldSeed));
   for (let i = 0; i < 96; i++) {
     const systemSeed = mix(worldSeed, i);
@@ -433,10 +465,16 @@ function generateCatalog(worldSeed, options = {}) {
     const star = pickStar(r);
     const name = systemName(r);
     const formal = formalName(r);
+    const companion = companionFor(r, formal, star);
     const planetCount = 1 + r.nextInt(5);
     const planets = [];
-    for (let p = 0; p < planetCount; p++) planets.push(createPlanet(r, i, p, formal, star, worldSeed));
-    systems.push({ name, formalName: formal, star, distanceLy: distance, planets, systemIndex: i, id: 'system_' + i });
+    let previousOrbit = 0;
+    for (let p = 0; p < planetCount; p++) {
+      const planet = createPlanet(r, i, p, formal, star, worldSeed, previousOrbit);
+      planets.push(planet);
+      previousOrbit = planet.orbitAu;
+    }
+    systems.push({ name, formalName: formal, star, companion, distanceLy: distance, planets, systemIndex: i, id: 'system_' + i });
   }
   return { worldSeed: worldSeed.toString(), systems };
 }
@@ -449,13 +487,14 @@ function planetClass(p) {
   else if (['carbonia','carbon'].includes(archetype)) base = 'карбония';
   else if (archetype === 'ammonia') base = 'аммиачная аквария';
   else if (archetype === 'panthalassic') base = 'панталассическая аквария';
+  else if (archetype === 'hycean') base = isAquaria(p) ? 'аквария' : 'терра';
   else if (archetype === 'cryovolcanic') base = 'криовулканическая аквария';
   else if (archetype === 'pulsar') base = 'пульсарная терра';
   else if (archetype === 'toroidal') base = 'тороидальная терра';
   else if (archetype === 'gas_dwarf') base = 'газовый карлик';
   else if (archetype === 'aquaria') base = 'аквария';
-  else if (archetype === 'ocean') base = (p.biomes || []).some(b => /ocean|river|beach/.test(String(b))) ? 'аквария' : 'терра';
-  else if (['hycean','ice','snowball','moon_icy'].includes(archetype)) base = 'аквария';
+  else if (archetype === 'ocean') base = isAquaria(p) ? 'аквария' : 'терра';
+  else if (['ice','snowball','moon_icy'].includes(archetype)) base = 'ледяная терра';
   else if (['neptune','ice_giant','mini_neptune'].includes(archetype)) base = 'нептун';
   else if (['jupiter','gas_giant','hot_jupiter','puffy','super_puff','helium_giant'].includes(archetype)) base = 'юпитер';
   else if (['chthonia','chthonian'].includes(archetype)) base = 'хтония';
@@ -481,5 +520,5 @@ function starSpectral(star) {
   })[star] || '';
 }
 
-if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom, moonSpecs, planetClass, starSpectral };
-if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog, moonSpecs, planetClass, starSpectral };
+if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom, moonSpecs, planetClass, starSpectral, isWetBiome, biomeTag, isAquaria };
+if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog, moonSpecs, planetClass, starSpectral, isWetBiome, biomeTag, isAquaria };
