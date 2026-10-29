@@ -453,7 +453,9 @@ function planetClass(p) {
   else if (archetype === 'pulsar') base = 'пульсарная терра';
   else if (archetype === 'toroidal') base = 'тороидальная терра';
   else if (archetype === 'gas_dwarf') base = 'газовый карлик';
-  else if (['aquaria','ocean','hycean','ice','snowball','moon_icy'].includes(archetype)) base = 'аквария';
+  else if (archetype === 'aquaria') base = 'аквария';
+  else if (archetype === 'ocean') base = (p.biomes || []).some(b => /ocean|river|beach/.test(String(b))) ? 'аквария' : 'терра';
+  else if (['hycean','ice','snowball','moon_icy'].includes(archetype)) base = 'аквария';
   else if (['neptune','ice_giant','mini_neptune'].includes(archetype)) base = 'нептун';
   else if (['jupiter','gas_giant','hot_jupiter','puffy','super_puff','helium_giant'].includes(archetype)) base = 'юпитер';
   else if (['chthonia','chthonian'].includes(archetype)) base = 'хтония';
