@@ -22,6 +22,10 @@
            border-radius:7px; cursor:pointer; white-space:nowrap; }
   button:hover { border-color:#5b74a8; background:#16223a; }
   button.gold { border-color:#6b5a2a; color:var(--gold); background:#1a1608; }
+  label.eutoggle { display:inline-flex; align-items:center; gap:7px; padding:7px 10px; border:1px solid var(--line); border-radius:7px; cursor:pointer; color:var(--dim); font-size:12px; white-space:nowrap; user-select:none; }
+  label.eutoggle input { accent-color:#7dff9a; margin:0; }
+  label.eutoggle.on { color:#9dffd0; border-color:#3f6b5a; background:#0d1d18; }
+  .smeshariaBadge { display:inline-block; margin:0 0 8px; padding:2px 8px; border:1px solid #3f6b5a; border-radius:999px; color:#9dffd0; background:#0d1d18; font-size:11px; letter-spacing:.06em; }
   .grow { flex:1; }
   #seedLabel { color:var(--dim); font-family:ui-monospace,Consolas,monospace; font-size:12px; }
   #searchWrap { position:relative; }
@@ -88,6 +92,10 @@
   <button id="zin">+</button>
   <button id="zout">−</button>
   <button id="zones" data-i18n="zones">Зоны</button>
+  <label class="eutoggle" id="smeshariaWrap" title="Добавить системы Смешарии на карту">
+    <input type="checkbox" id="smeshariaVersion">
+    <span data-i18n="smesharia.version">Версия со Смешарией</span>
+  </label>
   <button id="langBtn">RU</button>
   <button id="galaxy" data-i18n="galaxy">Галактика</button>
   <button id="full" onclick="location.href='index.html?desktop=1'">Полная</button>
@@ -97,8 +105,8 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=22"></script>
-<script src="js/generator.js?v=22"></script>
+<script src="js/i18n.js?v=23"></script>
+<script src="js/generator.js?v=23"></script>
 <script>
 'use strict';
 const canvas = document.getElementById('map');
@@ -111,7 +119,7 @@ const search = document.getElementById('search');
 let catalog = null, stars = [];
 let cam = { x: 0, y: 0, z: 1 }, goal = { x: 0, y: 0, z: 1 };
 let dragging = false, lastX = 0, lastY = 0, moved = 0;
-let selected = null, clock = 0, showZones = false; // {kind:'planet'|'star', system, planet}
+let selected = null, clock = 0, showZones = false, showSmesharia = false; // {kind:'planet'|'star', system, planet}
 let lastFrame = performance.now();
 const dpr = Math.min(2, devicePixelRatio || 1);
 
@@ -162,11 +170,12 @@ function randomSeed() { const a = new BigInt64Array(1); crypto.getRandomValues(a
 function generate(seed) {
   document.getElementById('loading').classList.remove('hidden');
   setTimeout(() => {
-    catalog = EUGenerator.generateCatalog(seed);
+    catalog = EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
     seedInput.value = seed.toString();
     seedLabel.textContent = 'сид: ' + seed.toString();
     const url = new URL(location.href);
     url.searchParams.set('seed', seed.toString());
+    url.searchParams.set('smesh', showSmesharia ? '1' : '0');
     history.replaceState(null, '', url);
     stars = makeStars(seed);
     nebulae = makeNebula(seed);
@@ -516,11 +525,32 @@ function drawZones(s, sx, sy) {
   ctx.restore();
 }
 
+function drawSmeshariaAura(sx, sy, radius, alpha) {
+  if (radius < 4) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, radius);
+  g.addColorStop(0, `rgba(255,226,140,${0.16 * alpha})`);
+  g.addColorStop(0.45, `rgba(120,255,210,${0.08 * alpha})`);
+  g.addColorStop(1, 'rgba(120,255,210,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(sx, sy, radius, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = `rgba(160,255,220,${0.32 * alpha})`;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 7]);
+  ctx.beginPath(); ctx.arc(sx, sy, radius * 0.62, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
 function drawPlanets(alpha, now) {
   catalog.systems.forEach((s, i) => {
     const sp = systemPos(i, s);
     const starX = screenX(sp.x), starY = screenY(sp.y);
     const starVisible = starX > -innerWidth*6 && starX < innerWidth*7 && starY > -innerHeight*6 && starY < innerHeight*7;
+    if (s.smesharia && starVisible) {
+      let maxOrbit = 0.2;
+      for (const p of s.planets) maxOrbit = Math.max(maxOrbit, p.orbitAu || 0.2);
+      drawSmeshariaAura(starX, starY, Math.max(40, orbitUnits({ orbitAu: maxOrbit }) * cam.z * 1.25), alpha);
+    }
     if (showZones && starVisible) drawZones(s, starX, starY);
     s.planets.forEach((p, j) => {
       const pp = planetPos(i, s, p);
@@ -537,6 +567,7 @@ function drawPlanets(alpha, now) {
       }
       if (visible) {
         ctx.globalAlpha = alpha;
+        if (p.smesharia) drawSmeshariaAura(px, py, Math.max(5, pr * 2.6), alpha);
         if (p.rings) drawRings(px, py, pr, true);
         drawPlanet(px, py, pr, p);
         if (p.rings) drawRings(px, py, pr, false);
@@ -826,6 +857,7 @@ function showPlanet(p, system) {
   const typeLabel = EUI18N.current() === 'ru' ? 'Тип' : 'Type';
   const spectralLabel = EUI18N.current() === 'ru' ? 'Спектр' : 'Spectral';
   info.innerHTML = `
+    ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
     <h2>${p.designation}</h2>
     <div class="sub">${p.name} · ${system.name}</div>
     <table>
@@ -872,6 +904,7 @@ function showStar(system) {
   const data = STAR_DATA[system.star] || STAR_DATA.yellow_dwarf;
   info.style.display = 'block';
   info.innerHTML = `
+    ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
     <h2>${system.name}</h2>
     <div class="sub">${system.formalName} · ${T('info.star')}</div>
     <table>
@@ -964,6 +997,17 @@ document.getElementById('zin').addEventListener('click', () => { goal.z = Math.m
 document.getElementById('zout').addEventListener('click', () => { goal.z = Math.max(0.04, goal.z / 1.55); });
 
 document.getElementById('zones').addEventListener('click', () => { showZones = !showZones; document.getElementById('zones').style.color = showZones ? '#7dff9a' : ''; });
+document.getElementById('smeshariaVersion').addEventListener('change', () => {
+  showSmesharia = document.getElementById('smeshariaVersion').checked;
+  document.getElementById('smeshariaWrap').classList.toggle('on', showSmesharia);
+  const seed = BigInt(catalog.worldSeed);
+  catalog = EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
+  selected = null; info.style.display = 'none'; results.innerHTML = ''; results.style.display = 'none';
+  const url = new URL(location.href);
+  url.searchParams.set('seed', seed.toString());
+  url.searchParams.set('smesh', showSmesharia ? '1' : '0');
+  history.replaceState(null, '', url);
+});
 document.getElementById('galaxy').addEventListener('click', () => {
   selected = null; info.style.display='none';
   goal = { x: 0, y: 0, z: fitGalaxy() };
@@ -985,7 +1029,7 @@ search.addEventListener('input', () => {
   for (const sys of catalog.systems) {
     if (sys.name.toLowerCase().includes(q) || sys.formalName.toLowerCase().includes(q)) hits.push({sys, planet:null});
     for (const p of sys.planets) {
-      if (p.designation.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)) hits.push({sys, planet:p});
+      if (p.designation.toLowerCase().includes(q) || p.name.toLowerCase().includes(q) || (p.aliases || []).some(a => String(a).toLowerCase().includes(q))) hits.push({sys, planet:p});
     }
     if (hits.length > 12) break;
   }
@@ -1010,6 +1054,9 @@ resize();
 EUI18N.init();
 window.addEventListener('eu-lang', () => { if (!selected) return; if (selected.kind === 'planet') showPlanet(selected.planet, selected.system); else if (selected.kind === 'star') showStar(selected.system); });
 const initial = parseSeed(new URL(location.href).searchParams.get('seed') || '') ?? randomSeed();
+showSmesharia = new URL(location.href).searchParams.get('smesh') === '1';
+document.getElementById('smeshariaVersion').checked = showSmesharia;
+document.getElementById('smeshariaWrap').classList.toggle('on', showSmesharia);
 generate(initial);
 nebulae = makeNebula(initial);
 requestAnimationFrame(animate);

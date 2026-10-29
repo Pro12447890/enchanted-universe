@@ -299,11 +299,12 @@ function smeshariaSystems(worldSeed) {
   });
   const icy = ['enchanted_universe:icy_groves', 'enchanted_universe:cratered_regolithbasin'];
   const nbc = [
-    p('nbc_3301_1','NBC-3301 1','NBC-3301 1','temperate','moderate',['N2:0.76','O2:0.22','AR:0.02'],0.92,18,0.85,0.95,0,false,['enchanted_universe:greensproutsgroves'],0xE101),
-    p('nbc_3301_2','NBC-3301 2','NBC-3301 2','temperate','moderate',['N2:0.74','O2:0.24','AR:0.02'],0.95,16,1.10,0.96,0,false,['enchanted_universe:windy_forest'],0xE102),
+    p('nbc_3301_1','NCS-3301 1','NCS-3301 1','temperate','moderate',['N2:0.76','O2:0.22','AR:0.02'],0.92,18,0.85,0.95,0,false,['enchanted_universe:greensproutsgroves'],0xE101),
+    p('nbc_3301_2','NCS-3301 2','NCS-3301 2','temperate','moderate',['N2:0.74','O2:0.24','AR:0.02'],0.95,16,1.10,0.96,0,false,['enchanted_universe:windy_forest'],0xE102),
     (() => {
-      const parent = p('nbc_3301_3','NBC-3301 3','NBC-3301 3','gas_giant','thick',['H2:0.82','HE:0.14','CH4:0.04'],2.6,-120,2.2,9.2,6,false,icy,0xE103);
-      const names = ['A','B','C','D','E','F'];
+      const parent = p('nbc_3301_3','NCS-3301 3','NCS-3301C-2','gas_giant','thick',['H2:0.82','HE:0.14','CH4:0.04'],2.6,-120,2.2,9.2,6,false,icy,0xE103);
+      parent.aliases = ['Crystallis','NCS-3301C-2'];
+      const names = ['A','B','Crystallis','D','E','F'];
       parent.customMoons = names.map((n, i) => ({
         index: i, name: n, distanceKm: 380000 + i * 90000, radiusKm: i === 2 ? 2700 : 800,
         gravity: i === 2 ? 0.8 : 0.15, tiltDeg: 12 + i * 4, yawDeg: 8 - i * 2,
@@ -315,7 +316,7 @@ function smeshariaSystems(worldSeed) {
       }));
       return parent;
     })(),
-    p('nbc_3301_4','NBC-3301 4','NBC-3301 4','cold_habitable','thin',['N2:0.80','CH4:0.18','AR:0.02'],0.72,-85,1.6,0.7,0,false,icy,0xE104)
+    p('nbc_3301_4','NCS-3301 4','NCS-3301 4','cold_habitable','thin',['N2:0.80','CH4:0.18','AR:0.02'],0.72,-85,1.6,0.7,0,false,icy,0xE104)
   ];
   const dvn = [
     p('dvn_03_1','DVN-03 1','DVN-03 1','hot','thin',['CO2:0.90','N2:0.08','SO2:0.02'],0.68,190,0.55,0.9,0,false,['enchanted_universe:oxidized_plains'],0xE201),
@@ -326,14 +327,19 @@ function smeshariaSystems(worldSeed) {
   ];
   const jung = [p('junglya','Джунгля','Junglya','habitable','medium',['N2:0.72','O2:0.26','AR:0.02'],1.0,8,1.42,1.16,2,false,['minecraft:jungle','minecraft:ocean','minecraft:river','minecraft:bamboo_jungle'],0xE301)];
   const ur = [p('uranium_planet','Ураниум','Uranium','distant','thin',['CO2:0.70','N2:0.20','AR:0.10'],0.5,-90,1.8,0.9,1,false,['enchanted_universe:cratered_regolithbasin'],0xE401)];
-  const home = [p('smesharia_home','Смешария','Смешария','habitable','moderate',['N2:0.71','O2:0.25','AR:0.04'],1.0,14,1.0,1.0,0,false,['enchanted_universe:greensproutsgroves'],0xE501)];
-  return [
-    { name:'NBC-3301', formalName:'NBC-3301', star:'white_yellow_dwarf', distanceLy:34, planets:nbc },
-    { name:'DVN-03', formalName:'DVN-03', star:'red_dwarf', distanceLy:52, planets:dvn },
-    { name:'Джунгля', formalName:'Junglya', star:'yellow_dwarf', distanceLy:47, planets:jung },
-    { name:'Ураниум', formalName:'Uranium', star:'magnetar', distanceLy:61, planets:ur },
-    { name:'Смешария', formalName:'Smesharia', star:'yellow_dwarf', distanceLy:18, planets:home }
+  const home = [p('centra_alphara','Центра-Альфара','Centra-Alphara','habitable','moderate',['N2:0.71','O2:0.25','AR:0.04'],1.0,14,1.0,1.0,0,false,['enchanted_universe:greensproutsgroves'],0xE501)];
+  const systems = [
+    { name:'NCS-3301', formalName:'NCS-3301', star:'white_yellow_dwarf', distanceLy:34, planets:nbc, smesharia:true },
+    { name:'DVN-03', formalName:'DVN-03', star:'red_dwarf', distanceLy:52, planets:dvn, smesharia:true },
+    { name:'Джунгля', formalName:'Junglya', star:'yellow_dwarf', distanceLy:47, planets:jung, smesharia:true },
+    { name:'Ураниум', formalName:'Uranium', star:'magnetar', distanceLy:61, planets:ur, smesharia:true },
+    { name:'Центра-Альфара', formalName:'Centra-Alphara', star:'yellow_dwarf', distanceLy:18, planets:home, smesharia:true }
   ];
+  for (const sys of systems) {
+    sys.smesharia = true;
+    for (const planet of sys.planets) planet.smesharia = true;
+  }
+  return systems;
 }
 
 function moonNameFor(parent, index) {
@@ -416,9 +422,10 @@ function moonSpecs(planet) {
   return out;
 }
 
-function generateCatalog(worldSeed) {
+function generateCatalog(worldSeed, options = {}) {
   worldSeed = BigInt.asIntN(64, BigInt(worldSeed));
-  const systems = [solarSystem(worldSeed), ...demos(worldSeed), ...smeshariaSystems(worldSeed)];
+  const systems = [solarSystem(worldSeed), ...demos(worldSeed)];
+  if (options && options.smesharia) systems.push(...smeshariaSystems(worldSeed));
   for (let i = 0; i < 96; i++) {
     const systemSeed = mix(worldSeed, i);
     const r = new JavaRandom(systemSeed);
