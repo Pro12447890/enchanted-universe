@@ -83,8 +83,8 @@
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
 <script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
-<script src="js/i18n.js?v=19"></script>
-<script src="js/generator.js?v=19"></script>
+<script src="js/i18n.js?v=20"></script>
+<script src="js/generator.js?v=20"></script>
 <script>
 'use strict';
 const canvas = document.getElementById('map');
@@ -449,6 +449,21 @@ function atmosphereColor(p) {
     rgb[0] = rgb[0] * 0.55 + tr * 0.45;
     rgb[1] = rgb[1] * 0.55 + tg * 0.45;
     rgb[2] = rgb[2] * 0.55 + tb * 0.45;
+  }
+  if (p.category === 'gas_giant') {
+    const gasPalette = [[216,182,133],[111,200,216],[216,138,154],[200,160,224],[232,192,96],[138,200,160]];
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < String(p.seed).length; i++) { h ^= String(p.seed).charCodeAt(i); h = Math.imul(h, 16777619); }
+    const c = gasPalette[Math.abs(h) % gasPalette.length];
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  }
+  const orbit = Number(p.orbitAu || 1);
+  if (orbit < 0.7) {
+    const heat = Math.max(0, Math.min(1, (0.7 - orbit) / 0.5));
+    const stops = [[255,255,255],[255,199,184],[255,89,64],[255,140,38],[255,217,64],[255,255,235]];
+    const x = heat * (stops.length - 1), i = Math.min(stops.length - 2, Math.floor(x)), f = x - i;
+    const mix = [0,1,2].map(k => Math.round((stops[i][k] + (stops[i+1][k] - stops[i][k]) * f)));
+    return `rgb(${mix[0]},${mix[1]},${mix[2]})`;
   }
   return `rgb(${Math.round(rgb[0] * 255)},${Math.round(rgb[1] * 255)},${Math.round(rgb[2] * 255)})`;
 }
