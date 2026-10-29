@@ -15,7 +15,7 @@
 
 <title>Enchanted Universe — мобильная карта</title>
 <style>
-  :root { --gold:#e8cf8a; --dim:#8b97b8; --line:#2a3550; --panel:rgba(10,14,24,.92); }
+  :root { --ui-scale:1; --gold:#e8cf8a; --dim:#8b97b8; --line:#2a3550; --panel:rgba(10,14,24,.92); }
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; overflow:hidden; background:#04060c; color:#dfe7ff;
               font:14px/1.35 "Segoe UI",system-ui,sans-serif; }
@@ -85,6 +85,11 @@
   .zoomctl { position:fixed; right:14px; bottom:14px; display:flex; flex-direction:column; gap:6px; z-index:8; }
   .zoomctl button { width:34px; height:34px; padding:0; font-size:20px; line-height:1; border-radius:9px; background:#0d1526dd; border:1px solid #3a4d70; color:#dfe7ff; cursor:pointer; }
   .zoomctl button:hover { background:#17233a; border-color:#6b86b8; }
+  .bar { transform:scale(var(--ui-scale)); transform-origin:top left; }
+  #info { transform:scale(var(--ui-scale)); transform-origin:top right; }
+  #hint, #loading { transform:scale(var(--ui-scale)); transform-origin:bottom left; }
+  .zoomctl { transform:scale(var(--ui-scale)); transform-origin:bottom right; }
+  .zoomctl button.ui { font-size:12px; letter-spacing:-.04em; }
 </style>
 </head>
 <body>
@@ -118,11 +123,13 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=29"></script>
-<script src="js/generator.js?v=29"></script>
+<script src="js/i18n.js?v=30"></script>
+<script src="js/generator.js?v=30"></script>
 <div class="zoomctl">
   <button id="zoomIn" title="Приблизить">+</button>
   <button id="zoomOut" title="Отдалить">−</button>
+  <button id="uiIn" class="ui" title="Увеличить интерфейс">A+</button>
+  <button id="uiOut" class="ui" title="Уменьшить интерфейс">A−</button>
 </div>
 <script>
 'use strict';
@@ -1041,6 +1048,15 @@ canvas.addEventListener('pointercancel', endPointer);
 document.getElementById('zin').addEventListener('click', () => { goal.z = Math.min(12000, goal.z * 1.55); });
 document.getElementById('zout').addEventListener('click', () => { goal.z = Math.max(0.04, goal.z / 1.55); });
 
+let uiScale = 1;
+function setUiScale(v) {
+  uiScale = Math.max(0.75, Math.min(1.5, v));
+  document.documentElement.style.setProperty('--ui-scale', uiScale);
+  try { localStorage.setItem('eu_ui_scale', String(uiScale)); } catch (e) {}
+}
+try { const saved = parseFloat(localStorage.getItem('eu_ui_scale')); if (saved) setUiScale(saved); } catch (e) {}
+document.getElementById('uiIn').addEventListener('click', () => setUiScale(uiScale * 1.12));
+document.getElementById('uiOut').addEventListener('click', () => setUiScale(uiScale / 1.12));
 function nudgeZoom(f) { goal.z = Math.max(0.0005, Math.min(20000, goal.z * f)); }
 document.getElementById('zoomIn').addEventListener('click', () => nudgeZoom(1.3));
 document.getElementById('zoomOut').addEventListener('click', () => nudgeZoom(0.77));
