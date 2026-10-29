@@ -289,6 +289,40 @@ function demos(worldSeed) {
 }
 
 
+function smeshariaSystems(worldSeed) {
+  const W = BigInt(worldSeed);
+  const p = (id, name, desig, category, atmosphere, comp, gravity, temp, orbit, diameter, moons, rings, biomes, seed) => ({
+    id: 'enchanted_universe:' + id, designation: desig, name: name, category: category,
+    atmosphere: atmosphere, composition: comp, gravity: gravity, temperatureC: temp, orbitAu: orbit,
+    diameterEarth: diameter, moons: moons, rings: rings, biomes: biomes,
+    radiation: 8, gauss: 0.5, seed: BigInt.asIntN(64, W ^ BigInt(seed)).toString(), archetype: ''
+  });
+  const icy = ['enchanted_universe:icy_groves', 'enchanted_universe:cratered_regolithbasin'];
+  const nbc = [
+    p('nbc_3301_1','NBC-3301 1','NBC-3301 1','temperate','moderate',['N2:0.76','O2:0.22','AR:0.02'],0.92,18,0.85,0.95,0,false,['enchanted_universe:greensproutsgroves'],0xE101),
+    p('nbc_3301_2','NBC-3301 2','NBC-3301 2','temperate','moderate',['N2:0.74','O2:0.24','AR:0.02'],0.95,16,1.10,0.96,0,false,['enchanted_universe:windy_forest'],0xE102),
+    p('nbc_3301_3','NBC-3301 3','NBC-3301 3','gas_giant','thick',['H2:0.82','HE:0.14','CH4:0.04'],2.6,-120,2.2,9.2,6,false,icy,0xE103),
+    p('nbc_3301_4','NBC-3301 4','NBC-3301 4','cold_habitable','thin',['N2:0.80','CH4:0.18','AR:0.02'],0.72,-85,1.6,0.7,0,false,icy,0xE104)
+  ];
+  const dvn = [
+    p('dvn_03_1','DVN-03 1','DVN-03 1','hot','thin',['CO2:0.90','N2:0.08','SO2:0.02'],0.68,190,0.55,0.9,0,false,['enchanted_universe:oxidized_plains'],0xE201),
+    p('dvn_03_2','DVN-03 2','DVN-03 2','temperate','moderate',['N2:0.74','O2:0.24','AR:0.02'],0.82,26,0.95,0.95,0,false,['minecraft:savanna'],0xE202),
+    p('dvn_03_b', (W & 1n) ? 'Выжженный Древонид' : 'Древонид','DVN-03 b','habitable','moderate',['N2:0.70','O2:0.24','CO2:0.05','AR:0.01'],0.60,14,1.05,1.0,0,false,['enchanted_universe:greensproutsgroves'],0xE203),
+    p('dvn_03_3','DVN-03 3','DVN-03 3','cold_habitable','thin',['N2:0.86','CH4:0.12','AR:0.02'],0.70,-75,2.1,0.7,0,false,icy,0xE204),
+    p('dvn_03_4','DVN-03 4','DVN-03 4','distant','none',[],0.35,-160,3.2,0.6,0,false,['enchanted_universe:cratered_regolithbasin'],0xE205)
+  ];
+  const jung = [p('junglya','Джунгля','Junglya','habitable','medium',['N2:0.72','O2:0.26','AR:0.02'],1.0,8,1.42,1.16,2,false,['minecraft:jungle','minecraft:ocean','minecraft:river','minecraft:bamboo_jungle'],0xE301)];
+  const ur = [p('uranium_planet','Ураниум','Uranium','distant','thin',['CO2:0.70','N2:0.20','AR:0.10'],0.5,-90,1.8,0.9,1,false,['enchanted_universe:cratered_regolithbasin'],0xE401)];
+  const home = [p('smesharia_home','Смешария','Смешария','habitable','moderate',['N2:0.71','O2:0.25','AR:0.04'],1.0,14,1.0,1.0,0,false,['enchanted_universe:greensproutsgroves'],0xE501)];
+  return [
+    { name:'NBC-3301', formalName:'NBC-3301', star:'white_yellow_dwarf', distanceLy:34, planets:nbc },
+    { name:'DVN-03', formalName:'DVN-03', star:'red_dwarf', distanceLy:52, planets:dvn },
+    { name:'Джунгля', formalName:'Junglya', star:'yellow_dwarf', distanceLy:47, planets:jung },
+    { name:'Ураниум', formalName:'Uranium', star:'magnetar', distanceLy:61, planets:ur },
+    { name:'Смешария', formalName:'Smesharia', star:'yellow_dwarf', distanceLy:18, planets:home }
+  ];
+}
+
 function moonNameFor(parent, index) {
   const p = (parent || '').toLowerCase();
   if (p.includes('земля') || p.includes('earth')) return index === 0 ? 'Луна' : 'Луна ' + (index + 1);
@@ -370,7 +404,7 @@ function moonSpecs(planet) {
 
 function generateCatalog(worldSeed) {
   worldSeed = BigInt.asIntN(64, BigInt(worldSeed));
-  const systems = [solarSystem(worldSeed), ...demos(worldSeed)];
+  const systems = [solarSystem(worldSeed), ...demos(worldSeed), ...smeshariaSystems(worldSeed)];
   for (let i = 0; i < 96; i++) {
     const systemSeed = mix(worldSeed, i);
     const r = new JavaRandom(systemSeed);
