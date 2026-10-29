@@ -97,8 +97,8 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=17"></script>
-<script src="js/generator.js?v=17"></script>
+<script src="js/i18n.js?v=18"></script>
+<script src="js/generator.js?v=18"></script>
 <script>
 'use strict';
 const canvas = document.getElementById('map');
@@ -624,8 +624,46 @@ function drawPlanet(x, y, r, p) {
   }
   ctx.fillStyle = 'rgba(0,0,0,.3)';
   ctx.beginPath(); ctx.arc(x + r*0.26, y + r*0.18, r*0.84, 0, Math.PI*2); ctx.fill();
+  const cl = cityLevel(p);
+  if (cl) {
+    let h = 2166136261 >>> 0;
+    const src = String(p.seed) + 'lights';
+    for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619); }
+    ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+    ctx.fillStyle = cl === 2 ? 'rgba(72,216,255,.85)' : 'rgba(255,208,96,.8)';
+    for (let i = 0; i < 46; i++) {
+      h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+      const a = ((h >>> 0) / 4294967295) * Math.PI * 2;
+      const rr = Math.sqrt(((h >>> 8) & 255) / 255) * r * 0.86;
+      const px = Math.cos(a) * rr, py = Math.sin(a) * rr;
+      if (px * 0.26 + py * 0.18 < 0.05 * r) continue;
+      ctx.fillRect(x + px, y + py, 1, 1);
+    }
+    ctx.restore();
+    if (orbitalSite(p)) {
+      ctx.strokeStyle = cl === 2 ? 'rgba(80,220,255,.55)' : 'rgba(255,214,120,.5)';
+      ctx.lineWidth = Math.max(0.7, r * 0.06);
+      ctx.beginPath(); ctx.ellipse(x, y, r * 1.5, r * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
 }
 
+function cityLevel(p) {
+  if (!p || p.category !== 'habitable') return 0;
+  let h = 2166136261 >>> 0;
+  const src = String(p.seed) + String(p.id || '') + 'city';
+  for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619); }
+  h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15;
+  if ((h >>> 0) % 10000 >= 120) return 0;
+  return ((h >>> 8) % 1000 < 225) ? 2 : 1;
+}
+function orbitalSite(p) {
+  if (cityLevel(p) === 0) return false;
+  let h = 2166136261 >>> 0;
+  const src = String(p.seed) + 'ring';
+  for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0) % 100 < 15;
+}
 function drawRings(x, y, r, back) {
   ctx.save();
   ctx.strokeStyle = 'rgba(226,208,164,.72)';
@@ -772,7 +810,7 @@ function showPlanet(p, system) {
     <h2>${p.designation}</h2>
     <div class="sub">${p.name} · ${system.name}</div>
     <table>
-      <tr><td>${typeLabel}</td><td>${EUGenerator.planetClass(p)}</td></tr>
+      <tr><td>${typeLabel}</td><td>${EUGenerator.planetClass(p)}${cityLevel(p) === 2 ? ' · высокоразвитая' : cityLevel(p) === 1 ? ' · развитая' : ''}</td></tr>
       <tr><td>${spectralLabel}</td><td>${EUGenerator.starSpectral(system.star)}</td></tr>
       <tr><td>${T('info.atmosphere')}</td><td>${atmDot}${T('atm.'+p.atmosphere)}</td></tr>
       <tr><td>${T('info.gravity')}</td><td>${p.gravity.toFixed(2)} ${T('unit.g')}</td></tr>
