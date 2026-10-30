@@ -77,7 +77,9 @@
       'star.red_supergiant': 'красный сверхгигант', 'star.carbon_star': 'углеродная звезда',
       'star.brown_dwarf': 'коричневый карлик', 'star.magnetar': 'магнитар',
       'mobile.version': 'Мобильная версия',
-      'desktop.version': 'Полная версия'
+      'desktop.version': 'Полная версия',
+      'tgk': 'ТГК мода',
+      'tgk.title': 'Телеграм-канал мода'
     },
     en: {
       'brand.sub': 'seed preview · space map',
@@ -153,7 +155,9 @@
       'star.red_supergiant': 'red supergiant', 'star.carbon_star': 'carbon star',
       'star.brown_dwarf': 'brown dwarf', 'star.magnetar': 'magnetar',
       'mobile.version': 'Mobile version',
-      'desktop.version': 'Full version'
+      'desktop.version': 'Full version',
+      'tgk': 'Mod channel',
+      'tgk.title': 'Telegram channel of the mod'
     }
   };
   function getCookie(name) {

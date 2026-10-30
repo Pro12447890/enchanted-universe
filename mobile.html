@@ -6,6 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 <link rel="canonical" href="https://enchanted.daymix.dpdns.org/mobile.html">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="favicon-180.png">
+<link rel="shortcut icon" href="favicon.ico">
+<meta name="theme-color" content="#04060c">
 <meta name="description" content="Enchanted Universe — интерактивная карта сидов, планет и симбиозных миров Смешарии.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Enchanted Universe — карта сидов">
@@ -81,12 +87,19 @@
     #info{left:8px;right:8px;bottom:8px;top:auto;width:auto;max-height:54%;border-radius:12px}
     #hint{display:none}
     #langModal .card{padding:18px}
- #info{width:calc(100% - 24px)} #seedLabel{display:none} }
-  .zoomctl { position:fixed; right:14px; bottom:14px; display:flex; flex-direction:column; gap:6px; z-index:8; }
+ #info{width:calc(100% - 24px)} #seedLabel{display:none}
+    .dock{right:8px;bottom:8px;gap:6px} .tgk{padding:5px 9px;font-size:11px} .tgk svg{width:12px;height:12px} }
+  .dock { position:fixed; right:14px; bottom:14px; display:flex; flex-direction:column; align-items:flex-end; gap:8px; z-index:8; }
+  .zoomctl { display:flex; flex-direction:column; gap:6px; }
   .zoomctl button { width:34px; height:34px; padding:0; font-size:20px; line-height:1; border-radius:9px; background:#0d1526dd; border:1px solid #3a4d70; color:#dfe7ff; cursor:pointer; }
   .zoomctl button:hover { background:#17233a; border-color:#6b86b8; }
   .zoomctl button.ui { font-size:12px; letter-spacing:-.04em; }
-  .bar, #info, #hint, #loading, .zoomctl { zoom:var(--ui-scale); }
+  .tgk { display:inline-flex; align-items:center; gap:6px; padding:6px 11px; border-radius:999px;
+         background:#0d1526dd; border:1px solid #3a4d70; color:var(--gold); text-decoration:none;
+         font-size:12px; letter-spacing:.02em; white-space:nowrap; backdrop-filter:blur(6px); }
+  .tgk:hover { background:#17233a; border-color:#6b86b8; color:#fbe6b4; }
+  .tgk svg { width:14px; height:14px; display:block; fill:currentColor; }
+  .bar, #info, #hint, #loading, .dock { zoom:var(--ui-scale); }
 </style>
 </head>
 <body>
@@ -120,13 +133,17 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=36"></script>
+<script src="js/i18n.js?v=37"></script>
 <script src="js/generator.js?v=36"></script>
-<div class="zoomctl">
-  <button id="zoomIn" title="Приблизить">+</button>
-  <button id="zoomOut" title="Отдалить">−</button>
-  <button id="uiIn" class="ui" title="Увеличить интерфейс">A+</button>
-  <button id="uiOut" class="ui" title="Уменьшить интерфейс">A−</button>
+<div class="dock">
+  <div class="zoomctl">
+    <button id="zoomIn" title="Приблизить">+</button>
+    <button id="zoomOut" title="Отдалить">−</button>
+    <button id="uiIn" class="ui" title="Увеличить интерфейс">A+</button>
+    <button id="uiOut" class="ui" title="Уменьшить интерфейс">A−</button>
+  </div>
+  <a class="tgk" id="tgk" href="https://t.me/smesharia_mod" target="_blank" rel="noopener noreferrer"
+     data-i18n-title="tgk.title" title="Телеграм-канал мода"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.91 3.79 20.3 20.84c-.25 1.21-.98 1.5-2 .94l-5.5-4.07-2.66 2.57c-.3.3-.55.56-1.1.56-.72 0-.6-.27-.84-.95L6.3 13.7l-5.45-1.7c-1.18-.35-1.19-1.16.26-1.75l21.26-8.2c.97-.43 1.9.24 1.54 1.74z"/></svg><span data-i18n="tgk">ТГК мода</span></a>
 </div>
 <script>
 'use strict';
@@ -142,6 +159,12 @@ let cam = { x: 0, y: 0, z: 1 }, goal = { x: 0, y: 0, z: 1 };
 let dragging = false, lastX = 0, lastY = 0, moved = 0;
 let selected = null, clock = 0, showZones = false, showSmesharia = false;
 let pointerX = -1, pointerY = -1;
+// Слежение за телом: камера цепляется за планету/луну и едет вместе с ней.
+let follow = null;             // { key, kind, system, planet, moon, index, pinX, pinY, mode }
+let hoverKey = '', hoverMs = 0; // сколько миллисекунд курсор держится на теле
+let zoomAnchor = null;          // { wx, wy, sx, sy } — точка мира, которую держим под курсором
+let hoverBlock = null;          // после перетаскивания слежение включается только со сдвигом мыши
+const MOON_CACHE = new Map();   // moonSpecs на BigInt, поэтому кешируем
 let transitionSnapshot = null, transitionStart = 0, transitioning = false; // {kind:'planet'|'star', system, planet}
 let lastFrame = performance.now();
 const dpr = Math.min(2, devicePixelRatio || 1);
@@ -220,6 +243,7 @@ function generate(seed) {
     selected = null; info.style.display = 'none';
     const fit = fitGalaxy();
     goal = { x: 0, y: 0, z: fit }; cam = { x: 0, y: 0, z: fit };
+    follow = null; zoomAnchor = null; hoverBlock = null; hoverKey = ''; hoverMs = 0;
     transitionStart = performance.now();
     setTimeout(() => {
       transitioning = false;
@@ -304,6 +328,149 @@ function moоnRatio(planet) { return 6371 * planet.diameterEarth; }
 function screenX(wx) { return innerWidth/2 + (wx - cam.x) * cam.z; }
 function screenY(wy) { return innerHeight/2 + (wy - cam.y) * cam.z; }
 function screenToWorld(sx, sy) { return { x: cam.x + (sx - innerWidth/2)/cam.z, y: cam.y + (sy - innerHeight/2)/cam.z }; }
+
+/* ─── Слежение: тело как центр координат ──────────────────────────────────────
+   Камера не «догоняет» планету и не отстаёт от неё: каждый кадр она
+   пересчитывается ОТ положения тела. Тело держится в фиксированной точке
+   экрана (pin), а мимо него едет весь мир — ровно «движение вместе с ней». */
+
+function moonSpecsCached(p) {
+  const key = String(p.seed) + ':' + (p.moons | 0) + ':' + (p.customMoons ? 'c' : '');
+  let v = MOON_CACHE.get(key);
+  if (!v) { v = EUGenerator.moonSpecs(p); MOON_CACHE.set(key, v); }
+  return v;
+}
+/** Радиус орбиты луны в мировых единицах — один для отрисовки, попадания и слежения. */
+function moonOrbitWorld(p, m, moons, maxRatio) {
+  moons = moons || moonSpecsCached(p);
+  const parentRadius = Math.max(500, 6371 * p.diameterEarth);
+  if (maxRatio == null) maxRatio = Math.max(1, ...moons.map(x => x.distanceKm / parentRadius));
+  return planetRadiusUnits(p) * (2.0 + 5.0 * ((m.distanceKm / parentRadius) / maxRatio));
+}
+/** Угол луны на орбите — тоже одна формула на всех. */
+function moonAngle(p, k, m, moons) {
+  moons = moons || moonSpecsCached(p);
+  const speed = (Math.PI * 2) / Math.max(80, m.periodTicks * 0.012);
+  return (k / Math.max(1, moons.length)) * Math.PI * 2 + m.phase * 0.5 + clock * speed;
+}
+function bodyKey(ref) {
+  if (!ref || !ref.system) return '';
+  const sys = ref.system.name + '#' + ref.index;
+  if (ref.kind === 'planet') return 'p:' + sys + ':' + ref.planet.seed;
+  if (ref.kind === 'moon') return 'm:' + sys + ':' + ref.planet.seed + ':' + ref.moon.index;
+  if (ref.kind === 'star') return 's:' + sys;
+  return '';
+}
+function bodyWorld(ref) {
+  if (!ref || !ref.system || !catalog) return null;
+  if (ref.kind === 'planet') return planetPos(ref.index, ref.system, ref.planet);
+  if (ref.kind === 'moon') return moonWorld(ref.index, ref.system, ref.planet, ref.moon);
+  if (ref.kind === 'star') return systemPos(ref.index, ref.system);
+  return null;
+}
+function moonWorld(index, system, planet, moon) {
+  const pw = planetPos(index, system, planet);
+  const moons = moonSpecsCached(planet);
+  const k = Math.max(0, moons.findIndex(m => m.index === moon.index));
+  const orbit = moonOrbitWorld(planet, moon, moons);
+  const a = moonAngle(planet, k, moon, moons);
+  return { x: pw.x + Math.cos(a) * orbit, y: pw.y + Math.sin(a) * orbit * 0.8 };
+}
+/** Что лежит под курсором: сначала луны, потом планеты. */
+function hoverBody(sx, sy) {
+  if (!catalog || sx < 0 || sy < 0) return null;
+  if (cam.z > 500) {
+    for (const [i, s] of catalog.systems.entries()) {
+      for (const p of s.planets) {
+        if (!p.moons) continue;
+        const moonsVisible = (selected && selected.planet === p) || (follow && follow.planet === p) || cam.z > 2200;
+        if (!moonsVisible) continue;
+        const pp = planetPos(i, s, p);
+        const px = screenX(pp.x), py = screenY(pp.y);
+        const pr = Math.max(1.1, planetRadiusUnits(p) * cam.z);
+        for (const it of moonLayouts(px, py, pr, p)) {
+          if (Math.hypot(it.x - sx, it.y - sy) <= Math.max(10, it.r + 8)) {
+            return { kind: 'moon', system: s, planet: p, moon: it.m, index: i };
+          }
+        }
+      }
+    }
+  }
+  if (cam.z > 45) {
+    for (const [i, s] of catalog.systems.entries()) {
+      for (const p of s.planets) {
+        const pp = planetPos(i, s, p);
+        const px = screenX(pp.x), py = screenY(pp.y);
+        const pr = Math.max(4, planetRadiusUnits(p) * cam.z);
+        if (Math.hypot(px - sx, py - sy) <= Math.max(12, pr + 10)) {
+          return { kind: 'planet', system: s, planet: p, index: i };
+        }
+      }
+    }
+  }
+  return null;
+}
+/** Поставить камеру «на тело». pin — его точка на экране относительно центра. */
+function setFollow(ref, mode) {
+  const w = bodyWorld(ref);
+  if (!w) return;
+  follow = {
+    key: bodyKey(ref), kind: ref.kind, system: ref.system, planet: ref.planet,
+    moon: ref.moon, index: ref.index, mode: mode === 'center' ? 'center' : 'hover',
+    pinX: (w.x - cam.x) * cam.z, pinY: (w.y - cam.y) * cam.z,
+    pointerRefX: pointerX, pointerRefY: pointerY
+  };
+  zoomAnchor = null;
+}
+function clearFollow() { follow = null; hoverKey = ''; hoverMs = 0; }
+
+/** Наведение: подержали курсор на теле — камера поехала вместе с ним. */
+function updateFollowHover(dt) {
+  if (!catalog || dragging || hoverBlock) { hoverKey = ''; hoverMs = 0; return; }
+  const hit = hoverBody(pointerX, pointerY);
+  const key = bodyKey(hit);
+  if (key !== hoverKey) { hoverKey = key; hoverMs = 0; }
+  else if (key) hoverMs += dt * 1000;
+  if (follow) {
+    if (!bodyWorld(follow)) { clearFollow(); return; }
+    if (follow.mode !== 'center') {
+      // Отпускаем по движению САМОГО курсора, а не по положению тела:
+      // при зуме тело законно уезжает из-под мыши, и это не повод бросать его.
+      const pd = Math.hypot(pointerX - follow.pointerRefX, pointerY - follow.pointerRefY);
+      if (pd > 40) { clearFollow(); return; }
+    }
+  }
+  // Пока идёт зум, новые тела не хватаем: камера ещё едет.
+  if (key && hoverMs > 110 && !zoomAnchor && (!follow || follow.key !== key)) setFollow(hit, 'hover');
+}
+
+/** Зум: точка мира под курсором остаётся ровно под курсором каждый кадр. */
+function applyZoomAnchor() {
+  if (!zoomAnchor) return;
+  if (follow) {
+    const w = bodyWorld(follow);
+    if (!w) return;
+    follow.pinX = zoomAnchor.sx + (w.x - zoomAnchor.wx) * cam.z;
+    follow.pinY = zoomAnchor.sy + (w.y - zoomAnchor.wy) * cam.z;
+  } else {
+    cam.x = zoomAnchor.wx - zoomAnchor.sx / cam.z;
+    cam.y = zoomAnchor.wy - zoomAnchor.sy / cam.z;
+    goal.x = cam.x; goal.y = cam.y;
+  }
+}
+
+function applyFollow(dt) {
+  const w = bodyWorld(follow);
+  if (!w) { follow = null; return; }
+  if (follow.mode === 'center') {
+    // Плавно подтягиваем тело к центру экрана, но без «догона» по положению.
+    const e = Math.exp(-dt * 3.4);
+    follow.pinX *= e; follow.pinY *= e;
+  }
+  cam.x = w.x - follow.pinX / cam.z;
+  cam.y = w.y - follow.pinY / cam.z;
+  goal.x = cam.x; goal.y = cam.y;
+}
 
 function smooth(a, b, x) { const t = Math.max(0, Math.min(1, (x-a)/(b-a))); return t*t*(3-2*t); }
 function shade(color, f) {
@@ -694,7 +861,8 @@ function drawPlanets(alpha, now) {
           ctx.beginPath(); ctx.arc(px, py, drawR + 5, 0, Math.PI*2); ctx.stroke();
         }
       }
-      const focused = selected && selected.planet === p;
+      // Луны видны и тогда, когда камера едет за одной из них.
+      const focused = (selected && selected.planet === p) || (follow && follow.planet === p);
       const moonAlpha = alpha * smooth(600, 1600, cam.z) * (focused ? 1 : (cam.z > 2200 ? 0.65 : 0));
       if (moonAlpha > 0.02 && p.moons > 0) drawMoons(px, py, drawR, p, moonAlpha, now, focused);
       const labelA = alpha * (1 - smooth(1600, 3000, cam.z)) * smooth(55, 110, cam.z);
@@ -719,15 +887,13 @@ function moonColor(m, p) {
 }
 function moonLayouts(px, py, pr, p) {
   const parentRadius = Math.max(500, 6371 * p.diameterEarth);
-  const moons = EUGenerator.moonSpecs(p);
-  const t = clock;
-  const planetOrbitPx = Math.max(0, orbitUnits(p) * cam.z);
+  const moons = moonSpecsCached(p);
   const maxRatio = Math.max(1, ...moons.map(m => m.distanceKm / parentRadius));
   return moons.map((m, k) => {
-    const ratio = m.distanceKm / parentRadius;
-    const orbitPx = pr * (2.0 + 5.0 * (ratio / maxRatio));
-    const speed = (Math.PI * 2) / Math.max(80, m.periodTicks * 0.012);
-    const a = (k / Math.max(1, moons.length)) * Math.PI * 2 + m.phase * 0.5 + t * speed;
+    // Орбита в мировых единицах × зум: та же величина, по которой считается
+    // слежение, поэтому отрисовка и попадание курсором не расходятся.
+    const orbitPx = moonOrbitWorld(p, m, moons, maxRatio) * cam.z;
+    const a = moonAngle(p, k, m, moons);
     return { m, x: px + Math.cos(a) * orbitPx, y: py + Math.sin(a) * orbitPx * 0.8, orbitPx,
       r: Math.max(1.4, pr * (m.radiusKm / parentRadius) * 1.4) };
   });
@@ -746,9 +912,11 @@ function drawMoons(px, py, pr, p, alpha, now, focused) {
       ctx.fillStyle = '#9fb0d8'; ctx.fillText(it.m.name, it.x + it.r + 4, it.y + 3);
     }
   }
-  // если наведена/выбрана луна — обводка
-  if (selected && selected.kind === 'moon' && selected.planet === p) {
-    for (const it of layouts) if (it.m.index === selected.moon.index) {
+  // обводка выбранной или «пойманной» курсором луны
+  const hlMoon = (selected && selected.kind === 'moon' && selected.planet === p) ? selected.moon
+    : (follow && follow.kind === 'moon' && follow.planet === p ? follow.moon : null);
+  if (hlMoon) {
+    for (const it of layouts) if (it.m.index === hlMoon.index) {
       ctx.globalAlpha = 1; ctx.strokeStyle = '#ffe6b0'; ctx.lineWidth = 1.4;
       ctx.beginPath(); ctx.arc(it.x, it.y, it.r + 4, 0, Math.PI*2); ctx.stroke();
     }
@@ -920,7 +1088,9 @@ function clickAt(sx, sy) {
         for (const it of moonLayouts(px, py, pr, p)) {
           if (Math.hypot(it.x - sx, it.y - sy) <= Math.max(9, it.r + 6)) {
             selected = { kind: 'moon', system: s, planet: p, moon: it.m, index: i };
+            zoomAnchor = null;
             goal = { x: pp.x, y: pp.y, z: Math.max(2600, Math.min(12000, cam.z * 1.4)) };
+            setFollow({ kind: 'moon', system: s, planet: p, moon: it.m, index: i }, 'center');
             showMoon(it.m, p, s); return;
           }
         }
@@ -967,10 +1137,13 @@ function clickAt(sx, sy) {
 function focusPlanet(i, system, planet) {
   const pp = planetPos(i, system, planet);
   selected = { kind: 'planet', system, planet, index: i };
+  zoomAnchor = null;
   goal = { x: pp.x, y: pp.y, z: cam.z < 900 ? 2400 : Math.min(6000, cam.z * 1.7) };
+  setFollow({ kind: 'planet', system, planet, index: i }, 'center');
   showPlanet(planet, system);
 }
 function focusStar(i, system) {
+  clearFollow(); zoomAnchor = null;
   const sp = systemPos(i, system);
   selected = { kind: 'star', system };
   let maxOrbit = 0.1;
@@ -981,6 +1154,7 @@ function focusStar(i, system) {
   showStar(system);
 }
 function focusSystem(i, system) {
+  clearFollow(); zoomAnchor = null;
   const sp = systemPos(i, system);
   let maxOrbit = 0.1;
   system.planets.forEach(p => maxOrbit = Math.max(maxOrbit, orbitUnits(p)));
@@ -1099,14 +1273,22 @@ function animate(now) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
   clock += dt;
-  if (selected && selected.planet && cam.z > 1200) { const bp = selectedBodyPos(); if (bp) { goal.x = bp.x; goal.y = bp.y; } }
+  updateFollowHover(dt);
   const k = 1 - Math.exp(-dt * 7.0);
   const kPos = 1 - Math.exp(-dt * 15.0);
-  cam.x += (goal.x - cam.x) * kPos;
-  cam.y += (goal.y - cam.y) * kPos;
   cam.z *= Math.pow(goal.z / cam.z, k);
-  if (Math.abs(cam.x-goal.x) < 1e-5 && Math.abs(cam.y-goal.y) < 1e-5 && Math.abs(cam.z-goal.z)/goal.z < 1e-4) {
-    cam.x = goal.x; cam.y = goal.y; cam.z = goal.z;
+  applyZoomAnchor();
+  // Зум доехал — якорь больше не нужен: точка тела просто остаётся как стала.
+  if (zoomAnchor && Math.abs(goal.z - cam.z) <= Math.abs(goal.z) * 3e-4) zoomAnchor = null;
+  if (follow) {
+    // Слежение исключает «догон» по положению: камера ставится от тела.
+    applyFollow(dt);
+  } else {
+    cam.x += (goal.x - cam.x) * kPos;
+    cam.y += (goal.y - cam.y) * kPos;
+    if (Math.abs(cam.x-goal.x) < 1e-5 && Math.abs(cam.y-goal.y) < 1e-5 && Math.abs(cam.z-goal.z)/goal.z < 1e-4) {
+      cam.x = goal.x; cam.y = goal.y; cam.z = goal.z;
+    }
   }
   draw(now);
   requestAnimationFrame(animate);
@@ -1114,17 +1296,13 @@ function animate(now) {
 
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
+  const mx = e.clientX - innerWidth / 2, my = e.clientY - innerHeight / 2;
   const nz = Math.max(0.04, Math.min(12000, goal.z * Math.exp(-e.deltaY * 0.0016)));
-  const body = selectedBodyPos();
-  if (body) {
-    goal.x = body.x; goal.y = body.y; goal.z = nz;
-  } else {
-    const bx = goal.x + (e.clientX - innerWidth/2) / goal.z;
-    const by = goal.y + (e.clientY - innerHeight/2) / goal.z;
-    goal.z = nz;
-    goal.x = bx - (e.clientX - innerWidth/2) / nz;
-    goal.y = by - (e.clientY - innerHeight/2) / nz;
-  }
+  // Точка мира под курсором запоминается ДО зума и удерживается под ним
+  // каждый кадр — иначе камера уезжала вправо-вниз.
+  zoomAnchor = { wx: cam.x + mx / cam.z, wy: cam.y + my / cam.z, sx: mx, sy: my };
+  if (follow) follow.mode = 'anchor';
+  goal.z = nz;
 }, { passive:false });
 
 const pointers = new Map();
@@ -1145,17 +1323,28 @@ canvas.addEventListener('pointermove', e => {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   movedTotal += Math.abs(dx) + Math.abs(dy);
   if (pointers.size === 1) {
+    // Потянули карту — слежение отпускаем, иначе оно вернёт камеру назад.
+    if (movedTotal > 4) { if (follow) clearFollow(); zoomAnchor = null; }
     cam.x -= dx / cam.z; cam.y -= dy / cam.z;
     goal.x -= dx / cam.z; goal.y -= dy / cam.z;
   } else if (pointers.size === 2 && pinch) {
     const [a, b] = [...pointers.values()];
     const dist = Math.hypot(a.x-b.x, a.y-b.y);
     const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
-    const before = screenToWorld(pinch.x, pinch.y);
     const nz = Math.max(0.04, Math.min(12000, goal.z * (dist / Math.max(1, pinch.dist))));
-    goal.z = nz;
-    goal.x = before.x - (mx - innerWidth/2) / nz;
-    goal.y = before.y - (my - innerHeight/2) / nz;
+    if (follow) {
+      // Тело — центр координат: масштаб меняется вокруг него, оно не уезжает.
+      cam.z = nz; goal.z = nz;
+    } else {
+      // Мировая точка под серединой пальцев остаётся под ней, и сразу:
+      // раньше она считалась по goal, а рисовалось по cam — отсюда снос.
+      const before = { x: cam.x + (pinch.x - innerWidth/2) / cam.z, y: cam.y + (pinch.y - innerHeight/2) / cam.z };
+      cam.z = nz; goal.z = nz;
+      cam.x = before.x - (mx - innerWidth/2) / nz;
+      cam.y = before.y - (my - innerHeight/2) / nz;
+      goal.x = cam.x; goal.y = cam.y;
+    }
+    zoomAnchor = null;
     pinch = { dist, x: mx, y: my };
   }
 });
@@ -1169,8 +1358,8 @@ function endPointer(e) {
 }
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
-document.getElementById('zin').addEventListener('click', () => { goal.z = Math.min(12000, goal.z * 1.55); });
-document.getElementById('zout').addEventListener('click', () => { goal.z = Math.max(0.04, goal.z / 1.55); });
+document.getElementById('zin').addEventListener('click', () => { zoomAnchor = null; goal.z = Math.min(12000, goal.z * 1.55); });
+document.getElementById('zout').addEventListener('click', () => { zoomAnchor = null; goal.z = Math.max(0.04, goal.z / 1.55); });
 
 let uiScale = 1;
 function setUiScale(v) {
@@ -1181,7 +1370,7 @@ function setUiScale(v) {
 try { const saved = parseFloat(localStorage.getItem('eu_ui_scale')); if (saved) setUiScale(saved); } catch (e) {}
 document.getElementById('uiIn').addEventListener('click', () => setUiScale(uiScale * 1.12));
 document.getElementById('uiOut').addEventListener('click', () => setUiScale(uiScale / 1.12));
-function nudgeZoom(f) { goal.z = Math.max(0.0005, Math.min(20000, goal.z * f)); }
+function nudgeZoom(f) { zoomAnchor = null; goal.z = Math.max(0.0005, Math.min(20000, goal.z * f)); }
 document.getElementById('zoomIn').addEventListener('click', () => nudgeZoom(1.3));
 document.getElementById('zoomOut').addEventListener('click', () => nudgeZoom(0.77));
 document.getElementById('zones').addEventListener('click', () => { showZones = !showZones; document.getElementById('zones').style.color = showZones ? '#7dff9a' : ''; });
@@ -1198,6 +1387,7 @@ document.getElementById('smeshariaVersion').addEventListener('change', () => {
 });
 document.getElementById('galaxy').addEventListener('click', () => {
   selected = null; info.style.display='none';
+  clearFollow(); zoomAnchor = null;
   goal = { x: 0, y: 0, z: fitGalaxy() };
 });
 document.getElementById('apply').addEventListener('click', () => {

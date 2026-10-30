@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Enchanted Universe">
+  <title>Enchanted Universe</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d172b"/>
+      <stop offset="1" stop-color="#04060c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.51" r="0.42">
+      <stop offset="0" stop-color="#e8c377" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#e8c377" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="planet" cx="0.37" cy="0.36" r="0.72">
+      <stop offset="0" stop-color="#fffae8"/>
+      <stop offset="0.38" stop-color="#f3d690"/>
+      <stop offset="0.66" stop-color="#d3a24a"/>
+      <stop offset="0.88" stop-color="#9c6a1c"/>
+      <stop offset="1" stop-color="#6f4b14"/>
+    </radialGradient>
+    <!-- передняя (нижняя в повёрнутой системе) половина кольца -->
+    <clipPath id="frontRing">
+      <rect x="-14" y="32.6" width="92" height="44" transform="rotate(-20 32 32.6)"/>
+    </clipPath>
+  </defs>
+
+  <rect width="64" height="64" rx="13" fill="url(#bg)"/>
+  <rect width="64" height="64" rx="13" fill="url(#glow)"/>
+
+  <g transform="rotate(-20 32 32.6)">
+    <ellipse cx="32" cy="32.6" rx="21.6" ry="7.4" fill="none"
+             stroke="#c9a154" stroke-width="3.3"/>
+  </g>
+
+  <circle cx="32" cy="32.6" r="12.3" fill="url(#planet)"/>
+
+  <g transform="rotate(-20 32 32.6)" clip-path="url(#frontRing)">
+    <ellipse cx="32" cy="32.6" rx="21.6" ry="7.4" fill="none"
+             stroke="#f0cf8d" stroke-width="3.3"/>
+  </g>
+</svg>
