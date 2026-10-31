@@ -88,7 +88,7 @@
     #hint{display:none}
     #langModal .card{padding:18px}
  #info{width:calc(100% - 24px)} #seedLabel{display:none}
-    .dock{right:8px;bottom:8px;gap:6px} .dockrow{gap:6px} .tgk{padding:5px 9px;font-size:11px} .tgk svg{width:12px;height:12px} }
+    .dock{right:8px;bottom:8px;gap:6px} .dockrow{gap:6px} .avail{gap:5px;padding:5px 7px;max-width:calc(100vw - 16px)} .avail .tgk{padding:4px 7px;font-size:10.5px} .tgk{padding:5px 9px;font-size:11px} .tgk svg{width:12px;height:12px} }
   .dock { position:fixed; right:14px; bottom:14px; display:flex; flex-direction:column; align-items:flex-end; gap:8px; z-index:8; }
   .zoomctl { display:flex; flex-direction:column; gap:6px; }
   .zoomctl button { width:34px; height:34px; padding:0; font-size:20px; line-height:1; border-radius:9px; background:#0d1526dd; border:1px solid #3a4d70; color:#dfe7ff; cursor:pointer; }
@@ -100,6 +100,11 @@
   .tgk:hover { background:#17233a; border-color:#6b86b8; color:#fbe6b4; }
   .tgk svg { width:14px; height:14px; display:block; fill:currentColor; }
   .dockrow { display:flex; align-items:center; gap:8px; }
+  .tgk .dot { width:7px; height:7px; border-radius:50%; background:#54e087; box-shadow:0 0 7px #54e087aa; flex:none; display:block; }
+  .avail { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;
+           padding:6px 8px; border-radius:12px; background:#0d1526cc; border:1px solid #2a3550;
+           backdrop-filter:blur(6px); }
+  .availLabel { font-size:11px; color:var(--dim); letter-spacing:.02em; white-space:nowrap; }
   .bar, #info, #hint, #loading, .dock { zoom:var(--ui-scale); }
 </style>
 </head>
@@ -134,7 +139,7 @@
 <div id="hint" data-i18n-html="hint.mobile"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
-<script src="js/i18n.js?v=38"></script>
+<script src="js/i18n.js?v=39"></script>
 <script src="js/generator.js?v=36"></script>
 <div class="dock">
   <div class="zoomctl">
@@ -143,8 +148,16 @@
     <button id="uiIn" class="ui" title="Увеличить интерфейс">A+</button>
     <button id="uiOut" class="ui" title="Уменьшить интерфейс">A−</button>
   </div>
+  <div class="avail">
+    <span class="availLabel" data-i18n="avail">Доступно на:</span>
+    <a class="tgk store" data-slot="minecraft-inside" href="#" data-i18n="avail.mi" data-i18n-hide="en">Minecraft Inside</a>
+    <a class="tgk store" data-slot="curseforge" href="#" data-i18n="avail.cf">CurseForge</a>
+    <a class="tgk store" data-slot="modrinth" href="#" data-i18n="avail.mr">Modrinth</a>
+  </div>
   <div class="dockrow">
-    <a class="tgk" id="planets" href="https://planet.enchanted.daymix.dpdns.org/" target="_blank" rel="noopener noreferrer"
+    <a class="tgk" id="modver" href="https://github.com/Pro12447890/enchanted-universe/releases" target="_blank" rel="noopener noreferrer"
+       data-i18n-title="ver.title" title="Последняя версия мода"><i class="dot" aria-hidden="true"></i><span>1.0.0-RC-1</span></a>
+    <a class="tgk" id="planets" href="https://planet.daymix.dpdns.org/" target="_blank" rel="noopener noreferrer"
        data-i18n-title="planets.title" title="Генератор планет в браузере"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><ellipse cx="12" cy="12" rx="10.4" ry="3.5" fill="none" stroke="currentColor" stroke-width="1.7" transform="rotate(-24 12 12)"/></svg><span data-i18n="planets">Генератор планет</span></a>
     <a class="tgk" id="tgk" href="https://t.me/smesharia_mod" target="_blank" rel="noopener noreferrer"
        data-i18n-title="tgk.title" title="Телеграм-канал мода"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.91 3.79 20.3 20.84c-.25 1.21-.98 1.5-2 .94l-5.5-4.07-2.66 2.57c-.3.3-.55.56-1.1.56-.72 0-.6-.27-.84-.95L6.3 13.7l-5.45-1.7c-1.18-.35-1.19-1.16.26-1.75l21.26-8.2c.97-.43 1.9.24 1.54 1.74z"/></svg><span data-i18n="tgk">ТГК мода</span></a>
@@ -1449,6 +1462,24 @@ addEventListener('click', e => { if (!e.target.closest('#searchWrap')) results.s
 
 resize();
 EUI18N.init();
+// Плашка версии: зелёный кружок + последняя версия из update.json (и ссылка на релизы оттуда же).
+(function initVersionPill() {
+  const pill = document.getElementById('modver');
+  if (!pill) return;
+  const out = pill.querySelector('span');
+  fetch('update.json', { cache: 'no-store' })
+    .then(r => (r.ok ? r.json() : null))
+    .then(j => {
+      if (!j) return;
+      if (j.latest && out) out.textContent = j.latest;
+      if (j.url) pill.href = j.url;
+    })
+    .catch(() => {});
+})();
+// Магазины пока без ссылок: заглушка не должна дёргать страницу вверх.
+document.querySelectorAll('.avail a[data-slot]').forEach(a => {
+  if (a.getAttribute('href') === '#') a.addEventListener('click', e => e.preventDefault());
+});
 window.addEventListener('eu-lang', () => { if (!selected) return; if (selected.kind === 'planet') showPlanet(selected.planet, selected.system); else if (selected.kind === 'star') showStar(selected.system); });
 const initial = parseSeed(new URL(location.href).searchParams.get('seed') || '') ?? randomSeed();
 showSmesharia = new URL(location.href).searchParams.get('smesh') === '1';

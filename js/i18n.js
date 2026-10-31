@@ -81,7 +81,12 @@
       'tgk': 'ТГК мода',
       'tgk.title': 'Телеграм-канал мода',
       'planets': 'Генератор планет',
-      'planets.title': 'Генератор планет в браузере'
+      'planets.title': 'Генератор планет в браузере',
+      'avail': 'Доступно на:',
+      'avail.mi': 'Minecraft Inside',
+      'avail.cf': 'CurseForge',
+      'avail.mr': 'Modrinth',
+      'ver.title': 'Последняя версия мода'
     },
     en: {
       'brand.sub': 'seed preview · space map',
@@ -161,7 +166,12 @@
       'tgk': 'Mod channel',
       'tgk.title': 'Telegram channel of the mod',
       'planets': 'Planet generator',
-      'planets.title': 'Planet generator in browser'
+      'planets.title': 'Planet generator in browser',
+      'avail': 'Available on:',
+      'avail.mi': 'Minecraft Inside',
+      'avail.cf': 'CurseForge',
+      'avail.mr': 'Modrinth',
+      'ver.title': 'Latest mod version'
     }
   };
   function getCookie(name) {
@@ -186,6 +196,11 @@
     document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.getAttribute('data-i18n-html')); });
     document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.getAttribute('data-i18n-ph')); });
     document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.getAttribute('data-i18n-title')); });
+    // data-i18n-hide="en" — элемент скрыт в перечисленных языках (например, магазин без EN-страницы)
+    document.querySelectorAll('[data-i18n-hide]').forEach(el => {
+      const langs = String(el.getAttribute('data-i18n-hide') || '').split(',').map(s => s.trim());
+      el.style.display = langs.indexOf(current()) >= 0 ? 'none' : '';
+    });
     const btn = document.getElementById('langBtn');
     if (btn) btn.textContent = current() === 'ru' ? 'RU' : 'EN';
     window.dispatchEvent(new Event('eu-lang'));
