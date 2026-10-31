@@ -79,7 +79,9 @@
       'mobile.version': 'Мобильная версия',
       'desktop.version': 'Полная версия',
       'tgk': 'ТГК мода',
-      'tgk.title': 'Телеграм-канал мода'
+      'tgk.title': 'Телеграм-канал мода',
+      'planets': 'Генератор планет',
+      'planets.title': 'Генератор планет в браузере'
     },
     en: {
       'brand.sub': 'seed preview · space map',
@@ -157,7 +159,9 @@
       'mobile.version': 'Mobile version',
       'desktop.version': 'Full version',
       'tgk': 'Mod channel',
-      'tgk.title': 'Telegram channel of the mod'
+      'tgk.title': 'Telegram channel of the mod',
+      'planets': 'Planet generator',
+      'planets.title': 'Planet generator in browser'
     }
   };
   function getCookie(name) {

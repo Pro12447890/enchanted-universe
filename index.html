@@ -76,7 +76,7 @@
   .modal .langRow{display:flex;gap:10px;justify-content:center}
   .modal .langRow button{min-width:120px;padding:10px}
   @media (max-width:760px){ #info{width:calc(100% - 24px)} #seedLabel{display:none}
-    .dock{right:8px;bottom:8px;gap:6px} .tgk{padding:5px 9px;font-size:11px} .tgk svg{width:12px;height:12px} }
+    .dock{right:8px;bottom:8px;gap:6px} .dockrow{gap:6px} .tgk{padding:5px 9px;font-size:11px} .tgk svg{width:12px;height:12px} }
   .dock { position:fixed; right:14px; bottom:14px; display:flex; flex-direction:column; align-items:flex-end; gap:8px; z-index:8; }
   .zoomctl { display:flex; flex-direction:column; gap:6px; }
   .zoomctl button { width:34px; height:34px; padding:0; font-size:20px; line-height:1; border-radius:9px; background:#0d1526dd; border:1px solid #3a4d70; color:#dfe7ff; cursor:pointer; }
@@ -87,6 +87,7 @@
          font-size:12px; letter-spacing:.02em; white-space:nowrap; backdrop-filter:blur(6px); }
   .tgk:hover { background:#17233a; border-color:#6b86b8; color:#fbe6b4; }
   .tgk svg { width:14px; height:14px; display:block; fill:currentColor; }
+  .dockrow { display:flex; align-items:center; gap:8px; }
   .bar, #info, #hint, #loading, .dock { zoom:var(--ui-scale); }
 </style>
 </head>
@@ -119,7 +120,7 @@
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 
 <script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
-<script src="js/i18n.js?v=37"></script>
+<script src="js/i18n.js?v=38"></script>
 <script src="js/generator.js?v=36"></script>
 <div class="dock">
   <div class="zoomctl">
@@ -128,8 +129,12 @@
     <button id="uiIn" class="ui" title="Увеличить интерфейс">A+</button>
     <button id="uiOut" class="ui" title="Уменьшить интерфейс">A−</button>
   </div>
-  <a class="tgk" id="tgk" href="https://t.me/smesharia_mod" target="_blank" rel="noopener noreferrer"
-     data-i18n-title="tgk.title" title="Телеграм-канал мода"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.91 3.79 20.3 20.84c-.25 1.21-.98 1.5-2 .94l-5.5-4.07-2.66 2.57c-.3.3-.55.56-1.1.56-.72 0-.6-.27-.84-.95L6.3 13.7l-5.45-1.7c-1.18-.35-1.19-1.16.26-1.75l21.26-8.2c.97-.43 1.9.24 1.54 1.74z"/></svg><span data-i18n="tgk">ТГК мода</span></a>
+  <div class="dockrow">
+    <a class="tgk" id="planets" href="https://planet.enchanted.daymix.dpdns.org/" target="_blank" rel="noopener noreferrer"
+       data-i18n-title="planets.title" title="Генератор планет в браузере"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><ellipse cx="12" cy="12" rx="10.4" ry="3.5" fill="none" stroke="currentColor" stroke-width="1.7" transform="rotate(-24 12 12)"/></svg><span data-i18n="planets">Генератор планет</span></a>
+    <a class="tgk" id="tgk" href="https://t.me/smesharia_mod" target="_blank" rel="noopener noreferrer"
+       data-i18n-title="tgk.title" title="Телеграм-канал мода"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.91 3.79 20.3 20.84c-.25 1.21-.98 1.5-2 .94l-5.5-4.07-2.66 2.57c-.3.3-.55.56-1.1.56-.72 0-.6-.27-.84-.95L6.3 13.7l-5.45-1.7c-1.18-.35-1.19-1.16.26-1.75l21.26-8.2c.97-.43 1.9.24 1.54 1.74z"/></svg><span data-i18n="tgk">ТГК мода</span></a>
+  </div>
 </div>
 <script>
 'use strict';
@@ -199,9 +204,10 @@ function parseSeed(text) {
 }
 function randomSeed() { const a = new BigInt64Array(1); crypto.getRandomValues(a); return a[0]; }
 
-function generate(seed) {
-  if (transitioning) return;
-  // Последний кадр остаётся на экране, пока строится новый каталог.
+/* Любая перестройка каталога идёт через этот переход: последний кадр остаётся
+   на экране и плавно растворяется — так же, как при смене сида. */
+function runTransition(work) {
+  if (transitioning) return false;
   if (catalog && canvas.width && canvas.height) {
     try {
       const snap = document.createElement('canvas');
@@ -217,6 +223,21 @@ function generate(seed) {
   document.getElementById('random').disabled = true;
   seedInput.disabled = true;
   setTimeout(() => {
+    work();
+    transitionStart = performance.now();
+    setTimeout(() => {
+      transitioning = false;
+      transitionSnapshot = null;
+      document.getElementById('apply').disabled = false;
+      document.getElementById('random').disabled = false;
+      seedInput.disabled = false;
+    }, 500);
+  }, 15);
+  return true;
+}
+
+function generate(seed) {
+  runTransition(() => {
     catalog = EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
     seedInput.value = seed.toString();
     seedLabel.textContent = 'сид: ' + seed.toString();
@@ -230,15 +251,7 @@ function generate(seed) {
     const fit = fitGalaxy();
     goal = { x: 0, y: 0, z: fit }; cam = { x: 0, y: 0, z: fit };
     follow = null; zoomAnchor = null; hoverBlock = null; hoverKey = ''; hoverMs = 0;
-    transitionStart = performance.now();
-    setTimeout(() => {
-      transitioning = false;
-      transitionSnapshot = null;
-      document.getElementById('apply').disabled = false;
-      document.getElementById('random').disabled = false;
-      seedInput.disabled = false;
-    }, 500);
-  }, 15);
+  });
 }
 
 function makeStars(seed) {
@@ -1327,15 +1340,21 @@ document.getElementById('zoomIn').addEventListener('click', () => nudgeZoom(1.3)
 document.getElementById('zoomOut').addEventListener('click', () => nudgeZoom(0.77));
 document.getElementById('zones').addEventListener('click', () => { showZones = !showZones; document.getElementById('zones').style.color = showZones ? '#7dff9a' : ''; });
 document.getElementById('smeshariaVersion').addEventListener('change', () => {
-  showSmesharia = document.getElementById('smeshariaVersion').checked;
-  document.getElementById('smeshariaWrap').classList.toggle('on', showSmesharia);
-  const seed = BigInt(catalog.worldSeed);
-  catalog = EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
-  selected = null; info.style.display = 'none'; results.innerHTML = ''; results.style.display = 'none';
-  const url = new URL(location.href);
-  url.searchParams.set('seed', seed.toString());
-  url.searchParams.set('smesh', showSmesharia ? '1' : '0');
-  history.replaceState(null, '', url);
+  const box = document.getElementById('smeshariaVersion');
+  const want = box.checked;
+  if (transitioning) { box.checked = showSmesharia; return; } // переход не рвём
+  document.getElementById('smeshariaWrap').classList.toggle('on', want);
+  runTransition(() => {
+    showSmesharia = want;
+    const seed = BigInt(catalog.worldSeed);
+    catalog = EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
+    selected = null; info.style.display = 'none'; results.innerHTML = ''; results.style.display = 'none';
+    follow = null; zoomAnchor = null; hoverBlock = null; hoverKey = ''; hoverMs = 0;
+    const url = new URL(location.href);
+    url.searchParams.set('seed', seed.toString());
+    url.searchParams.set('smesh', showSmesharia ? '1' : '0');
+    history.replaceState(null, '', url);
+  });
 });
 document.getElementById('galaxy').addEventListener('click', () => {
   selected = null; info.style.display='none';
@@ -1391,6 +1410,5 @@ generate(initial);
 nebulae = makeNebula(initial);
 requestAnimationFrame(animate);
 </script>
-<a href="https://planet.enchanted.daymix.dpdns.org/" style="position:fixed;right:16px;bottom:16px;z-index:9999;padding:10px 14px;border-radius:999px;background:#1b1b26;color:#e8e8f2;border:1px solid #3a3a4c;font:14px/1 'Segoe UI',system-ui,sans-serif;text-decoration:none">Генератор планет</a>
 </body>
 </html>
