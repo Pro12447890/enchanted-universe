@@ -540,6 +540,10 @@
           systemIndex: si, index: pi
         };
         if (od) planet.orbitData = od;
+        // Наклон оси и магнитный полюс: приходят из Java PlanetRotation только в
+        // импортированном каталоге (schemaVersion 2). Без импорта ниже есть
+        // реальная таблица Солнечной системы; вымышленным мирам строку не врём.
+        if (p.rotation && typeof p.rotation === 'object') planet.rotation = p.rotation;
         if (Array.isArray(p.moonSpecs)) {
           planet.exportMoonSpecs = p.moonSpecs.map((m, mi) => ({
             index: m.index != null ? m.index : mi,
@@ -593,13 +597,48 @@
     };
   }
 
+  /* ── Наклон оси и магнитный полюс ───────────────────────────────────────────
+     Реальные числа: NASA NSSDCA Planetary Fact Sheet, колонка «Obliquity to
+     Orbit» (обновление 18.03.2025), и наклон магнитного диполя к оси вращения
+     (Bagenal 1992 / обзор Stern 2002): Земля 11.3°, Юпитер 9.6°, Сатурн ~0°,
+     Уран 59°, Нептун 47°. У Венеры и Марса глобального диполя нет.
+     Для импортированного мира берём точные значения из каталога (поле rotation). */
+  const SOLAR_ROTATION = {
+    'Меркурий': { obliquityDeg: 0.034, magneticTiltDeg: 4, retrograde: false },
+    'Венера':   { obliquityDeg: 177.4, magneticTiltDeg: 0, retrograde: true },
+    'Земля':    { obliquityDeg: 23.4,  magneticTiltDeg: 11.3, retrograde: false },
+    'Марс':     { obliquityDeg: 25.2,  magneticTiltDeg: 0, retrograde: false },
+    'Церера':   { obliquityDeg: 4.0,   magneticTiltDeg: 0, retrograde: false },
+    'Юпитер':   { obliquityDeg: 3.1,   magneticTiltDeg: 9.6, retrograde: false },
+    'Сатурн':   { obliquityDeg: 26.7,  magneticTiltDeg: 0, retrograde: false },
+    'Уран':     { obliquityDeg: 97.8,  magneticTiltDeg: 59, retrograde: true },
+    'Нептун':   { obliquityDeg: 28.3,  magneticTiltDeg: 47, retrograde: false },
+    'Плутон':   { obliquityDeg: 119.5, magneticTiltDeg: 0, retrograde: true }
+  };
+  function rotationOf(planet) {
+    if (!planet) return null;
+    const r = planet.rotation;
+    if (r && Number.isFinite(Number(r.obliquityDeg))) {
+      return {
+        obliquityDeg: Number(r.obliquityDeg),
+        magneticTiltDeg: Number.isFinite(Number(r.magneticTiltDeg)) ? Number(r.magneticTiltDeg) : 0,
+        retrograde: !!r.retrograde || Number(r.obliquityDeg) > 90,
+        auroraLatitudeDeg: Number.isFinite(Number(r.auroraLatitudeDeg)) ? Number(r.auroraLatitudeDeg) : null,
+        source: 'catalog'
+      };
+    }
+    const known = SOLAR_ROTATION[planet.name];
+    if (known) return Object.assign({ auroraLatitudeDeg: null, source: 'nasa' }, known);
+    return null;
+  }
+
   const API = {
     TAU, TICKS_PER_SECOND, RATE_1AU, E_CAP, AU_WORLD_MAX,
     fnv1a32, unit, seedPhase, clamp, periodTicksFor, rateFor,
     elementsFor, elementFor, localPosition, orbitPath, moonAngle, companionAngle,
     blackHoles, galaxyWorld, systemPosition, nearestSystemLy, adaptServerCatalog,
-    validateServerCatalog,
-    solarElements: SOLAR
+    validateServerCatalog, rotationOf,
+    solarElements: SOLAR, solarRotation: SOLAR_ROTATION
   };
   if (typeof window !== 'undefined') window.EUOrbits = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

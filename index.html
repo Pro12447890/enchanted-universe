@@ -184,7 +184,7 @@
 <script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
 <script src="js/i18n.js?v=41"></script>
 <script src="js/generator.js?v=36"></script>
-<script src="js/orbits.js?v=1"></script>
+<script src="js/orbits.js?v=2"></script>
 <script src="js/rings3d.js?v=1"></script>
 <div class="dock">
   <div class="zoomctl">
@@ -1528,10 +1528,19 @@ function showPlanet(p, system) {
   const oe = EUOrbits.elementFor(system, p);
   const oeRows = oe ? `
       <tr><td>${ru ? 'Эксцентриситет' : 'Eccentricity'}</td><td>${oe.e.toFixed(3)}</td></tr>
-      <tr><td>${ru ? 'Наклон' : 'Inclination'}</td><td>${(oe.iRad * 180 / Math.PI).toFixed(1)}°</td></tr>
+      <tr><td>${ru ? 'Наклон орбиты' : 'Orbital inclination'}</td><td>${(oe.iRad * 180 / Math.PI).toFixed(1)}°</td></tr>
       ${Math.abs(oe.gameRadiusAu - oe.meanRadiusAu) > 0.001 ? `<tr><td>${ru ? 'Игровая орбита' : 'Game orbit'}</td><td>${oe.gameRadiusAu.toFixed(2)} ${T('unit.au')}</td></tr>` : ''}
       <tr><td>${ru ? 'Период (карта)' : 'Period (map)'}</td><td>${(oe.periodTicks / 1200).toFixed(1)} ${T('unit.min')} · ${Math.round(oe.periodTicks)} t</td></tr>
       <tr><td>${ru ? 'Полуось' : 'Semi-major'}</td><td>${oe.semiMajorAxisAu.toFixed(3)} ${T('unit.au')}</td></tr>
+` : '';
+  // Ось вращения и магнитный полюс: из импортированного каталога (Java
+  // PlanetRotation) либо из реальной таблицы Солнечной системы. Вымышленным
+  // мирам без импорта строку не показываем — не выдумываем число.
+  const rot = EUOrbits.rotationOf(p);
+  const rotRows = rot ? `
+      <tr><td>${ru ? 'Наклон оси' : 'Axial tilt'}</td><td>${rot.obliquityDeg.toFixed(1)}°${rot.retrograde ? (ru ? ' · обратное' : ' · retrograde') : ''}</td></tr>
+      ${rot.magneticTiltDeg > 0 ? `<tr><td>${ru ? 'Магнитный полюс' : 'Magnetic pole'}</td><td>${rot.magneticTiltDeg.toFixed(1)}°${ru ? ' от оси' : ' from axis'}</td></tr>` : ''}
+      ${rot.auroraLatitudeDeg != null ? `<tr><td>${ru ? 'Овал сияния' : 'Aurora oval'}</td><td>${rot.auroraLatitudeDeg.toFixed(0)}°</td></tr>` : ''}
 ` : '';
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
@@ -1546,6 +1555,7 @@ function showPlanet(p, system) {
       <tr><td>${T('info.radiation')}</td><td>${p.radiation.toFixed(0)}</td></tr>
       <tr><td>${T('info.orbit')}</td><td>${p.orbitAu.toFixed(2)} ${T('unit.au')}</td></tr>
       ${oeRows}
+      ${rotRows}
       <tr><td>${T('info.diameter')}</td><td>${p.diameterEarth.toFixed(2)} ${T('unit.re')}</td></tr>
       <tr><td>${T('info.rings')}</td><td>${p.rings ? T('yes') : T('no')}</td></tr>
     </table>
