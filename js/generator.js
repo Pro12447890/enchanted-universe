@@ -476,6 +476,13 @@ function generateCatalog(worldSeed, options = {}) {
     }
     systems.push({ name, formalName: formal, star, companion, distanceLy: distance, planets, systemIndex: i, id: 'system_' + i });
   }
+  // Магнитары в Java StarSystem получают префикс PSR- (нормализация старых имён).
+  // Добавляем его и в веб-каталог, чтобы названия совпадали с игрой.
+  for (const s of systems) {
+    if (s.star !== 'magnetar') continue;
+    if (!String(s.name).startsWith('PSR-')) s.name = 'PSR-' + s.name;
+    if (!String(s.formalName).startsWith('PSR-')) s.formalName = 'PSR-' + s.formalName;
+  }
   return { worldSeed: worldSeed.toString(), systems };
 }
 

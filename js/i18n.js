@@ -10,6 +10,13 @@
       'random': 'Случайный сид',
       'search.ph': 'Поиск: планета, система, спутник…',
       'galaxy': 'Галактика',
+      'time.title': 'Реалистичное время: локальные тики, не синхронизировано с миром',
+      'time.speedTitle': 'Скорость времени · клик — ×1',
+      'time.mode': 'Реалистичный',
+      'time.ticks': 'лок. тики',
+      'time.ticksTitle': 'Локальные тики с начала эпохи. Не синхронизировано с миром: введи значение вручную или импортируй каталог.',
+      'import.title': 'Импорт JSON каталога мира (/spacecatalog)',
+      'bar.toggle': 'Показать/скрыть панель',
       'loading': 'Генерация каталога…',
       'hint': '<b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад',
       'hint.mobile': '<b>Один палец</b> — панорама · <b>два пальца</b> — масштаб · <b>тап</b> — выбор',
@@ -98,6 +105,13 @@
       'random': 'Random seed',
       'search.ph': 'Search: planet, system, moon…',
       'galaxy': 'Galaxy',
+      'time.title': 'Realistic time: local ticks, not synced with the world',
+      'time.speedTitle': 'Time speed · click — ×1',
+      'time.mode': 'Realistic',
+      'time.ticks': 'local ticks',
+      'time.ticksTitle': 'Local ticks since epoch start. Not synced with the world: enter a value manually or import a catalog.',
+      'import.title': 'Import world catalog JSON (/spacecatalog)',
+      'bar.toggle': 'Show/hide panel',
       'loading': 'Generating catalog…',
       'hint': '<b>Wheel</b> — zoom · <b>drag</b> — pan · <b>click</b> — star, system, planet · <b>Esc</b> — back',
       'hint.mobile': '<b>One finger</b> — pan · <b>two fingers</b> — zoom · <b>tap</b> — select',
@@ -211,27 +225,68 @@
     if (btn) btn.textContent = current() === 'ru' ? 'RU' : 'EN';
     window.dispatchEvent(new Event('eu-lang'));
   }
+  let modalOpen = false, lastFocus = null;
+  function focusables(modal) {
+    return [...modal.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')]
+      .filter(el => !el.disabled && el.offsetParent !== null);
+  }
+  function setBackgroundInert(on) {
+    const modal = document.getElementById('langModal');
+    for (const el of document.body.children) {
+      if (el === modal || el.tagName === 'SCRIPT') continue;
+      if (on) { el.inert = true; el.setAttribute('data-eu-inert', '1'); }
+      else if (el.hasAttribute('data-eu-inert')) { el.inert = false; el.removeAttribute('data-eu-inert'); }
+    }
+  }
+  function openLangModal() {
+    const modal = document.getElementById('langModal');
+    if (!modal) return;
+    lastFocus = document.activeElement;
+    modal.classList.remove('hidden');
+    modalOpen = true;
+    setBackgroundInert(true);
+    const first = focusables(modal)[0];
+    if (first) setTimeout(() => first.focus(), 0);
+  }
+  function closeLangModal() {
+    const modal = document.getElementById('langModal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modalOpen = false;
+    setBackgroundInert(false);
+    if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
+  }
+  function modalKeydown(e) {
+    const modal = document.getElementById('langModal');
+    if (!modalOpen || !modal) return;
+    if (e.key === 'Escape') {
+      e.preventDefault(); e.stopPropagation();
+      if (!lang) setLang(current(), true); else closeLangModal();
+      return;
+    }
+    if (e.key === 'Tab') {
+      const f = focusables(modal);
+      if (!f.length) return;
+      const i = f.indexOf(document.activeElement);
+      const next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
+      e.preventDefault(); f[next].focus();
+    }
+  }
+  document.addEventListener('keydown', modalKeydown, true);
   function setLang(value, remember) {
     lang = value === 'en' ? 'en' : 'ru';
     if (remember !== false) setCookie(COOKIE, lang);
     apply();
-    const modal = document.getElementById('langModal');
-    if (modal) modal.classList.add('hidden');
+    closeLangModal();
   }
   function init() {
     apply();
-    if (!lang) {
-      const modal = document.getElementById('langModal');
-      if (modal) modal.classList.remove('hidden');
-    }
+    if (!lang) openLangModal();
     document.querySelectorAll('#langModal [data-lang]').forEach(b => {
       b.addEventListener('click', () => setLang(b.getAttribute('data-lang')));
     });
     const btn = document.getElementById('langBtn');
-    if (btn) btn.addEventListener('click', () => {
-      const modal = document.getElementById('langModal');
-      if (modal) modal.classList.remove('hidden');
-    });
+    if (btn) btn.addEventListener('click', () => openLangModal());
   }
   window.EUI18N = { t, current, setLang, init, apply, hasLang: () => !!lang };
 })();
