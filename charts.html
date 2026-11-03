@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru" data-doc-key="ch.doc">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#04060c">
+<meta name="description" content="Живая статистика генератора Enchanted Universe: цвет неба, категории миров, атмосферы, топ архетипов и ночной лес по текущему сиду.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Диаграммы генератора — Enchanted Universe">
+<meta property="og:description" content="Цвет неба, категории миров, атмосферы, архетипы и ночной лес по текущему сиду.">
+<meta property="og:url" content="https://enchanted.daymix.dpdns.org/charts.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="favicon-180.png">
+<title data-i18n-doc="ch.doc">Диаграммы генератора — Enchanted Universe</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --gold: #d8c07a;
+    --gold-soft: #e8cf8a;
+    --cyan: #5fe6ff;
+    --dim: #8b97b8;
+    --text: #dfe7ff;
+    --line: #2a3550;
+    --panel: rgba(10, 14, 24, .86);
+    --bg: #04060c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100%;
+    background:
+      radial-gradient(1100px 620px at 8% -10%, #121a33 0%, rgba(4, 6, 12, 0) 62%),
+      radial-gradient(900px 520px at 100% 6%, #0d1d2c 0%, rgba(4, 6, 12, 0) 58%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text);
+    font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: 100%; max-width: 1280px; margin: 0 auto;
+          padding: 0 clamp(10px, 2.2vw, 26px) clamp(24px, 4vw, 48px); }
+
+  /* ── шапка ─────────────────────────────────────────────────────────────── */
+  .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px;
+         flex-wrap: wrap; padding: 10px 0 clamp(8px, 1.2vw, 12px);
+         background: linear-gradient(rgba(4, 6, 12, .96), rgba(4, 6, 12, 0));
+         backdrop-filter: blur(8px); }
+  .brand { font-weight: 700; letter-spacing: .08em; color: var(--gold); font-size: 15px; line-height: 1.1; }
+  .brand small { display: block; font-weight: 400; letter-spacing: 0; color: var(--dim);
+                 font-size: 11px; margin-top: 3px; }
+  .grow { flex: 1 1 auto; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px;
+          color: var(--dim); text-decoration: none; padding: 6px 12px; border: 1px solid #26314a;
+          border-radius: 999px; background: rgba(11, 18, 32, .72); white-space: nowrap; cursor: pointer; }
+  .chip:hover { color: var(--gold-soft); border-color: #4a5f8c; }
+  #langBtn { min-width: 46px; justify-content: center; }
+
+  /* ── сид ───────────────────────────────────────────────────────────────── */
+  .seedbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+             padding: 10px 14px; margin-bottom: 12px;
+             border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+  .seedbar label { color: var(--dim); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+  #seed { flex: 1 1 200px; min-width: 0; background: #0b1220; border: 1px solid var(--line);
+          color: #e8eeff; padding: 8px 11px; border-radius: 8px; outline: none;
+          font: 13px/1.2 ui-monospace, Consolas, monospace; }
+  #seed:focus { border-color: #57c8e0; }
+  #seed.bad { border-color: #a04050; }
+  #random { background: #1a1608; border: 1px solid #6b5a2a; color: var(--gold-soft);
+            padding: 8px 14px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 13px; }
+  #random:hover { background: #241d0a; border-color: #8a7436; }
+
+  /* ── крупные цифры ─────────────────────────────────────────────────────── */
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .stat { padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .stat b { display: block; font-size: clamp(21px, 2.5vw, 30px); font-weight: 600; line-height: 1.1;
+            color: var(--gold-soft); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+  .stat span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--dim); letter-spacing: .04em; }
+
+  /* ── сетка карточек ────────────────────────────────────────────────────── */
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .card { margin: 0; padding: 14px 16px 16px; border: 1px solid var(--line); border-radius: 14px;
+          background: var(--panel); min-width: 0; }
+  .card.wide { grid-column: 1 / -1; }
+  .card h2 { margin: 0 0 2px; font-size: 14px; font-weight: 600; letter-spacing: .04em; color: #cfe0ff; }
+  .card .note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.4; color: #6f7c9c; }
+
+  /* ── донат + легенда ───────────────────────────────────────────────────── */
+  .donut { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 12px; align-items: center; margin-top: 10px; }
+  .donut__cv { width: 100%; max-width: 148px; aspect-ratio: 1 / 1; }
+  .donut__cv canvas { display: block; width: 100%; height: 100%; }
+  .legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;
+            font-size: 12px; min-width: 0; }
+  .legend li { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .legend .sw { width: 9px; height: 9px; border-radius: 3px; flex: none; box-shadow: 0 0 0 1px #00000055 inset; }
+  .legend .nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                color: #c3cee4; }
+  .legend .vl { flex: none; color: var(--gold-soft); font-variant-numeric: tabular-nums; font-size: 11.5px; }
+
+  /* ── бары ──────────────────────────────────────────────────────────────── */
+  .bars { display: block; width: 100%; margin-top: 8px; }
+
+  @media (max-width: 1040px) {
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 780px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .donut { grid-template-columns: 132px minmax(0, 1fr); }
+    .donut__cv { max-width: 132px; }
+    .brand small { display: none; }
+  }
+  @media (max-width: 430px) {
+    .donut { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+    .donut__cv { max-width: 150px; }
+    .legend { width: 100%; }
+    .card { padding: 12px; }
+    .seedbar { padding: 10px; gap: 8px; }
+    #seed { flex: 1 1 130px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">ENCHANTED UNIVERSE<small data-i18n="ch.sub">живая статистика генератора по текущему сиду</small></div>
+    <div class="grow"></div>
+    <a class="chip" id="back" href="index.html" data-i18n="ch.back">← Назад на карту</a>
+    <button class="chip" id="langBtn" type="button" aria-label="Язык">RU</button>
+  </header>
+
+  <section class="seedbar">
+    <label for="seed" data-i18n="ch.seed">Сид</label>
+    <input id="seed" type="text" spellcheck="false" autocomplete="off" inputmode="text"
+           data-i18n-title="seed.title" title="Сид мира: десятичный или 0x…">
+    <button id="random" type="button" data-i18n="ch.random">Случайный</button>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><b id="stPlanets">—</b><span data-i18n="ch.planets">планет</span></div>
+    <div class="stat"><b id="stSystems">—</b><span data-i18n="ch.systems">систем</span></div>
+    <div class="stat"><b id="stNight">—</b><span data-i18n="ch.nightForest">с ночным лесом</span></div>
+    <div class="stat"><b id="stSky">—</b><span data-i18n="ch.skyTypes">цветов неба</span></div>
+  </section>
+
+  <main class="grid">
+    <section class="card">
+      <h2 data-i18n="ch.sky">Цвет неба</h2>
+      <div class="donut">
+        <div class="donut__cv"><canvas id="skyCv" role="img"></canvas></div>
+        <ul class="legend" id="skyLegend"></ul>
+      </div>
+      <p class="note" data-i18n="ch.skyNote"></p>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="ch.categories">Категории миров</h2>
+      <div class="donut">
+        <div class="donut__cv"><canvas id="catCv" role="img"></canvas></div>
+        <ul class="legend" id="catLegend"></ul>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="ch.atmospheres">Атмосферы</h2>
+      <div class="donut">
+        <div class="donut__cv"><canvas id="atmCv" role="img"></canvas></div>
+        <ul class="legend" id="atmLegend"></ul>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2 data-i18n="ch.archetypes">Топ-10 архетипов</h2>
+      <canvas id="archCv" class="bars" role="img"></canvas>
+    </section>
+
+    <section class="card wide">
+      <h2 data-i18n="ch.nightTitle">Ночной лес по категориям</h2>
+      <p class="note" data-i18n="ch.nightNote">доля миров с биомом night_forest</p>
+      <canvas id="nightCv" class="bars" role="img"></canvas>
+    </section>
+  </main>
+</div>
+<script src="js/i18n.js?v=42"></script>
+<script src="js/generator.js?v=36"></script>
+<script src="charts.js?v=1"></script>
+</body>
+</html>

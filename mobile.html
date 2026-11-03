@@ -209,7 +209,7 @@
   <input id="timeTicksInput" type="text" inputmode="decimal" spellcheck="false" aria-label="Локальные тики" data-i18n-title="time.ticksTitle" title="Локальные тики с начала эпохи. Не синхронизировано с миром: введи значение вручную или импортируй каталог.">
 </div>
 
-<script src="js/i18n.js?v=41"></script>
+<script src="js/i18n.js?v=42"></script>
 <script src="js/generator.js?v=36"></script>
 <script src="js/orbits.js?v=2"></script>
 <script src="js/rings3d.js?v=1"></script>
@@ -229,8 +229,11 @@
   <div class="dockrow">
     <a class="tgk" id="modver" href="https://github.com/Pro12447890/enchanted-universe/releases" target="_blank" rel="noopener noreferrer"
        data-i18n-title="ver.title" title="Последняя версия мода"><i class="dot" aria-hidden="true"></i><span>1.0.0-RC-1</span></a>
+    <a class="tgk" id="crafts" href="crafts.html" title="Крафты мода"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg><span data-i18n="dock.crafts">Крафты</span></a>
     <a class="tgk" id="planets" href="https://planet.daymix.dpdns.org/" target="_blank" rel="noopener noreferrer"
        data-i18n-title="planets.title" title="Генератор планет в браузере"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><ellipse cx="12" cy="12" rx="10.4" ry="3.5" fill="none" stroke="currentColor" stroke-width="1.7" transform="rotate(-24 12 12)"/></svg><span data-i18n="planets">Генератор планет</span></a>
+    <a class="tgk" id="charts" href="charts.html"
+       data-i18n-title="charts.title" title="Живая статистика генератора по текущему сиду"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="3.4" height="9" rx="1"/><rect x="10.3" y="6" width="3.4" height="14" rx="1"/><rect x="16.6" y="14" width="3.4" height="6" rx="1"/></svg><span data-i18n="charts">Диаграммы</span></a>
     <a class="tgk" id="tgk" href="https://t.me/smesharia_mod" target="_blank" rel="noopener noreferrer"
        data-i18n-title="tgk.title" title="Телеграм-канал мода"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.91 3.79 20.3 20.84c-.25 1.21-.98 1.5-2 .94l-5.5-4.07-2.66 2.57c-.3.3-.55.56-1.1.56-.72 0-.6-.27-.84-.95L6.3 13.7l-5.45-1.7c-1.18-.35-1.19-1.16.26-1.75l21.26-8.2c.97-.43 1.9.24 1.54 1.74z"/></svg><span data-i18n="tgk">ТГК мода</span></a>
   </div>
@@ -357,6 +360,10 @@ function generate(seed) {
     url.searchParams.set('seed', seed.toString());
     url.searchParams.set('smesh', showSmesharia ? '1' : '0');
     history.replaceState(null, '', url);
+    // Сид запоминаем: по нему откроются «Диаграммы» и следующий визит.
+    try { localStorage.setItem('eu_seed', seed.toString()); } catch (e) { /* приватный режим */ }
+    const chartsLink = document.getElementById('charts');
+    if (chartsLink) chartsLink.href = 'charts.html?seed=' + encodeURIComponent(seed.toString());
     stars = makeStars(seed);
     nebulae = makeNebula(seed);
     selected = null; info.style.display = 'none';

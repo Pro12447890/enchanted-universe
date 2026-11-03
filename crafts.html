@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Крафты — Enchanted Universe</title>
+<meta name="description" content="Все крафты мода Enchanted Universe: сетка, результат, ингредиенты — без лишнего.">
+<meta name="theme-color" content="#0b0b10">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<style>
+  :root { color-scheme: dark; --bg:#080b14; --panel:#0e1424; --line:#22304c; --text:#d8e0f2;
+          --muted:#8b97b8; --gold:#d8c07a; --teal:#5fe6ff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body { background:
+           radial-gradient(1000px 560px at 10% -10%, #12203a 0%, rgba(8,11,20,0) 62%),
+           radial-gradient(900px 520px at 100% 108%, #10182c 0%, rgba(8,11,20,0) 60%),
+           var(--bg);
+         color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+         padding: clamp(12px, 2.2vh, 24px) clamp(12px, 2.4vw, 32px) 40px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { font-size: clamp(17px, 1.9vw, 24px); font-weight: 600; margin: 0; letter-spacing: .2px; }
+  h1 span { color: var(--muted); font-weight: 400; }
+  .back { margin-left: auto; font-size: 12.5px; color: var(--muted); text-decoration: none;
+          padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: #0d1322; }
+  .back:hover { color: #eef3ff; border-color: #33456a; }
+  .tools { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  input[type=search] { flex: 1 1 240px; min-width: 0; background: #0b1220; color: var(--text);
+                       border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; font: inherit; }
+  input[type=search]:focus { outline: none; border-color: var(--teal); }
+  .counter { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .card { background: linear-gradient(180deg, rgba(20,30,52,.9), rgba(11,16,28,.92));
+          border: 1px solid var(--line); border-radius: 12px; padding: 10px; cursor: pointer;
+          transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+  .card:hover { transform: translateY(-2px); border-color: #35507f; box-shadow: 0 10px 26px -18px #000; }
+  .card__top { display: flex; align-items: center; gap: 9px; }
+  .card__icon { width: 34px; height: 34px; image-rendering: pixelated; flex: none; }
+  .card__name { font-size: 13px; font-weight: 500; line-height: 1.25; }
+  .card__count { margin-left: auto; color: var(--gold); font-size: 11px; white-space: nowrap; }
+  .mini { position: relative; display: grid; grid-template-columns: repeat(3, 20px); gap: 2px;
+          justify-content: center; margin: 10px 0 4px; padding: 6px; border-radius: 8px;
+          background: rgba(6,10,20,.85); border: 1px solid #1a2540; }
+  .slot { width: 20px; height: 20px; border-radius: 4px; background: #10182b;
+          border: 1px solid #1e2c49; display: grid; place-items: center; }
+  .slot img { width: 16px; height: 16px; image-rendering: pixelated; }
+  .card__station { text-align: center; color: var(--muted); font-size: 10.5px; letter-spacing: .06em;
+                   text-transform: uppercase; }
+  .modal { position: fixed; inset: 0; background: rgba(4,7,14,.72); backdrop-filter: blur(3px);
+           display: grid; place-items: center; padding: 18px; z-index: 30; }
+  .modal[hidden] { display: none; }
+  .sheet { width: min(620px, 100%); max-height: 88vh; overflow: auto; background: #0c1322;
+           border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .sheet__head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .sheet__icon { width: 56px; height: 56px; image-rendering: pixelated; }
+  .sheet h2 { font-size: 18px; margin: 0 0 2px; }
+  .sheet__sub { color: var(--muted); font-size: 12.5px; }
+  .close { margin-left: auto; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line);
+           background: #0d1526; color: var(--text); cursor: pointer; font-size: 16px; }
+  .big { display: grid; grid-template-columns: repeat(3, 54px); gap: 5px; justify-content: center;
+         padding: 12px; border-radius: 12px; background: rgba(6,10,20,.9); border: 1px solid #1a2540; }
+  .big .slot { width: 54px; height: 54px; }
+  .big .slot img { width: 40px; height: 40px; }
+  .big__station { text-align: center; margin: 10px 0 16px; color: var(--gold); font-size: 13px; }
+  .ing { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .ing li { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 9px;
+            background: #0a1120; border: 1px solid #18233c; font-size: 13px; }
+  .ing img { width: 20px; height: 20px; image-rendering: pixelated; }
+  .ing .n { margin-left: auto; color: var(--gold); font-size: 12px; }
+  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+  @media (max-width: 520px) { .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Крафты <span>— enchanted universe</span></h1>
+    <a class="back" href="index.html">← на карту</a>
+  </header>
+  <div class="tools">
+    <input id="search" type="search" placeholder="Поиск по названию…" autocomplete="off" spellcheck="false">
+    <span class="counter" id="counter"></span>
+  </div>
+  <div class="grid" id="grid"></div>
+  <p class="empty" id="empty" hidden>Ничего не нашлось.</p>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet__head">
+      <img class="sheet__icon" id="sheetIcon" alt="">
+      <div>
+        <h2 id="sheetTitle"></h2>
+        <div class="sheet__sub" id="sheetSub"></div>
+      </div>
+      <button class="close" id="close" type="button" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="big" id="sheetGrid"></div>
+    <div class="big__station" id="sheetStation"></div>
+    <ul class="ing" id="sheetIng"></ul>
+  </div>
+</div>
+
+<script src="crafts-data.js"></script>
+<script>
+"use strict";
+(function () {
+  const DATA = window.EU_CRAFTS || { items: {}, recipes: [] };
+  const icon = (id) => (DATA.items[id] || {}).icon || "";
+  const name = (id) => (DATA.items[id] || {}).name || "—";
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // Сколько чего нужно: по сетке (или по входу плавки), без повторов.
+  function ingredients(recipe) {
+    const counts = new Map();
+    const cells = recipe.station === "печь" ? [recipe.input] : recipe.grid.flat();
+    for (const id of cells) {
+      if (!id) continue;
+      counts.set(id, (counts.get(id) || 0) + 1);
+    }
+    return [...counts.entries()];
+  }
+
+  const grid = document.getElementById("grid");
+  const counter = document.getElementById("counter");
+  const empty = document.getElementById("empty");
+  const search = document.getElementById("search");
+  const modal = document.getElementById("modal");
+
+  function slot(id, cls) {
+    const c = cls ? " " + cls : "";
+    return '<span class="slot' + c + '">' + (id ? '<img src="' + icon(id) + '" alt="" title="' + esc(name(id)) + '">' : "") + "</span>";
+  }
+
+  function card(recipe, index) {
+    const result = recipe.result;
+    const cells = [];
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        const id = recipe.station === "печь" ? (row === 1 && col === 1 ? recipe.input : null) : recipe.grid[row][col];
+        cells.push(slot(id));
+      }
+    }
+    return '<article class="card" data-index="' + index + '" tabindex="0" role="button">' +
+      '<div class="card__top">' +
+      '<img class="card__icon" src="' + icon(result.id) + '" alt="">' +
+      '<span class="card__name">' + esc(name(result.id)) + "</span>" +
+      (result.count > 1 ? '<span class="card__count">×' + result.count + "</span>" : "") +
+      "</div>" +
+      '<div class="mini">' + cells.join("") + "</div>" +
+      '<div class="card__station">' + esc(recipe.station) + "</div>" +
+      "</article>";
+  }
+
+  function render() {
+    const query = search.value.trim().toLowerCase();
+    const list = DATA.recipes.filter((recipe) => {
+      if (!query) return true;
+      return name(recipe.result.id).toLowerCase().includes(query);
+    });
+    grid.innerHTML = list.map((recipe) => card(recipe, DATA.recipes.indexOf(recipe))).join("");
+    counter.textContent = list.length + " из " + DATA.recipes.length;
+    empty.hidden = list.length > 0;
+  }
+
+  function open(recipe) {
+    const result = recipe.result;
+    document.getElementById("sheetIcon").src = icon(result.id);
+    document.getElementById("sheetTitle").textContent = name(result.id);
+    document.getElementById("sheetSub").textContent = result.count > 1 ? "получится " + result.count + " шт." : "получится 1 шт.";
+    const cells = [];
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        const id = recipe.station === "печь" ? (row === 1 && col === 1 ? recipe.input : null) : recipe.grid[row][col];
+        cells.push(slot(id));
+      }
+    }
+    document.getElementById("sheetGrid").innerHTML = cells.join("");
+    document.getElementById("sheetStation").textContent = "Ингредиенты выкладываются в блоке: " + recipe.station;
+    document.getElementById("sheetIng").innerHTML = ingredients(recipe)
+      .map(([id, n]) => '<li><img src="' + icon(id) + '" alt=""><span>' + esc(name(id)) + '</span><span class="n">×' + n + "</span></li>")
+      .join("");
+    modal.hidden = false;
+  }
+
+  grid.addEventListener("click", (event) => {
+    const cardEl = event.target.closest(".card");
+    if (!cardEl) return;
+    open(DATA.recipes[Number(cardEl.dataset.index)]);
+  });
+  grid.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const cardEl = event.target.closest(".card");
+    if (!cardEl) return;
+    event.preventDefault();
+    open(DATA.recipes[Number(cardEl.dataset.index)]);
+  });
+  document.getElementById("close").addEventListener("click", () => { modal.hidden = true; });
+  modal.addEventListener("click", (event) => { if (event.target === modal) modal.hidden = true; });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") modal.hidden = true; });
+  search.addEventListener("input", render);
+
+  render();
+})();
+</script>
+</body>
+</html>
