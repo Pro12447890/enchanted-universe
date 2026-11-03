@@ -63,7 +63,14 @@
   #info .moon { display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid #172033;
                 padding:4px 0; font-size:12px; }
   #info .moon span:last-child { color:#8fa2c8; text-align:right; }
-  .chips span.vanilla { color:#8fa0c0; border-color:#243250; }
+  /* Биомы: модовые и ванильные — двумя строками, со своей подписью и цветом */
+  .chips .biome-group { display:flex; flex-wrap:wrap; align-items:center; gap:3px 4px; }
+  .chips .biome-group + .biome-group { margin-top:4px; }
+  .chips span.biome-tag { flex:none; min-width:64px; border:0; background:none; padding:0;
+                          font-size:9px; letter-spacing:.09em; text-transform:uppercase; color:#5f7196; }
+  .chips span.biome-tag.vanilla { color:#4e5f7d; }
+  .chips span.biome.mod { color:#c3ece6; border-color:#2f6f6a; background:rgba(63,160,150,.10); }
+  .chips span.biome.vanilla { color:#8fa0c0; border-color:#243250; background:transparent; }
 .chips span { display:inline-block; border:1px solid #2c3a5c; border-radius:6px; padding:2px 6px;
                 margin:2px 3px 0 0; font-size:11px; color:#b9c8ea; }
   #hint { position:fixed; left:14px; bottom:12px; color:var(--dim); font-size:12px; z-index:3; }
@@ -1519,12 +1526,18 @@ function showPlanet(p, system) {
   const comp = (p.composition || []).map(c => `<span style="border-color:${atmosphereColor(p)}55">${esc(c)}</span>`).join('');
   const customBiomes = (p.biomes || []).filter(b => !String(b).startsWith('minecraft:'));
   const vanillaBiomes = (p.biomes || []).filter(b => String(b).startsWith('minecraft:'));
-  const customChips = customBiomes.map(b => `<span>${esc(b.replace('enchanted_universe:',''))}</span>`).join('');
-  const vanillaChips = vanillaBiomes.length
-    ? (customBiomes.length ? '<span>;</span>' : '') + vanillaBiomes.map(b => `<span class="vanilla">${esc(b.replace('minecraft:',''))}</span>`).join(', ')
+  // Чипы биомов: человеческое название, сырой id — в подсказке. Модовые и
+  // ванильные — отдельными строками со своей подписью, чтобы граница читалась.
+  const chipsFor = (list, cls) => list
+    .map(b => `<span class="biome ${cls}" title="${esc(b)}">${esc(EUI18N.biome(b))}</span>`).join('');
+  const modGroup = customBiomes.length
+    ? `<div class="biome-group"><span class="biome-tag mod">${T('biome.mod')}</span>${chipsFor(customBiomes, 'mod')}</div>`
     : '';
-  const biomeChips = p.category === 'gas_giant' ? '' + '<span>' + T('biome.unknown') + '</span>' + ''
-    : (customChips + vanillaChips || '<span>—</span>');
+  const vanGroup = vanillaBiomes.length
+    ? `<div class="biome-group"><span class="biome-tag vanilla">${T('biome.vanilla')}</span>${chipsFor(vanillaBiomes, 'vanilla')}</div>`
+    : '';
+  const biomeChips = p.category === 'gas_giant' ? '<span>' + T('biome.unknown') + '</span>'
+    : (modGroup + vanGroup || '<span>—</span>');
   const typeLabel = T('card.type');
   const spectralLabel = T('card.spectral');
   const ru = EUI18N.current() === 'ru';

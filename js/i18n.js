@@ -157,6 +157,8 @@
       'import.ok': 'Импортирован мир: ',
       'import.failed': 'Импорт не удался: ',
       'biome.unknown': 'Неопределённое вопросительное xD',
+      'biome.vanilla': 'minecraft',
+      'biome.mod': 'модовые',
       'err.prefix': 'Импорт: ',
       'err.value': 'нечисловое значение',
       'err.missing': 'отсутствует',
@@ -321,6 +323,8 @@
       'import.ok': 'World imported: ',
       'import.failed': 'Import failed: ',
       'biome.unknown': 'Undetermined and slightly questionable xD',
+      'biome.mod': 'modded',
+      'biome.vanilla': 'minecraft',
       'err.prefix': 'Import: ',
       'err.value': 'not a number',
       'err.missing': 'missing',
@@ -376,6 +380,72 @@
     'Джунгля': 'Junglya', 'Ураниум': 'Uranium', 'Центра-Альфара': 'Centra-Alphara'
   };
 
+  /* Биомы: id -> [по-русски, по-английски]. Источник — языковые файлы
+   * мода (biome.enchanted_universe.*) и ванильного клиента 1.21.8. */
+  const BIOMES = {
+    'ashy_forest': ['Пепельный лес', 'Ashy Forest'],
+    'bamboo_jungle': ['Бамбуковые заросли', 'Bamboo Jungle'],
+    'beach': ['Пляж', 'Beach'],
+    'birch_forest': ['Березняк', 'Birch Forest'],
+    'brown_regolithbasin': ['Коричневый реголитовый бассейн', 'Brown Regolith Basin'],
+    'cherry_grove': ['Вишнёвая роща', 'Cherry Grove'],
+    'cold_ocean': ['Холодный океан', 'Cold Ocean'],
+    'cratered_regolithbasin': ['Кратерный реголитовый бассейн', 'Cratered Regolith Basin'],
+    'dark_forest': ['Тёмный лес', 'Dark Forest'],
+    'deep_cold_ocean': ['Глубокий холодный океан', 'Deep Cold Ocean'],
+    'deep_frozen_ocean': ['Глубокий замёрзший океан', 'Deep Frozen Ocean'],
+    'deep_lukewarm_ocean': ['Глубокий тепловатый океан', 'Deep Lukewarm Ocean'],
+    'deep_ocean': ['Глубокий океан', 'Deep Ocean'],
+    'dense_mushroom_groves': ['Дремучие грибные рощи', 'Dense Mushroom Groves'],
+    'flower_forest': ['Цветочный лес', 'Flower Forest'],
+    'forest': ['Лес', 'Forest'],
+    'frozen_ocean': ['Замёрзший океан', 'Frozen Ocean'],
+    'frozen_peaks': ['Замёрзшие вершины', 'Frozen Peaks'],
+    'frozen_river': ['Замёрзшая река', 'Frozen River'],
+    'golden_groves': ['Золотые рощи', 'Golden Groves'],
+    'greensproutsgroves': ['Рощи зелёных ростков', 'Green Sprouts Groves'],
+    'grove': ['Роща', 'Grove'],
+    'hot_regolithbasin': ['Горячий реголитовый бассейн', 'Hot Regolith Basin'],
+    'ice_spikes': ['Ледяные пики', 'Ice Spikes'],
+    'iced_regolithbasin': ['Ледяной реголитовый бассейн', 'Iced Regolith Basin'],
+    'icy_groves': ['Морозные рощи', 'Icy Groves'],
+    'jagged_peaks': ['Зубчатые вершины', 'Jagged Peaks'],
+    'jungle': ['Джунгли', 'Jungle'],
+    'light_regolithbasin': ['Светлый реголитовый бассейн', 'Light Regolith Basin'],
+    'lukewarm_ocean': ['Тепловатый океан', 'Lukewarm Ocean'],
+    'mangrove_swamp': ['Мангровое болото', 'Mangrove Swamp'],
+    'meadow': ['Луг', 'Meadow'],
+    'mushroom_fields': ['Грибные поля', 'Mushroom Fields'],
+    'night_forest': ['Ночной лес', 'Night Forest'],
+    'ocean': ['Океан', 'Ocean'],
+    'old_growth_pine_taiga': ['Реликтовая сосновая тайга', 'Old Growth Pine Taiga'],
+    'old_growth_spruce_taiga': ['Реликтовая еловая тайга', 'Old Growth Spruce Taiga'],
+    'pale_garden': ['Бледный сад', 'Pale Garden'],
+    'plains': ['Равнины', 'Plains'],
+    'regolithbasin': ['Реголитовый бассейн', 'Regolith Basin'],
+    'river': ['Река', 'River'],
+    'savanna': ['Саванна', 'Savanna'],
+    'savanna_plateau': ['Саванна (плато)', 'Savanna Plateau'],
+    'scarlet_forest': ['Алый лес', 'Scarlet Forest'],
+    'scarlet_plains': ['Алые равнины', 'Scarlet Plains'],
+    'snowy_beach': ['Заснеженный пляж', 'Snowy Beach'],
+    'snowy_plains': ['Заснеженные равнины', 'Snowy Plains'],
+    'snowy_slopes': ['Заснеженные склоны', 'Snowy Slopes'],
+    'snowy_taiga': ['Заснеженная тайга', 'Snowy Taiga'],
+    'sparse_jungle': ['Редкие джунгли', 'Sparse Jungle'],
+    'stony_shore': ['Каменистый берег', 'Stony Shore'],
+    'sunflower_plains': ['Подсолнуховые поля', 'Sunflower Plains'],
+    'swamp': ['Болото', 'Swamp'],
+    'taiga': ['Тайга', 'Taiga'],
+    'very_hot_regolithbasin': ['Очень горячий реголитовый бассейн', 'Very Hot Regolith Basin'],
+    'warm_ocean': ['Тёплый океан', 'Warm Ocean'],
+    'windswept_forest': ['Выветренный лес', 'Windswept Forest'],
+    'windswept_hills': ['Выветренные холмы', 'Windswept Hills'],
+    'windswept_savanna': ['Выветренная саванна', 'Windswept Savanna'],
+    'windy_forest': ['Ветреный лес', 'Windy Forest'],
+    'windy_plains': ['Ветреные равнины', 'Windy Plains'],
+  };
+
   function getCookie(name) {
     const m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
     return m ? decodeURIComponent(m[1]) : null;
@@ -410,6 +480,14 @@
     const psr = /^(PSR-)(.+)$/.exec(text);
     if (psr) return psr[1] + (NAMES[psr[2]] || psr[2]);
     return text;
+  }
+  /** Название биома по id — на языке сайта; неизвестный id приводим к виду. */
+  function biome(value) {
+    const raw = String(value == null ? '' : value);
+    const key = raw.includes(':') ? raw.split(':').pop() : raw;
+    const entry = BIOMES[key];
+    if (entry) return current() === 'ru' ? entry[0] : entry[1];
+    return key.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
   }
   /** Язык по браузеру: для русскоязычных браузеров — ru, иначе en. */
   function suggested() {
@@ -527,7 +605,7 @@
   }
 
   window.EUI18N = {
-    t, name, current, locale, num, suggested, setLang, init, apply,
+    t, name, biome, current, locale, num, suggested, setLang, init, apply,
     hasLang: () => !!lang,
     names: NAMES
   };
