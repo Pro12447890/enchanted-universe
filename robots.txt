@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://pro12447890.github.io/enchanted-universe/sitemap.xml
+Sitemap: https://enchanted.daymix.dpdns.org/sitemap.xml

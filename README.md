@@ -136,7 +136,7 @@
 
 ## Домен
 
-Домен активен: **https://pro12447890.github.io/enchanted-universe/
+Домен активен: **./
 DNS-запись и GitHub Pages настроены, `Enforce HTTPS` включён; HTTP отвечает
 `301` на HTTPS.
 
