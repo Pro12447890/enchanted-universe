@@ -54,8 +54,10 @@
   button { cursor: pointer; }
   button:hover { border-color: #4a4a60; }
   #rnd, #save { width: 100%; }
-  #tempv, #fieldv, #magtiltv { min-width: 52px; text-align: right;
-                               font-variant-numeric: tabular-nums; }
+  #tempv { min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+  #fieldv, #magtiltv { min-width: 58px; text-align: right;
+                       font-variant-numeric: tabular-nums; }
+  #fieldv { min-width: 62px; }
   .row { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
   .note { margin: -3px 0 0; font-size: 11.5px; line-height: 1.35; color: var(--soft); }
   #info { font: 12px/1.5 ui-monospace, Consolas, monospace; color: #9a9ab0;
@@ -107,11 +109,11 @@
         <option value="medium" data-i18n="atm.medium">средняя</option>
         <option value="thick" data-i18n="atm.thick">плотная</option>
       </select></label>
-      <label><span data-i18n="p.field">Магнитное поле, Гс</span>
-        <span class="row"><input id="field" type="range" min="0" max="5" value="0.5" step="0.05" style="width:104px">
-          <b id="fieldv">0,50</b></span></label>
+      <label><span data-i18n="p.field">Магнитное поле</span>
+        <span class="row"><input id="field" type="range" min="0" max="5" value="0.5" step="0.05" style="width:96px">
+          <b id="fieldv">0,50 Гс</b></span></label>
       <label><span data-i18n="p.magtilt">Наклон поля</span>
-        <span class="row"><input id="magtilt" type="range" min="-30" max="30" value="0" step="1" style="width:104px">
+        <span class="row"><input id="magtilt" type="range" min="-30" max="30" value="0" step="1" style="width:96px">
           <b id="magtiltv">0°</b></span></label>
       <p class="note" data-i18n="p.aur.note">сияние: планета на 1 а.е. у звезды G2</p>
       <button id="save" data-i18n="p.save">Скачать PNG</button>
@@ -461,7 +463,7 @@ function rgba3(c, a) {
 /* Цвет ореола от температуры: холодные — голубой, тёплые — оранжевый. */
 function atmosphereColor(tempC) {
   const cold = [112, 190, 255], mid = [176, 226, 255], warm = [255, 150, 82];
-  const t = clamp((tempC + 60) / 460, 0, 1);
+  const t = clamp((tempC + 60) / 380, 0, 1);
   return t < 0.5 ? lerp(cold, mid, t * 2) : lerp(mid, warm, (t - 0.5) * 2);
 }
 
@@ -499,8 +501,8 @@ function auroraModel(kind, gauss, atm) {
   const screen = 0.12 * I / (1 + I);
   const alpha = clamp(screen * vis / 0.12, 0, 1);
   const level = alpha <= 0.004 ? "none"
-    : alpha < 0.22 ? "weak"
-    : alpha < 0.55 ? "mid" : "bright";
+    : alpha < 0.18 ? "weak"
+    : alpha < 0.52 ? "mid" : "bright";
   return { r: r, W: W, I: I, vis: vis, screen: screen, alpha: alpha, level: level };
 }
 
@@ -556,7 +558,7 @@ function drawFieldLines(c2, size, p) {
   if (!p || p.field <= 0.02) return;
   const R = planetRadius(size), c = size / 2;
   const a = p.magtilt * Math.PI / 180;
-  const loops = clamp(4 + Math.round(p.field * 0.55), 4, 6);
+  const loops = clamp(4 + Math.round(p.field * 0.8), 4, 8);
   c2.save();
   // Линии не должны проходить по диску: они выходят из-за планеты, как и в игре.
   c2.beginPath();
@@ -604,7 +606,7 @@ function fmt2(v) {
 
 function updateControls(c) {
   document.getElementById("tempv").textContent = fmtNum(c.tempC);
-  document.getElementById("fieldv").textContent = fmt2(c.field);
+  document.getElementById("fieldv").textContent = fmt2(c.field) + " " + T('p.unit.gs');
   document.getElementById("magtiltv").textContent = fmtNum(c.magtilt) + "°";
 }
 
