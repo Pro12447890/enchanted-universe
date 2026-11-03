@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-doc-key="doc.mobile">
 <head>
 <script>if (location.protocol === 'http:') location.replace('https://' + location.host + location.pathname + location.search + location.hash);</script>
 <meta charset="utf-8">
@@ -15,11 +15,12 @@
 <meta name="description" content="Enchanted Universe — интерактивная карта сидов, планет и симбиозных миров Смешарии.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Enchanted Universe — карта сидов">
+<meta property="og:locale" content="ru_RU">
 <meta property="og:description" content="Планеты, биомы, системы Смешарии и карта сидов.">
 <meta property="og:url" content="https://enchanted.daymix.dpdns.org/mobile.html">
 <meta name="twitter:card" content="summary_large_image">
 
-<title>Enchanted Universe — мобильная карта</title>
+<title data-i18n-doc="doc.mobile">Enchanted Universe — мобильная карта</title>
 <style>
   :root { --ui-scale:1; --gold:#e8cf8a; --dim:#8b97b8; --line:#2a3550; --panel:rgba(10,14,24,.92); }
   * { box-sizing:border-box; }
@@ -75,6 +76,8 @@
   .modal p{margin:0 0 16px;color:#8b97b8;font-size:13px}
   .modal .langRow{display:flex;gap:10px;justify-content:center}
   .modal .langRow button{min-width:120px;padding:10px}
+  /* подсказка языка: подсвечиваем тот, что совпал с языком браузера */
+  .modal .langRow button.is-suggested{border-color:#e8c86a;box-shadow:0 0 0 1px #e8c86a inset,0 0 22px -10px #e8c86a}
   @media (max-width:760px){
     .bar{padding:8px 10px;gap:6px}
     .brand{font-size:12px;letter-spacing:.04em}
@@ -178,7 +181,7 @@
   </label>
   <button id="langBtn">RU</button>
   <button id="galaxy" data-i18n="galaxy">Галактика</button>
-  <button id="full" onclick="location.href='index.html?desktop=1'">Полная</button>
+  <button id="full" onclick="location.href='index.html?desktop=1'" data-i18n="desktop.short">Полная</button>
 </div>
 
   <button id="barToggle" class="barToggle" type="button" aria-expanded="true" data-i18n-title="bar.toggle" title="Показать/скрыть панель">▾</button>
@@ -256,6 +259,7 @@ const dpr = Math.min(2, devicePixelRatio || 1);
 const CAT_COLOR = { very_hot:'#c8562e', hot:'#c08050', temperate:'#7fa06a', habitable:'#3f7fc0',
   cold_habitable:'#a8d8f0', distant:'#6a5a80', gas_giant:'#c8a878' };
 const T = (k, v) => EUI18N.t(k, v);
+  const N = (s) => EUI18N.name(s);
 // Экранирование имён из импортированного JSON (XSS): весь innerHTML с данными — через esc.
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&quot;');
 const STAR_DATA = {
@@ -338,7 +342,7 @@ function generate(seed) {
     simTicks = 0; paintTicks(true);
     selectedHole = null; blackHoleCacheFor = null; MOON_CACHE.clear();
     seedInput.value = seed.toString();
-    seedLabel.textContent = 'сид: ' + seed.toString();
+    seedLabel.textContent = T('seed.label') + ': ' + seed.toString();
     const url = new URL(location.href);
     url.searchParams.set('seed', seed.toString());
     url.searchParams.set('smesh', showSmesharia ? '1' : '0');
@@ -748,7 +752,7 @@ function drawGalaxy(alpha, now) {
         placed.push({ x: lx, y: ly }); labelCount++;
         ctx.globalAlpha = labelA;
         ctx.font = '11px "Segoe UI",system-ui'; ctx.textAlign = 'left'; ctx.fillStyle = s.smesharia ? '#c8ff74' : (i === 0 ? '#ffe6b0' : '#9fb0d8');
-        ctx.fillText(s.name, lx, ly);
+        ctx.fillText(N(s.name), lx, ly);
       }
     }
     ctx.restore();
@@ -1060,7 +1064,7 @@ function drawPlanets(alpha, now) {
         ctx.globalAlpha = labelA;
         ctx.font = '11px "Segoe UI",system-ui';
         ctx.textAlign = right ? 'left' : 'right'; ctx.fillStyle = focused ? '#ffe6b0' : '#c6d4f2';
-        ctx.fillText(p.designation, px + (right ? 1 : -1)*(drawR + 8), py + 3);
+        ctx.fillText(N(p.designation), px + (right ? 1 : -1)*(drawR + 8), py + 3);
       }
     });
   });
@@ -1098,7 +1102,7 @@ function drawMoons(px, py, pr, p, alpha, now, focused) {
     ctx.beginPath(); ctx.arc(it.x, it.y, it.r, 0, Math.PI*2); ctx.fill();
     if (focused && cam.z > 700) {
       ctx.globalAlpha = alpha * 0.95; ctx.font = '10px "Segoe UI",system-ui'; ctx.textAlign = 'left';
-      ctx.fillStyle = '#9fb0d8'; ctx.fillText(it.m.name, it.x + it.r + 4, it.y + 3);
+      ctx.fillStyle = '#9fb0d8'; ctx.fillText(N(it.m.name), it.x + it.r + 4, it.y + 3);
     }
   }
   // обводка выбранной или «пойманной» курсором луны
@@ -1404,7 +1408,7 @@ function drawFocusStar(now) {
   if (nameA > 0.02) {
     ctx.globalAlpha = 0.9 * nameA; ctx.font = `${Math.max(11, Math.min(16, r*0.35))}px "Segoe UI",system-ui`;
     ctx.textAlign = 'center'; ctx.fillStyle = '#ffe6b0';
-    ctx.fillText(best.system.name, x, y + r + Math.max(14, r*0.45));
+    ctx.fillText(N(best.system.name), x, y + r + Math.max(14, r*0.45));
   }
   ctx.globalAlpha = 1;
 }
@@ -1519,7 +1523,7 @@ function showPlanet(p, system) {
   if (moons.length) {
     moonHtml = `<div class="sub">${T('info.moons')} · ${moons.length}</div>`;
     moons.forEach((m, idx) => {
-      moonHtml += `<div class="moon" data-moon="${idx}" style="cursor:pointer"><span>${esc(m.name)}</span><span>${Math.round(m.distanceKm).toLocaleString(EUI18N.current()==='ru'?'ru-RU':'en-US')} ${T('unit.km')} · ${m.radiusKm.toFixed(0)} ${T('unit.km')} · ${m.gravity.toFixed(2)} ${T('unit.g')}</span></div>`;
+      moonHtml += `<div class="moon" data-moon="${idx}" style="cursor:pointer"><span>${esc(N(m.name))}</span><span>${Math.round(m.distanceKm).toLocaleString(EUI18N.locale())} ${T('unit.km')} · ${m.radiusKm.toFixed(0)} ${T('unit.km')} · ${m.gravity.toFixed(2)} ${T('unit.g')}</span></div>`;
     });
   } else {
     moonHtml = `<div class="sub">${T('info.no_moons')}</div>`;
@@ -1533,32 +1537,32 @@ function showPlanet(p, system) {
   const vanillaChips = vanillaBiomes.length
     ? (customBiomes.length ? '<span>;</span>' : '') + vanillaBiomes.map(b => `<span class="vanilla">${esc(b.replace('minecraft:',''))}</span>`).join(', ')
     : '';
-  const biomeChips = p.category === 'gas_giant' ? '<span>Неопределённое вопросительное xD</span>'
+  const biomeChips = p.category === 'gas_giant' ? '' + '<span>' + T('biome.unknown') + '</span>' + ''
     : (customChips + vanillaChips || '<span>—</span>');
-  const typeLabel = EUI18N.current() === 'ru' ? 'Тип' : 'Type';
-  const spectralLabel = EUI18N.current() === 'ru' ? 'Спектр' : 'Spectral';
+  const typeLabel = T('card.type');
+  const spectralLabel = T('card.spectral');
   const ru = EUI18N.current() === 'ru';
   // Метаданные орбиты: те же числа, по которым реально движется планета.
   const oe = EUOrbits.elementFor(system, p);
   const oeRows = oe ? `
-      <tr><td>${ru ? 'Эксцентриситет' : 'Eccentricity'}</td><td>${oe.e.toFixed(3)}</td></tr>
-      <tr><td>${ru ? 'Наклон орбиты' : 'Orbital inclination'}</td><td>${(oe.iRad * 180 / Math.PI).toFixed(1)}°</td></tr>
-      ${Math.abs(oe.gameRadiusAu - oe.meanRadiusAu) > 0.001 ? `<tr><td>${ru ? 'Игровая орбита' : 'Game orbit'}</td><td>${oe.gameRadiusAu.toFixed(2)} ${T('unit.au')}</td></tr>` : ''}
-      <tr><td>${ru ? 'Период (карта)' : 'Period (map)'}</td><td>${(oe.periodTicks / 1200).toFixed(1)} ${T('unit.min')} · ${Math.round(oe.periodTicks)} t</td></tr>
-      <tr><td>${ru ? 'Полуось' : 'Semi-major'}</td><td>${oe.semiMajorAxisAu.toFixed(3)} ${T('unit.au')}</td></tr>
+      <tr><td>${T('card.ecc')}</td><td>${oe.e.toFixed(3)}</td></tr>
+      <tr><td>${T('card.incl')}</td><td>${(oe.iRad * 180 / Math.PI).toFixed(1)}°</td></tr>
+      ${Math.abs(oe.gameRadiusAu - oe.meanRadiusAu) > 0.001 ? `<tr><td>${T('card.gameOrbit')}</td><td>${oe.gameRadiusAu.toFixed(2)} ${T('unit.au')}</td></tr>` : ''}
+      <tr><td>${T('card.period')}</td><td>${(oe.periodTicks / 1200).toFixed(1)} ${T('unit.min')} · ${Math.round(oe.periodTicks)} t</td></tr>
+      <tr><td>${T('card.semi')}</td><td>${oe.semiMajorAxisAu.toFixed(3)} ${T('unit.au')}</td></tr>
 ` : '';
   // Ось вращения и магнитный полюс: из импортированного каталога либо из
   // реальной таблицы Солнечной системы; вымышленным мирам строку не врём.
   const rot = EUOrbits.rotationOf(p);
   const rotRows = rot ? `
-      <tr><td>${ru ? 'Наклон оси' : 'Axial tilt'}</td><td>${rot.obliquityDeg.toFixed(1)}°${rot.retrograde ? (ru ? ' · обратное' : ' · retrograde') : ''}</td></tr>
-      ${rot.magneticTiltDeg > 0 ? `<tr><td>${ru ? 'Магнитный полюс' : 'Magnetic pole'}</td><td>${rot.magneticTiltDeg.toFixed(1)}°${ru ? ' от оси' : ' from axis'}</td></tr>` : ''}
-      ${rot.auroraLatitudeDeg != null ? `<tr><td>${ru ? 'Овал сияния' : 'Aurora oval'}</td><td>${rot.auroraLatitudeDeg.toFixed(0)}°</td></tr>` : ''}
+      <tr><td>${T('card.tilt')}</td><td>${rot.obliquityDeg.toFixed(1)}°${rot.retrograde ? (T('card.retro')) : ''}</td></tr>
+      ${rot.magneticTiltDeg > 0 ? `<tr><td>${T('card.magpole')}</td><td>${rot.magneticTiltDeg.toFixed(1)}°${T('card.fromAxis')}</td></tr>` : ''}
+      ${rot.auroraLatitudeDeg != null ? `<tr><td>${T('card.aurora')}</td><td>${rot.auroraLatitudeDeg.toFixed(0)}°</td></tr>` : ''}
 ` : '';
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
-    <h2>${esc(p.designation)}</h2>
-    <div class="sub">${esc(p.name)} · ${esc(system.name)}</div>
+    <h2>${esc(N(p.designation))}</h2>
+    <div class="sub">${esc(N(p.name))} · ${esc(N(system.name))}</div>
     <table>
       <tr><td>${typeLabel}</td><td>${esc(EUGenerator.planetClass(p))}${cityLevel(p) === 2 ? ' · высокоразвитая' : cityLevel(p) === 1 ? ' · развитая' : ''}</td></tr>
       <tr><td>${spectralLabel}</td><td>${esc(EUGenerator.starSpectral(system.star))}</td></tr>
@@ -1587,11 +1591,11 @@ function showMoon(m, p, system) {
   info.style.display = 'block';
   info.classList.remove('expanded');
   info.innerHTML = `
-    <h2>${esc(m.name)}</h2>
-    <div class="sub">${T('info.moon')} · ${esc(p.designation)} · ${esc(system.name)}</div>
+    <h2>${esc(N(m.name))}</h2>
+    <div class="sub">${T('info.moon')} · ${esc(N(p.designation))} · ${esc(N(system.name))}</div>
     <table>
-      <tr><td>${T('info.parent')}</td><td>${esc(p.designation)}</td></tr>
-      <tr><td>${T('info.distance')}</td><td>${Math.round(m.distanceKm).toLocaleString(EUI18N.current()==='ru'?'ru-RU':'en-US')} ${T('unit.km')}</td></tr>
+      <tr><td>${T('info.parent')}</td><td>${esc(N(p.designation))}</td></tr>
+      <tr><td>${T('info.distance')}</td><td>${Math.round(m.distanceKm).toLocaleString(EUI18N.locale())} ${T('unit.km')}</td></tr>
       <tr><td>${T('info.diameter')}</td><td>${(m.radiusKm*2).toFixed(0)} ${T('unit.km')}</td></tr>
       <tr><td>${T('info.gravity')}</td><td>${m.gravity.toFixed(2)} ${T('unit.g')}</td></tr>
       <tr><td>${T('info.period')}</td><td>${Math.round(m.periodTicks/1200)} ${T('unit.min')}</td></tr>
@@ -1609,17 +1613,17 @@ function showCompanion(system) {
   info.classList.remove('expanded');
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
-    <h2>${esc(c.name)}</h2>
-    <div class="sub">${esc(system.name)} · ${EUI18N.current() === 'ru' ? 'компаньон' : 'companion'}</div>
+    <h2>${esc(N(c.name))}</h2>
+    <div class="sub">${esc(N(system.name))} · ${T('card.companionLow')}</div>
     <table>
       <tr><td>${T('info.class')}</td><td>${esc(T('star.'+c.star))}</td></tr>
-      <tr><td>${EUI18N.current() === 'ru' ? 'Спектр' : 'Spectral'}</td><td>${esc(EUGenerator.starSpectral(c.star))}</td></tr>
-      <tr><td>${T('info.temp_k')}</td><td>${data.t.toLocaleString(EUI18N.current()==='ru'?'ru-RU':'en-US')} ${T('unit.k')}</td></tr>
+      <tr><td>${T('card.spectral')}</td><td>${esc(EUGenerator.starSpectral(c.star))}</td></tr>
+      <tr><td>${T('info.temp_k')}</td><td>${data.t.toLocaleString(EUI18N.locale())} ${T('unit.k')}</td></tr>
       <tr><td>${T('info.lum')}</td><td>${data.lum} ${T('unit.lsun')}</td></tr>
-      <tr><td>${EUI18N.current() === 'ru' ? 'Орбита' : 'Orbit'}</td><td>${Number(c.orbitAu).toFixed(2)} ${T('unit.au')}</td></tr>
+      <tr><td>${T('card.orbit')}</td><td>${Number(c.orbitAu).toFixed(2)} ${T('unit.au')}</td></tr>
       <tr><td>${T('info.planets')}</td><td>${system.planets.length}</td></tr>
     </table>
-    <div class="sub">${EUI18N.current() === 'ru' ? 'Главная звезда' : 'Primary'}: ${esc(system.name)}</div>`;
+    <div class="sub">${T('card.primary')}: ${esc(N(system.name))}</div>`;
 }
 function showStar(system) {
   const data = STAR_DATA[system.star] || STAR_DATA.yellow_dwarf;
@@ -1627,19 +1631,19 @@ function showStar(system) {
   info.classList.remove('expanded');
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
-    <h2>${esc(system.name)}</h2>
+    <h2>${esc(N(system.name))}</h2>
     <div class="sub">${esc(system.formalName)} · ${T('info.star')}</div>
     <table>
       <tr><td>${T('info.class')}</td><td>${esc(T('star.'+system.star))}</td></tr>
-      <tr><td>${EUI18N.current() === 'ru' ? 'Спектр' : 'Spectral'}</td><td>${esc(EUGenerator.starSpectral(system.star))}</td></tr>
-      <tr><td>${T('info.temp_k')}</td><td>${data.t.toLocaleString(EUI18N.current()==='ru'?'ru-RU':'en-US')} ${T('unit.k')}</td></tr>
+      <tr><td>${T('card.spectral')}</td><td>${esc(EUGenerator.starSpectral(system.star))}</td></tr>
+      <tr><td>${T('info.temp_k')}</td><td>${data.t.toLocaleString(EUI18N.locale())} ${T('unit.k')}</td></tr>
       <tr><td>${T('info.lum')}</td><td>${data.lum} ${T('unit.lsun')}</td></tr>
       <tr><td>${T('info.distance')}</td><td>${system.distanceLy.toFixed(1)} ${T('unit.ly')}</td></tr>
-      ${system.companion ? `<tr><td>${EUI18N.current() === 'ru' ? 'Спутник' : 'Companion'}</td><td>${esc(system.companion.name)} · ${esc(T('star.'+system.companion.star))}</td></tr>` : ''}
+      ${system.companion ? `<tr><td>${T('card.companion')}</td><td>${esc(N(system.companion.name))} · ${esc(T('star.'+system.companion.star))}</td></tr>` : ''}
       <tr><td>${T('info.planets')}</td><td>${system.planets.length}</td></tr>
     </table>
     <div class="sub">${T('info.planets')}</div>
-    <div class="chips">${system.planets.map(p=>`<span>${esc(p.designation)}</span>`).join('') || '<span>—</span>'}</div>`;
+    <div class="chips">${system.planets.map(p=>`<span>${esc(N(p.designation))}</span>`).join('') || '<span>—</span>'}</div>`;
 }
 
 function animate(now) {
@@ -1964,15 +1968,15 @@ function showBlackHole(entry) {
   info.classList.remove('expanded');
   const ru = EUI18N.current() === 'ru';
   info.innerHTML = `
-    <h2>${esc(h.name) || ((ru ? 'Чёрная дыра ' : 'Black hole ') + (entry.index + 1))}</h2>
-    <div class="sub">${ru ? 'объект галактики' : 'galaxy object'} · не система</div>
+    <h2>${esc(N(h.name)) || ((T('card.blackHole')) + (entry.index + 1))}</h2>
+    <div class="sub">${T('card.galaxyObject')} · не система</div>
     <table>
-      <tr><td>${ru ? 'Координаты' : 'Coordinates'}</td><td>x ${h.xLy.toFixed(1)} · y ${h.yLy.toFixed(1)} · z ${h.zLy.toFixed(1)} ${T('unit.ly')}</td></tr>
-      <tr><td>${ru ? 'Ближайшая система' : 'Nearest system'}</td><td>${near ? esc(near.system.name) + ' · ' + near.distanceLy.toFixed(1) + ' ' + T('unit.ly') : '—'}</td></tr>
-      <tr><td>${ru ? 'Текстура' : 'Texture'}</td><td>${esc(h.texture)}</td></tr>
-      <tr><td>${ru ? 'Источник' : 'Source'}</td><td>${h.real ? (ru ? 'каталог мира' : 'world catalog') : (ru ? 'превью по worldSeed' : 'worldSeed preview')}</td></tr>
+      <tr><td>${T('card.coords')}</td><td>x ${h.xLy.toFixed(1)} · y ${h.yLy.toFixed(1)} · z ${h.zLy.toFixed(1)} ${T('unit.ly')}</td></tr>
+      <tr><td>${T('card.nearest')}</td><td>${near ? esc(N(near.system.name)) + ' · ' + near.distanceLy.toFixed(1) + ' ' + T('unit.ly') : '—'}</td></tr>
+      <tr><td>${T('card.texture')}</td><td>${esc(h.texture)}</td></tr>
+      <tr><td>${T('card.source')}</td><td>${h.real ? (T('card.worldCatalog')) : (T('card.previewSeed'))}</td></tr>
     </table>
-    <div class="sub">${ru ? 'Расстояние до системы считается в световых годах до сжатия карты.' : 'Distance to a system is measured in light years before map compression.'}</div>`;
+    <div class="sub">${T('card.distanceNote')}</div>`;
 }
 
 /* ─── Выбор орбиты кликом по линии (не только по планете) ────────────────── */
@@ -2022,10 +2026,10 @@ function importCatalogJson(json) {
   results.innerHTML = ''; results.style.display = 'none';
   follow = null; zoomAnchor = null; hoverBlock = null; hoverKey = ''; hoverMs = 0;
   seedInput.value = next.worldSeed;
-  seedLabel.textContent = 'импорт: ' + next.worldSeed;
+  seedLabel.textContent = T('seed.import') + ': ' + next.worldSeed;
   showToast(next.dayTimeTicksSynthetic
-    ? (EUI18N.current() === 'ru' ? 'Импорт: тики синтетические (0), это не время мира' : 'Imported: synthetic ticks (0), not world time')
-    : ((EUI18N.current() === 'ru' ? 'Импортирован мир: ' : 'World imported: ') + next.worldSeed), false);
+    ? (T('import.synthetic'))
+    : ((T('import.ok')) + next.worldSeed), false);
   let ws;
   try { ws = BigInt(next.worldSeed); } catch (e) { ws = randomSeed(); }
   stars = makeStars(ws);
@@ -2045,8 +2049,8 @@ if (importBtn && importFile) {
       importCatalogJson(JSON.parse(await f.text()));
     } catch (err) {
       const msg = err && err.message ? err.message : 'ошибка JSON';
-      seedLabel.textContent = 'импорт: ' + msg;
-      showToast((EUI18N.current() === 'ru' ? 'Импорт не удался: ' : 'Import failed: ') + msg, true);
+      seedLabel.textContent = T('seed.import') + ': ' + msg;
+      showToast((T('import.failed')) + msg, true);
     } finally {
       e.target.value = '';
     }
@@ -2105,18 +2109,21 @@ search.addEventListener('input', () => {
   results.innerHTML = '';
   if (!q) { results.style.display = 'none'; return; }
   const hits = [];
+  // Ищем и по русскому имени из данных, и по английскому — иначе в EN-режиме
+  // запрос «Earth» не нашёл бы Землю.
+  const has = (s) => String(s || '').toLowerCase().includes(q) || String(N(s)).toLowerCase().includes(q);
   for (const sys of catalog.systems) {
-    if (sys.name.toLowerCase().includes(q) || sys.formalName.toLowerCase().includes(q)) hits.push({sys, planet:null});
+    if (has(sys.name) || has(sys.formalName)) hits.push({sys, planet:null});
     for (const p of sys.planets) {
-      if (p.designation.toLowerCase().includes(q) || p.name.toLowerCase().includes(q) || (p.aliases || []).some(a => String(a).toLowerCase().includes(q))) hits.push({sys, planet:p});
+      if (has(p.designation) || has(p.name) || (p.aliases || []).some(has)) hits.push({sys, planet:p});
     }
     if (hits.length > 12) break;
   }
   for (const hit of hits.slice(0, 12)) {
     const d = document.createElement('div');
     d.innerHTML = hit.planet
-      ? `<b>${esc(hit.planet.designation)}</b><small>${esc(hit.planet.name)} · ${esc(hit.sys.name)}</small>`
-      : `<b>${esc(hit.sys.name)}</b><small>${esc(hit.sys.formalName)} · ${T('system.planets')}: ${hit.sys.planets.length}</small>`;
+      ? `<b>${esc(N(hit.planet.designation))}</b><small>${esc(N(hit.planet.name))} · ${esc(N(hit.sys.name))}</small>`
+      : `<b>${esc(N(hit.sys.name))}</b><small>${esc(hit.sys.formalName)} · ${T('system.planets')}: ${hit.sys.planets.length}</small>`;
     d.onclick = () => {
       results.style.display = 'none';
       const idx = catalog.systems.indexOf(hit.sys);
@@ -2136,6 +2143,7 @@ EUI18N.init();
   const pill = document.getElementById('modver');
   if (!pill) return;
   const out = pill.querySelector('span');
+  if (location.protocol === 'file:') return; // с диска относительный fetch не работает
   fetch('update.json', { cache: 'no-store' })
     .then(r => (r.ok ? r.json() : null))
     .then(j => {
@@ -2149,7 +2157,9 @@ EUI18N.init();
 document.querySelectorAll('.avail a[data-slot]').forEach(a => {
   if (a.getAttribute('href') === '#') a.addEventListener('click', e => e.preventDefault());
 });
-window.addEventListener('eu-lang', () => { if (!selected) return; if (selected.kind === 'planet') showPlanet(selected.planet, selected.system); else if (selected.kind === 'star') showStar(selected.system); });
+window.addEventListener('eu-lang', () => {
+  if (seedInput && seedInput.value) seedLabel.textContent = T('seed.label') + ': ' + seedInput.value;
+  if (!selected) return; if (selected.kind === 'planet') showPlanet(selected.planet, selected.system); else if (selected.kind === 'star') showStar(selected.system); });
 const initial = parseSeed(new URL(location.href).searchParams.get('seed') || '') ?? randomSeed();
 showSmesharia = new URL(location.href).searchParams.get('smesh') === '1';
 document.getElementById('smeshariaVersion').checked = showSmesharia;

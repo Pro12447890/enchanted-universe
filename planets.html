@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-doc-key="doc.planets">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Генератор планет — Enchanted Universe</title>
+<title data-i18n-doc="doc.planets">Генератор планет — Enchanted Universe</title>
 <meta name="description" content="Генератор планет Enchanted Universe: каменные планеты и газовые гиганты по сиду — тот же алгоритм, что и в игре.">
 <meta name="theme-color" content="#0b0b10">
 <meta property="og:type" content="website">
@@ -61,6 +61,7 @@
     body { align-items: flex-start; }
     .workspace { grid-template-columns: 1fr; }
   }
+  #langBtn { margin-left: 0; }
   @media (max-width: 420px) { label { flex-wrap: wrap; } }
   @media (min-width: 1500px) { .page { max-width: 1240px; } }
 </style>
@@ -68,39 +69,42 @@
 <body>
 <div class="page">
   <header>
-    <h1>Генератор планет <span>— enchanted universe</span></h1>
-    <a class="back" href="https://enchanted.daymix.dpdns.org/">← на сайт</a>
+    <h1><span data-i18n="p.title">Генератор планет</span> <span>— enchanted universe</span></h1>
+    <a class="back" href="https://enchanted.daymix.dpdns.org/" data-i18n="p.back">← на сайт</a>
+    <button id="langBtn" class="back" type="button" aria-label="Язык">RU</button>
   </header>
   <main class="workspace">
     <div class="stage"><canvas id="cv" width="256" height="256"></canvas></div>
     <aside class="panel">
-      <label>Сид <input id="seed" type="number" value="7" step="1"></label>
-      <button id="rnd">Случайный сид</button>
-      <label>Тип <select id="type">
-        <option value="gas">газовый гигант</option>
-        <option value="rocky">каменная</option>
+      <label><span data-i18n="p.seed">Сид</span> <input id="seed" type="number" value="7" step="1"></label>
+      <button id="rnd" data-i18n="p.random">Случайный сид</button>
+      <label><span data-i18n="p.type">Тип</span> <select id="type">
+        <option value="gas" data-i18n="p.gas">газовый гигант</option>
+        <option value="rocky" data-i18n="p.rocky">каменная</option>
       </select></label>
-      <label>Температура, °C
+      <label><span data-i18n="p.temp">Температура, °C</span>
         <span style="display:flex;gap:6px;align-items:center">
           <input id="temp" type="range" min="-220" max="2600" value="-60" step="10" style="width:104px">
           <b id="tempv">-60</b>
         </span></label>
-      <label>Размер <select id="size">
+      <label><span data-i18n="p.size">Размер</span> <select id="size">
         <option>128</option><option selected>256</option><option>512</option>
       </select></label>
-      <label>Пиксель <select id="pix">
-        <option value="auto" selected>авто</option>
+      <label><span data-i18n="p.pixel">Пиксель</span> <select id="pix">
+        <option value="auto" selected data-i18n="p.auto">авто</option>
         <option value="1">1</option><option value="2">2</option><option value="4">4</option>
       </select></label>
-      <label><span>Наклон полос</span>
+      <label><span data-i18n="p.tilt">Наклон полос</span>
         <input id="tilt" type="range" min="0" max="60" value="0" step="1" style="width:104px"></label>
-      <button id="save">Скачать PNG</button>
+      <button id="save" data-i18n="p.save">Скачать PNG</button>
       <pre id="info"></pre>
     </aside>
   </main>
 </div>
+<script src="js/i18n.js"></script>
 <script>
 "use strict";
+const T = (k, v) => EUI18N.t(k, v);
 /* ---------------------------------------------------------------------------
    Порт PlanetIconGenerator: те же палитры, шум, пояса, вихри, нагрев и свет.
    Отличие от игры одно: хеш вариативности здесь 32-битный (в игре 64-битный),
@@ -435,14 +439,21 @@ function draw() {
   const img = render(c.size, c.seed, c.tempC, c.kind, c.tilt);
   ctx.putImageData(img, 0, 0);
   const P = c.kind === "gas" ? gasParams(c.seed, c.tempC, c.size) : rockyParams(c.seed, c.tempC, c.size);
+  const yes = T('yes');
+  const no = T('no');
   const info = c.kind === "gas"
-    ? `сид ${c.seed} · газовый гигант\n` +
-      `поясов ${P.bandFreq} · искажение ${P.distort.toFixed(2)} · ровность ${P.softness.toFixed(2)}\n` +
-      `ширина ${P.widenAmp.toFixed(2)} · вихрей ${P.spots.length} · пятен ${P.smalls.length}\n` +
-      `шестиугольник ${P.hex ? "есть" : "нет"} · нагрев ${P.heatG > 0.01 ? (P.heatG * 100).toFixed(0) + " %" : "нет"}`
-    : `сид ${c.seed} · каменная планета\n` +
-      `материки ${P.continentFreq.toFixed(2)} · детали ${P.detailFreq.toFixed(2)}\n` +
-      `порог суши ${P.landThreshold.toFixed(2)} · шапки ${P.caps ? "есть" : "нет"}`;
+    ? T('p.info.gas', {
+        seed: c.seed, bands: P.bandFreq,
+        distort: P.distort.toFixed(2), softness: P.softness.toFixed(2),
+        widen: P.widenAmp.toFixed(2), spots: P.spots.length, smalls: P.smalls.length,
+        hex: P.hex ? yes : no,
+        heat: P.heatG > 0.01 ? T('p.heat', { v: (P.heatG * 100).toFixed(0) }) : no
+      })
+    : T('p.info.rocky', {
+        seed: c.seed,
+        cont: P.continentFreq.toFixed(2), detail: P.detailFreq.toFixed(2),
+        land: P.landThreshold.toFixed(2), caps: P.caps ? yes : no
+      });
   document.getElementById("info").textContent = info;
 }
 
@@ -469,6 +480,8 @@ document.getElementById("save").addEventListener("click", () => {
 });
 
 document.getElementById("tempv").textContent = document.getElementById("temp").value;
+EUI18N.init();
+addEventListener("eu-lang", () => draw());
 draw();
 </script>
 </body>

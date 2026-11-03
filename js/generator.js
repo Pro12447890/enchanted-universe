@@ -487,35 +487,75 @@ function generateCatalog(worldSeed, options = {}) {
 }
 
 
+// Классы планет: [по-русски, по-английски]. Русские строки — канон (как в игре),
+// английские подставляются, когда сайт переключён на en.
+const CLASS_BASE = {
+  terria: ['терра', 'terran'],
+  ferria: ['феррия', 'ferrian'],
+  carbonia: ['карбония', 'carbonian'],
+  ammonia: ['аммиачная аквария', 'ammonia aquaria'],
+  panthalassic: ['панталассическая аквария', 'panthalassic aquaria'],
+  cryovolcanic: ['криовулканическая аквария', 'cryovolcanic aquaria'],
+  pulsar: ['пульсарная терра', 'pulsar terran'],
+  toroidal: ['тороидальная терра', 'toroidal terran'],
+  gas_dwarf: ['газовый карлик', 'gas dwarf'],
+  aquaria: ['аквария', 'aquaria'],
+  ice: ['ледяная терра', 'icy terran'],
+  neptune: ['нептун', 'neptune'],
+  jupiter: ['юпитер', 'jovian'],
+  chthonia: ['хтония', 'chthonian'],
+  brown_dwarf: ['коричневый карлик', 'brown dwarf'],
+  tidal: ['приливно-захваченная планета', 'tidally locked planet'],
+  withered: ['вянущая терра', 'withered terran'],
+  asteroid: ['астероид', 'asteroid']
+};
+const CLASS_TEMP = {
+  very_hot: ['раскалённая', 'scorching'],
+  hot: ['горячая', 'hot'],
+  temperate: ['тёплая', 'warm'],
+  habitable: ['умеренная', 'temperate'],
+  cold_habitable: ['прохладная', 'cool'],
+  distant: ['холодная', 'cold'],
+  gas_giant: ['холодная', 'cold']
+};
+const CLASS_SIZE = {
+  '': ['', ''],
+  mini: ['мини-', 'mini-'],
+  sub: ['суб-', 'sub-'],
+  super: ['супер-', 'super-']
+};
+
+function siteLang() {
+  return (typeof window !== 'undefined' && window.EUI18N) ? window.EUI18N.current() : 'ru';
+}
+
 function planetClass(p) {
+  const i = siteLang() === 'en' ? 1 : 0;
   const archetype = String(p.archetype || '');
-  let base = 'терра';
-  if (['ferria','iron'].includes(archetype)) base = 'феррия';
-  else if (['carbonia','carbon'].includes(archetype)) base = 'карбония';
-  else if (archetype === 'ammonia') base = 'аммиачная аквария';
-  else if (archetype === 'panthalassic') base = 'панталассическая аквария';
-  else if (archetype === 'hycean') base = isAquaria(p) ? 'аквария' : 'терра';
-  else if (archetype === 'cryovolcanic') base = 'криовулканическая аквария';
-  else if (archetype === 'pulsar') base = 'пульсарная терра';
-  else if (archetype === 'toroidal') base = 'тороидальная терра';
-  else if (archetype === 'gas_dwarf') base = 'газовый карлик';
-  else if (archetype === 'aquaria') base = 'аквария';
-  else if (archetype === 'ocean') base = isAquaria(p) ? 'аквария' : 'терра';
-  else if (['ice','snowball','moon_icy'].includes(archetype)) base = 'ледяная терра';
-  else if (['neptune','ice_giant','mini_neptune'].includes(archetype)) base = 'нептун';
-  else if (['jupiter','gas_giant','hot_jupiter','puffy','super_puff','helium_giant'].includes(archetype)) base = 'юпитер';
-  else if (['chthonia','chthonian'].includes(archetype)) base = 'хтония';
-  else if (archetype === 'brown_dwarf') base = 'коричневый карлик';
-  else if (archetype === 'tidal_eyeball') base = 'приливно-захваченная планета';
-  else if (archetype === 'withered') base = 'вянущая терра';
-  else if (['asteroid','comet'].includes(archetype)) base = 'астероид';
-  const temp = ({
-    very_hot:'раскалённая', hot:'горячая', temperate:'тёплая', habitable:'умеренная',
-    cold_habitable:'прохладная', distant:'холодная', gas_giant:'холодная'
-  })[p.category] || '';
+  let key = 'terria';
+  if (['ferria', 'iron'].includes(archetype)) key = 'ferria';
+  else if (['carbonia', 'carbon'].includes(archetype)) key = 'carbonia';
+  else if (archetype === 'ammonia') key = 'ammonia';
+  else if (archetype === 'panthalassic') key = 'panthalassic';
+  else if (archetype === 'hycean') key = isAquaria(p) ? 'aquaria' : 'terria';
+  else if (archetype === 'cryovolcanic') key = 'cryovolcanic';
+  else if (archetype === 'pulsar') key = 'pulsar';
+  else if (archetype === 'toroidal') key = 'toroidal';
+  else if (archetype === 'gas_dwarf') key = 'gas_dwarf';
+  else if (archetype === 'aquaria') key = 'aquaria';
+  else if (archetype === 'ocean') key = isAquaria(p) ? 'aquaria' : 'terria';
+  else if (['ice', 'snowball', 'moon_icy'].includes(archetype)) key = 'ice';
+  else if (['neptune', 'ice_giant', 'mini_neptune'].includes(archetype)) key = 'neptune';
+  else if (['jupiter', 'gas_giant', 'hot_jupiter', 'puffy', 'super_puff', 'helium_giant'].includes(archetype)) key = 'jupiter';
+  else if (['chthonia', 'chthonian'].includes(archetype)) key = 'chthonia';
+  else if (archetype === 'brown_dwarf') key = 'brown_dwarf';
+  else if (archetype === 'tidal_eyeball') key = 'tidal';
+  else if (archetype === 'withered') key = 'withered';
+  else if (['asteroid', 'comet'].includes(archetype)) key = 'asteroid';
+  const temp = (CLASS_TEMP[p.category] || ['', ''])[i];
   const d = Number(p.diameterEarth || 1);
-  const size = d < 0.5 ? 'мини-' : d < 0.8 ? 'суб-' : d > 1.5 ? 'супер-' : '';
-  return (temp + ' ' + size + base).trim();
+  const size = CLASS_SIZE[d < 0.5 ? 'mini' : d < 0.8 ? 'sub' : d > 1.5 ? 'super' : ''][i];
+  return (temp + ' ' + size + CLASS_BASE[key][i]).trim();
 }
 
 function starSpectral(star) {
