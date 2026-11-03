@@ -224,7 +224,16 @@
       'p.save': 'Скачать PNG',
       'p.info.gas': 'сид {seed} · газовый гигант\nпоясов {bands} · искажение {distort} · ровность {softness}\nширина {widen} · вихрей {spots} · пятен {smalls}\nшестиугольник {hex} · нагрев {heat}',
       'p.info.rocky': 'сид {seed} · каменная планета\nматерики {cont} · детали {detail}\nпорог суши {land} · шапки {caps}',
-      'p.heat': '{v} %'
+      'p.heat': '{v} %',
+      'p.atm': 'Атмосфера',
+      'p.field': 'Магнитное поле, Гс',
+      'p.magtilt': 'Наклон поля',
+      'p.aur.note': 'сияние: планета на 1 а.е. у звезды G2',
+      'p.aur.none': 'нет',
+      'p.aur.weak': 'слабое',
+      'p.aur.mid': 'среднее',
+      'p.aur.bright': 'яркое',
+      'p.info.aurora': 'атмосфера: {atm} · видимость {atmVis} % · овалов: {ovals}\nполе: {b} Гс · наклон оси: {tilt}° · сияние: {level} · видимость {vis}'
     },
     en: {
       'brand.sub': 'seed preview · space map',
@@ -428,7 +437,16 @@
       'p.save': 'Download PNG',
       'p.info.gas': 'seed {seed} · gas giant\nbands {bands} · distortion {distort} · softness {softness}\nwidth {widen} · vortices {spots} · spots {smalls}\nhexagon {hex} · heating {heat}',
       'p.info.rocky': 'seed {seed} · rocky planet\ncontinents {cont} · detail {detail}\nland threshold {land} · caps {caps}',
-      'p.heat': '{v} %'
+      'p.heat': '{v} %',
+      'p.atm': 'Atmosphere',
+      'p.field': 'Magnetic field, G',
+      'p.magtilt': 'Field tilt',
+      'p.aur.note': 'aurora: planet at 1 AU from a G2 star',
+      'p.aur.none': 'none',
+      'p.aur.weak': 'weak',
+      'p.aur.mid': 'medium',
+      'p.aur.bright': 'bright',
+      'p.info.aurora': 'atmosphere: {atm} · visibility {atmVis}% · ovals: {ovals}\nfield: {b} G · axial tilt: {tilt}° · aurora: {level} · visibility {vis}'
     }
   };
 

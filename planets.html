@@ -54,7 +54,10 @@
   button { cursor: pointer; }
   button:hover { border-color: #4a4a60; }
   #rnd, #save { width: 100%; }
-  #tempv { min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+  #tempv, #fieldv, #magtiltv { min-width: 52px; text-align: right;
+                               font-variant-numeric: tabular-nums; }
+  .row { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+  .note { margin: -3px 0 0; font-size: 11.5px; line-height: 1.35; color: var(--soft); }
   #info { font: 12px/1.5 ui-monospace, Consolas, monospace; color: #9a9ab0;
           white-space: pre-wrap; margin: 4px 0 0; }
   @media (max-width: 900px), (max-height: 500px) {
@@ -96,6 +99,21 @@
       </select></label>
       <label><span data-i18n="p.tilt">Наклон полос</span>
         <input id="tilt" type="range" min="0" max="60" value="0" step="1" style="width:104px"></label>
+      <label><span data-i18n="p.atm">Атмосфера</span> <select id="atm">
+        <option value="none" data-i18n="atm.none">нет</option>
+        <option value="minimal" data-i18n="atm.minimal">минимальная</option>
+        <option value="thin" data-i18n="atm.thin">тонкая</option>
+        <option value="moderate" selected data-i18n="atm.moderate">умеренная</option>
+        <option value="medium" data-i18n="atm.medium">средняя</option>
+        <option value="thick" data-i18n="atm.thick">плотная</option>
+      </select></label>
+      <label><span data-i18n="p.field">Магнитное поле, Гс</span>
+        <span class="row"><input id="field" type="range" min="0" max="5" value="0.5" step="0.05" style="width:104px">
+          <b id="fieldv">0,50</b></span></label>
+      <label><span data-i18n="p.magtilt">Наклон поля</span>
+        <span class="row"><input id="magtilt" type="range" min="-30" max="30" value="0" step="1" style="width:104px">
+          <b id="magtiltv">0°</b></span></label>
+      <p class="note" data-i18n="p.aur.note">сияние: планета на 1 а.е. у звезды G2</p>
       <button id="save" data-i18n="p.save">Скачать PNG</button>
       <pre id="info"></pre>
     </aside>
@@ -113,6 +131,16 @@ const T = (k, v) => EUI18N.t(k, v);
 
 const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d");
+
+/* Атмосфера и магнитное поле: та же модель, что в моде.
+   Сияние считается для планеты на 1 а.е. у звезды G2 (a = 1). */
+const ATM_VIS = { none: 0, minimal: 0.012, thin: 0.08, moderate: 1, medium: 0.5, thick: 0.18 };
+const ATM_HALO = { none: 0, minimal: 0.10, thin: 0.34, moderate: 0.62, medium: 0.80, thick: 1 };
+const AURORA_MS = 14000;
+const AUR_GREEN = [120, 245, 185], AUR_BLUE = [130, 165, 255], AUR_HOT = [190, 255, 220];
+const reduceMotion = window.matchMedia
+  ? window.matchMedia("(prefers-reduced-motion: reduce)")
+  : { matches: false };
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const shade = (c, k) => [clamp(c[0] * k, 0, 255), clamp(c[1] * k, 0, 255), clamp(c[2] * k, 0, 255)];
@@ -196,6 +224,9 @@ function heatColor(h) {
 }
 
 /* --- параметры мира из сида ------------------------------------------------- */
+/* Радиус диска с запасом под ореол атмосферы и линии поля. */
+function planetRadius(size) { return size / 2 - Math.max(4, Math.round(size * 0.07)); }
+
 function gasParams(seed, tempC, size) {
   const s = Math.abs(Math.floor(seed)) || 1;
   const fam = (s % 6) * 2;
@@ -221,7 +252,7 @@ function gasParams(seed, tempC, size) {
   p.heatRgb = heatColor(clamp((tempC - 900) / 1800, 0, 1));
   p.hex = h01(s, 8) < 0.10 && tempC >= -150 && tempC <= 10;
 
-  const radius = size / 2 - 2;
+  const radius = planetRadius(size);
   const storms = 1 + Math.floor(h01(s, 9) * 3);
   for (let i = 0; i < storms; i++) {
     const a = h01(s, 20 + i * 5) * Math.PI * 2;
@@ -270,7 +301,7 @@ function pixelSizeFor(kind, size) {
 
 function render(size, seed, tempC, kind, tiltDeg) {
   const pixel = pixelSizeFor(kind, size);
-  const radius = size / 2 - 2;
+  const radius = planetRadius(size);
   const cx = size / 2, cy = size / 2;
   const tilt = tiltDeg * Math.PI / 180;
   const ca = Math.cos(tilt), sa = Math.sin(tilt);
@@ -421,6 +452,130 @@ function clouds(col, hu, hv, seed, gas = true) {
   return col;
 }
 
+/* --- атмосфера -------------------------------------------------------------- */
+function rgba3(c, a) {
+  return "rgba(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + ","
+       + clamp(a, 0, 1).toFixed(3) + ")";
+}
+
+/* Цвет ореола от температуры: холодные — голубой, тёплые — оранжевый. */
+function atmosphereColor(tempC) {
+  const cold = [112, 190, 255], mid = [176, 226, 255], warm = [255, 150, 82];
+  const t = clamp((tempC + 60) / 460, 0, 1);
+  return t < 0.5 ? lerp(cold, mid, t * 2) : lerp(mid, warm, (t - 0.5) * 2);
+}
+
+function drawAtmosphere(bctx, size, atm, tempC) {
+  const s = ATM_HALO[atm] || 0;
+  if (!s) return;
+  const R = planetRadius(size), c = size / 2;
+  const col = atmosphereColor(tempC);
+  const outer = R * (1.02 + 0.13 * s);
+  const g = bctx.createRadialGradient(c, c, R * 0.86, c, c, outer);
+  g.addColorStop(0, rgba3(col, 0.62 * s));
+  g.addColorStop(0.28, rgba3(col, 0.34 * s));
+  g.addColorStop(0.64, rgba3(col, 0.11 * s));
+  g.addColorStop(1, rgba3(col, 0));
+  bctx.fillStyle = g;
+  bctx.beginPath();
+  bctx.arc(c, c, outer, 0, Math.PI * 2);
+  bctx.fill();
+  // тонкая кайма у лимба — «плёнка» атмосферы
+  bctx.strokeStyle = rgba3(col, 0.30 * s);
+  bctx.lineWidth = Math.max(1, size / 320);
+  bctx.beginPath();
+  bctx.arc(c, c, R + 0.5, 0, Math.PI * 2);
+  bctx.stroke();
+}
+
+/* --- полярное сияние: модель яркости как в моде ------------------------------ */
+function auroraModel(kind, gauss, atm) {
+  const r = kind === "gas" ? 11.2 : 1;          // радиус в радиусах Земли
+  const b = Math.max(0, gauss) / 0.5;           // B / 0.5 Гс
+  const W = r * r * Math.pow(b, 2 / 3);         // a = 1 а.е.
+  let I = W / (r * r);                          // поверхностная яркость
+  if (kind === "gas") I *= 0.35;
+  const vis = ATM_VIS[atm] || 0;
+  const screen = 0.12 * I / (1 + I);
+  const alpha = clamp(screen * vis / 0.12, 0, 1);
+  const level = alpha <= 0.004 ? "none"
+    : alpha < 0.22 ? "weak"
+    : alpha < 0.55 ? "mid" : "bright";
+  return { r: r, W: W, I: I, vis: vis, screen: screen, alpha: alpha, level: level };
+}
+
+/* Два мягких овала у магнитных полюсов; фаза медленно перетекает. */
+function drawAurora(c2, size, p, model, phase) {
+  if (!p || p.field <= 0.02 || model.alpha <= 0.004) return;
+  const R = planetRadius(size), cx = size / 2, cy = size / 2;
+  const a = p.magtilt * Math.PI / 180;
+  const ux = Math.sin(a), uy = -Math.cos(a);
+  const dist = R * 0.76;
+  const peak = 0.8 * Math.pow(model.alpha, 0.9);
+  c2.save();
+  c2.globalCompositeOperation = "lighter";
+  for (const sgn of [-1, 1]) {
+    const px = cx + ux * dist * sgn, py = cy + uy * dist * sgn;
+    c2.save();
+    c2.translate(px, py);
+    c2.rotate(a);
+    const sx = R * 0.36 * (1 + 0.04 * Math.sin(phase));
+    const sy = R * 0.12 * (1 + 0.10 * Math.sin(phase + 1.3));
+    c2.scale(sx, sy);
+    const ring = c2.createRadialGradient(0, 0, 0, 0, 0, 1);
+    ring.addColorStop(0, "rgba(0,0,0,0)");
+    ring.addColorStop(0.40, "rgba(0,0,0,0)");
+    ring.addColorStop(0.56, rgba3(AUR_GREEN, peak * 0.34));
+    ring.addColorStop(0.72, rgba3(AUR_GREEN, peak * 0.82));
+    ring.addColorStop(0.86, rgba3(AUR_BLUE, peak * 0.26));
+    ring.addColorStop(1, "rgba(0,0,0,0)");
+    c2.fillStyle = ring;
+    c2.beginPath();
+    c2.arc(0, 0, 1, 0, Math.PI * 2);
+    c2.fill();
+    // два сгустка, ползущие по овалу в противофазе
+    for (let k = 0; k < 2; k++) {
+      const th = phase + k * Math.PI + (sgn > 0 ? 0.9 : 0);
+      const bx = Math.cos(th) * 0.70, by = Math.sin(th) * 0.70;
+      const blob = c2.createRadialGradient(bx, by, 0, bx, by, 0.30);
+      blob.addColorStop(0, rgba3(AUR_HOT, peak * 0.55));
+      blob.addColorStop(0.55, rgba3(AUR_GREEN, peak * 0.22));
+      blob.addColorStop(1, "rgba(0,0,0,0)");
+      c2.fillStyle = blob;
+      c2.beginPath();
+      c2.arc(bx, by, 0.30, 0, Math.PI * 2);
+      c2.fill();
+    }
+    c2.restore();
+  }
+  c2.restore();
+}
+
+/* Петли диполя: вложенные овалы от полюса к полюсу, наклон — свой. */
+function drawFieldLines(c2, size, p) {
+  if (!p || p.field <= 0.02) return;
+  const R = planetRadius(size), c = size / 2;
+  const a = p.magtilt * Math.PI / 180;
+  const loops = clamp(4 + Math.round(p.field * 0.55), 4, 6);
+  c2.save();
+  // Линии не должны проходить по диску: они выходят из-за планеты, как и в игре.
+  c2.beginPath();
+  c2.rect(0, 0, size, size);
+  c2.arc(c, c, R * 0.99, 0, Math.PI * 2);
+  c2.clip("evenodd");
+  c2.translate(c, c);
+  c2.rotate(a);
+  c2.lineWidth = Math.max(1, size / 320);
+  for (let i = 0; i < loops; i++) {
+    const t = loops === 1 ? 0 : i / (loops - 1);
+    c2.strokeStyle = "rgba(150, 200, 255, " + (0.22 - 0.10 * t).toFixed(3) + ")";
+    c2.beginPath();
+    c2.ellipse(0, 0, R * (0.55 + 0.75 * t), R * 1.02, 0, 0, Math.PI * 2);
+    c2.stroke();
+  }
+  c2.restore();
+}
+
 /* --- панель ----------------------------------------------------------------- */
 function current() {
   return {
@@ -429,19 +584,35 @@ function current() {
     size: parseInt(document.getElementById("size").value, 10),
     kind: document.getElementById("type").value,
     tilt: parseFloat(document.getElementById("tilt").value),
+    atm: document.getElementById("atm").value,
+    field: parseFloat(document.getElementById("field").value),
+    magtilt: parseFloat(document.getElementById("magtilt").value),
   };
 }
 
-function draw() {
-  const c = current();
-  cv.width = c.size;
-  cv.height = c.size;
-  const img = render(c.size, c.seed, c.tempC, c.kind, c.tilt);
-  ctx.putImageData(img, 0, 0);
+const planetCv = document.createElement("canvas");
+const baseCv = document.createElement("canvas");
+const baseCtx = baseCv.getContext("2d");
+let params = null, aurora = null, animStart = 0, rafId = 0, lastFrame = 0;
+
+function fmtNum(v, digits = 0) {
+  return EUI18N.num(v, { maximumFractionDigits: digits });
+}
+function fmt2(v) {
+  return EUI18N.num(v, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function updateControls(c) {
+  document.getElementById("tempv").textContent = fmtNum(c.tempC);
+  document.getElementById("fieldv").textContent = fmt2(c.field);
+  document.getElementById("magtiltv").textContent = fmtNum(c.magtilt) + "°";
+}
+
+function updateInfo(c, model) {
   const P = c.kind === "gas" ? gasParams(c.seed, c.tempC, c.size) : rockyParams(c.seed, c.tempC, c.size);
   const yes = T('yes');
   const no = T('no');
-  const info = c.kind === "gas"
+  const base = c.kind === "gas"
     ? T('p.info.gas', {
         seed: c.seed, bands: P.bandFreq,
         distort: P.distort.toFixed(2), softness: P.softness.toFixed(2),
@@ -454,12 +625,79 @@ function draw() {
         cont: P.continentFreq.toFixed(2), detail: P.detailFreq.toFixed(2),
         land: P.landThreshold.toFixed(2), caps: P.caps ? yes : no
       });
-  document.getElementById("info").textContent = info;
+  const visible = c.field > 0.02 && model.alpha > 0.004;
+  const auroraInfo = T('p.info.aurora', {
+    atm: T('atm.' + c.atm),
+    atmVis: fmtNum((ATM_HALO[c.atm] || 0) * 100),
+    ovals: visible ? 2 : 0,
+    b: fmt2(c.field),
+    tilt: fmtNum(c.magtilt),
+    level: c.field > 0.02 ? T('p.aur.' + model.level) : T('p.aur.none'),
+    vis: fmtNum(visible ? model.vis : 0, 3)
+  });
+  document.getElementById("info").textContent = base + "\n" + auroraInfo;
 }
 
-["seed", "temp", "size", "pix", "type", "tilt"].forEach((id) =>
+/* --- отрисовка: статичная база (ореол + планета), поверх — живое сияние ---- */
+function paint(now) {
+  if (!params || !aurora) return;
+  const size = params.size;
+  const phase = reduceMotion.matches ? 0 : ((now - animStart) / AURORA_MS) * Math.PI * 2;
+  ctx.clearRect(0, 0, size, size);
+  ctx.drawImage(baseCv, 0, 0);
+  drawAurora(ctx, size, params, aurora, phase);
+  drawFieldLines(ctx, size, params);
+}
+
+function stopAnimation() {
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = 0;
+}
+
+function tick(now) {
+  rafId = requestAnimationFrame(tick);
+  if (now - lastFrame < 33) return; // ~30 fps
+  lastFrame = now;
+  paint(now);
+}
+
+function startAnimation() {
+  stopAnimation();
+  animStart = performance.now();
+  lastFrame = 0;
+  paint(animStart);
+  if (reduceMotion.matches) return;
+  if (!aurora || !params || aurora.alpha <= 0.004 || params.field <= 0.02) return;
+  rafId = requestAnimationFrame(tick);
+}
+
+if (reduceMotion.addEventListener) {
+  reduceMotion.addEventListener("change", () => startAnimation());
+}
+
+function draw() {
+  const c = current();
+  const model = auroraModel(c.kind, c.field, c.atm);
+  cv.width = c.size;
+  cv.height = c.size;
+  baseCv.width = c.size;
+  baseCv.height = c.size;
+  planetCv.width = c.size;
+  planetCv.height = c.size;
+  planetCv.getContext("2d").putImageData(
+    render(c.size, c.seed, c.tempC, c.kind, c.tilt), 0, 0);
+  baseCtx.clearRect(0, 0, c.size, c.size);
+  drawAtmosphere(baseCtx, c.size, c.atm, c.tempC);
+  baseCtx.drawImage(planetCv, 0, 0);
+  params = c;
+  aurora = model;
+  updateControls(c);
+  updateInfo(c, model);
+  startAnimation();
+}
+
+["seed", "temp", "size", "pix", "type", "tilt", "atm", "field", "magtilt"].forEach((id) =>
   document.getElementById(id).addEventListener("input", () => {
-    document.getElementById("tempv").textContent = document.getElementById("temp").value;
     draw();
   }));
 

@@ -214,7 +214,7 @@
 
   const SKY_KEYS = ['airless', 'green', 'lightblue', 'orange', 'gray', 'turquoise', 'yellow', 'red', 'blue', 'pink', 'purple'];
   const SKY_COLOR = {
-    airless: '#12151f', green: '#4fbf6a', lightblue: '#9fd0ff', orange: '#f0a24a',
+    airless: '#2a3242', green: '#4fbf6a', lightblue: '#9fd0ff', orange: '#f0a24a',
     gray: '#d6dae4', turquoise: '#38d6c4', yellow: '#e8d264', red: '#e2503f',
     blue: '#4a7fe0', pink: '#e88ab0', purple: '#9c6ce0'
   };
@@ -456,7 +456,7 @@
     ctx.clearRect(0, 0, w, h);
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(40, 52, 80, .55)';
+    ctx.strokeStyle = 'rgba(34, 44, 68, .38)';
     ctx.lineWidth = lw;
     ctx.stroke();
     const total = sumValues(ch);
