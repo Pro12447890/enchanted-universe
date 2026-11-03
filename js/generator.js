@@ -399,6 +399,17 @@ function moonClimate(gas, hz, index, radiusKm, dRatio) {
   };
 }
 
+function realMoonPeriod(distanceKm, parentRadiusKm, planet) {
+  const G = 6.674e-11;
+  const rPlanet = Math.max(2e5, parentRadiusKm * 1000);
+  const g = Math.max(0.05, Number(planet && planet.gravity != null ? planet.gravity : 1)) * 9.80665;
+  const mass = Math.max(1e21, g * rPlanet * rPlanet / G);
+  const a = Math.max(1e6, Number(distanceKm) * 1000);
+  const seconds = 2 * Math.PI * Math.sqrt(Math.pow(a, 3) / (G * mass));
+  const days = seconds / 86400;
+  return Math.max(60, Math.round(days * 24000));
+}
+
 function moonSpecs(planet) {
   if (planet.customMoons) return planet.customMoons;
   const count = Math.max(0, planet.moons | 0);
@@ -419,12 +430,13 @@ function moonSpecs(planet) {
       ? 0.004 + (Number((u >> 25n) & 0x7FFn) / 2047) * 0.036
       : 0.03 + (Number((u >> 25n) & 0x7FFn) / 2047) * 0.24;
     const radiusKm = Math.max(60, radiusParent * radiusFactor);
+    const distanceKm = radiusParent * dRatio;
     const climate = moonClimate(gas, hz, i, radiusKm, dRatio);
     const shield = { none: 0, minimal: 0.25, thin: 0.65, moderate: 0.90, medium: 0.95, thick: 0.99 }[climate.atmosphere] || 0;
     const belt = dRatio > 0 && dRatio <= 22 ? gauss * Math.pow(12 / dRatio, 2) * 5.5 : 0;
     const radiation = Math.max(0, Math.min(1000, belt * (1 - shield)));
     out.push({
-      index: i, name: moonNameFor(planet.name, i), distanceKm: radiusParent * dRatio, radiusKm,
+      index: i, name: moonNameFor(planet.name, i), distanceKm, radiusKm,
       gravity: Math.max(0.20, 0.08 + (radiusKm / radiusParent) * 2.2),
       tiltDeg: Number((u >> 7n) % 121n) - 60,
       yawDeg: Number((u >> 23n) % 91n) - 45,
@@ -433,7 +445,10 @@ function moonSpecs(planet) {
       type: climate.category, category: climate.category, archetype: climate.archetype,
       atmosphere: climate.atmosphere, composition: climate.composition,
       biomes: climate.biomes.map(b => String(b).includes(':') ? b : 'enchanted_universe:' + b),
-      temperatureC: climate.temperatureC, radiation
+      temperatureC: climate.temperatureC, radiation,
+      // Реалистичный режим: период по Кеплеру вокруг своей планеты.
+      // Масса планеты — из её гравитации и радиуса, полуось — distanceKm.
+      periodTicksReal: realMoonPeriod(distanceKm, radiusParent, planet)
     });
   }
   return out;
@@ -558,6 +573,15 @@ function planetClass(p) {
   return (temp + ' ' + size + CLASS_BASE[key][i]).trim();
 }
 
+function starLuminosity(star) {
+  return ({
+    red_dwarf: 0.04, yellow_dwarf: 1.0, white_yellow_dwarf: 2.0, white_dwarf: 0.005,
+    blue_dwarf: 5.0, white_giant: 40.0, blue_giant: 80.0, yellow_giant: 60.0,
+    red_giant: 50.0, yellow_supergiant: 300.0, red_supergiant: 400.0,
+    carbon_star: 25.0, brown_dwarf: 0.0001, magnetar: 0.000001
+  })[star] || 1.0;
+}
+
 function starSpectral(star) {
   return ({
     red_dwarf:'M4V', yellow_dwarf:'G2V', white_yellow_dwarf:'F8V', white_dwarf:'DA2',
@@ -567,5 +591,5 @@ function starSpectral(star) {
   })[star] || '';
 }
 
-if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom, moonSpecs, planetClass, starSpectral, isWetBiome, biomeTag, isAquaria };
-if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog, moonSpecs, planetClass, starSpectral, isWetBiome, biomeTag, isAquaria };
+if (typeof module !== 'undefined') module.exports = { generateCatalog, JavaRandom, moonSpecs, planetClass, starSpectral, starLuminosity, isWetBiome, biomeTag, isAquaria };
+if (typeof window !== 'undefined') window.EUGenerator = { generateCatalog, moonSpecs, planetClass, starSpectral, starLuminosity, isWetBiome, biomeTag, isAquaria };

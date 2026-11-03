@@ -21,6 +21,13 @@
   const TAU = Math.PI * 2;
   const TICKS_PER_SECOND = 20;      // тиков Minecraft в реальной секунде карты
   const RATE_1AU = 0.04;            // рад/с при 1 а.е. — контракт Java
+  /* Реалистичный режим: сутки Minecraft = 20 мин = 24000 тиков, год = 365,25 суток.
+     Тогда период по Кеплеру: T = год · a^1.5 (a в а.е.).
+     Земля — 8 766 000 тиков = 5,07 реальных суток при ×1. */
+  const TICKS_PER_DAY = 24000;
+  const DAYS_PER_YEAR = 365.25;
+  const REAL_YEAR_TICKS = TICKS_PER_DAY * DAYS_PER_YEAR;
+  let realisticMode = false;
   const E_CAP = 0.10;               // потолок эксцентриситета вымышленных орбит
   const AU_WORLD_MAX = 2.75;        // радиус самой внешней орбиты системы в мире
   const MAP_Y = 0.86;               // сжатие карты по вертикали (как было на сайте)
@@ -45,9 +52,29 @@
   /** Начальная фаза планеты: FNV1a32(decimal signed seed) / 2^32 * 2π. */
   function seedPhase(seed) { return unit(String(seed)) * TAU; }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-  function periodTicksFor(meanAu) {
-    return (TAU / RATE_1AU) * Math.sqrt(Math.max(0.01, meanAu)) * TICKS_PER_SECOND;
+  function periodTicksFor(meanAu, starKey) {
+    const a = Math.max(0.01, Number(meanAu) || 1);
+    if (realisticMode) {
+      // Кеплер: T = год · a^1,5 / √(M*/M☉). Масса звезды — из светимости
+      // (L ≈ M^3,5), таблица классов живёт в генераторе.
+      const gen = (typeof window !== 'undefined' && window.EUGenerator) || null;
+      const lum = gen && gen.starLuminosity ? Math.max(1e-4, gen.starLuminosity(starKey)) : 1;
+      const mass = Math.max(0.08, Math.pow(lum, 1 / 3.5));
+      return REAL_YEAR_TICKS * Math.pow(a, 1.5) / Math.sqrt(mass);
+    }
+    return (TAU / RATE_1AU) * Math.sqrt(a) * TICKS_PER_SECOND;
   }
+  /** Переключение «условная ↔ реалистичная». Кеш элементов сбрасывается, иначе
+      планеты остались бы со старыми периодами до перезагрузки страницы. */
+  function setRealistic(value) {
+    const next = !!value;
+    if (next === realisticMode) return realisticMode;
+    realisticMode = next;
+    SYSTEM_ELEMENTS = new WeakMap();
+    PLANET_ELEMENT = new WeakMap();
+    return realisticMode;
+  }
+  function isRealistic() { return realisticMode; }
   function rateFor(meanAu) { return RATE_1AU / Math.sqrt(Math.max(0.01, meanAu)); }
 
   /* ── Реальные элементы Солнечной системы ────────────────────────────────────
@@ -75,8 +102,8 @@
   };
 
   /* ── Кэши: ключ — объект системы/планеты, при перегенерации они новые ────── */
-  const SYSTEM_ELEMENTS = new WeakMap();
-  const PLANET_ELEMENT = new WeakMap();
+  let SYSTEM_ELEMENTS = new WeakMap();   // пересоздаётся при смене режима
+  let PLANET_ELEMENT = new WeakMap();   // тоже пересоздаётся при смене режима
 
   function isSolar(system) {
     return !!system && (system.formalName === 'Sol' || system.name === 'Солнечная система');
@@ -131,7 +158,7 @@
       gameR = Number(od.gameRadiusAu);
       if (!(gameR > 0)) gameR = Number(od.meanRadiusAu) || mean;
       period = Number(od.periodTicks);
-      if (!(period > 0)) period = periodTicksFor(gameR);
+      if (!(period > 0)) period = periodTicksFor(gameR, system.star);
       epoch = Number(od.epochTicks) || 0;
       real = true; source = 'server';
     } else if (solar) {
@@ -141,7 +168,7 @@
       argRad = solar.arg * DEG;
       a = mean;
       m0 = seeded;
-      period = periodTicksFor(mean);
+      period = periodTicksFor(mean, system.star);
       epoch = 0;
       real = true; source = 'nasa';
     } else {
@@ -152,7 +179,7 @@
       // semiMajorAxis поддерживает прежний средний по времени радиус:
       a = mean / (1 + e * e / 2);
       m0 = seeded;
-      period = periodTicksFor(mean);
+      period = periodTicksFor(mean, system.star);
       epoch = 0;
       source = 'generated';
     }
@@ -301,7 +328,10 @@
   /** Угол луны: initial = phaseOffset·2π, далее 2π·ticks/periodTicks.
       Без k/count и без mi·1.7 — строго MoonSpec. */
   function moonAngle(m, ticks, epochTicks) {
-    const period = Math.max(1, Number(m && m.periodTicks) || 1);
+    // В реалистичном режиме — кеплеров период вокруг своей планеты
+    // (periodTicksReal считает генератор по массе и расстоянию).
+    const raw = realisticMode && m && m.periodTicksReal ? m.periodTicksReal : (m && m.periodTicks);
+    const period = Math.max(1, Number(raw) || 1);
     const phase = Number(m && (m.phaseOffset != null ? m.phaseOffset : m.phase)) || 0;
     const epoch = Number(epochTicks) || 0;
     return phase * TAU + TAU * (ticks - epoch) / period;
@@ -635,6 +665,7 @@
   const API = {
     TAU, TICKS_PER_SECOND, RATE_1AU, E_CAP, AU_WORLD_MAX,
     fnv1a32, unit, seedPhase, clamp, periodTicksFor, rateFor,
+    setRealistic, isRealistic, REAL_YEAR_TICKS, TICKS_PER_DAY, DAYS_PER_YEAR,
     elementsFor, elementFor, localPosition, orbitPath, moonAngle, companionAngle,
     blackHoles, galaxyWorld, systemPosition, nearestSystemLy, adaptServerCatalog,
     validateServerCatalog, rotationOf,

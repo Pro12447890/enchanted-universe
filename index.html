@@ -113,7 +113,10 @@
   .timebar button.timeSpeed { width:auto; min-width:54px; padding:0 8px; color:#5fe6ff;
              border-color:#2a6070; background:#07212b; font-family:ui-monospace,Consolas,monospace; }
   .timebar button.timeSpeed:hover { border-color:#57c8e0; background:#0a2c38; }
-  .timebar .timeTag { font-size:10px; color:#8b97b8; text-transform:uppercase; letter-spacing:.08em; white-space:nowrap; flex:none; }
+    .timebar button.timeMode { width:auto; padding:0 9px; font-size:9.5px; letter-spacing:.08em;
+                             text-transform:uppercase; color:#9fb0d8; border-color:#2a3550; }
+  .timebar button.timeMode.is-realistic { color:#5fe6ff; border-color:#2f6f6a; background:rgba(63,160,150,.10); }
+.timebar .timeTag { font-size:10px; color:#8b97b8; text-transform:uppercase; letter-spacing:.08em; white-space:nowrap; flex:none; }
   .timeMode { font-size:9px; color:#5fe6ff; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; flex:none; padding:1px 6px; border:1px solid #2a6070; border-radius:999px; background:#07212b; }
   .timebar input { min-width:0; width:78px; background:#0b1220; border:1px solid #2a3550; border-radius:6px;
              color:#cfe8ff; padding:5px 6px; font:12px ui-monospace,Consolas,monospace; text-align:right; outline:none; }
@@ -183,7 +186,7 @@
 <div id="hint" data-i18n-html="hint"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
 <div id="timeBar" class="timebar" data-i18n-title="time.title" title="Реалистичное время: локальные тики, не синхронизировано с миром">
-  <span class="timeMode" data-i18n="time.mode">Реалистичный</span>
+  <button id="orbitMode" class="timeMode" type="button" data-i18n-title="time.mode.title"><span data-i18n="time.mode.conditional">Условная</span></button>
   <button id="timeBack" title="Медленнее">←</button>
   <button id="timeSpeed" class="timeSpeed" data-i18n-title="time.speedTitle" title="Скорость времени · клик — ×1">×1</button>
   <button id="timeFwd" title="Быстрее">→</button>
@@ -1547,7 +1550,7 @@ function showPlanet(p, system) {
       <tr><td>${T('card.ecc')}</td><td>${oe.e.toFixed(3)}</td></tr>
       <tr><td>${T('card.incl')}</td><td>${(oe.iRad * 180 / Math.PI).toFixed(1)}°</td></tr>
       ${Math.abs(oe.gameRadiusAu - oe.meanRadiusAu) > 0.001 ? `<tr><td>${T('card.gameOrbit')}</td><td>${oe.gameRadiusAu.toFixed(2)} ${T('unit.au')}</td></tr>` : ''}
-      <tr><td>${T('card.period')}</td><td>${(oe.periodTicks / 1200).toFixed(1)} ${T('unit.min')} · ${Math.round(oe.periodTicks)} t</td></tr>
+      <tr><td>${T('card.period')}</td><td>${periodText(oe.periodTicks)}</td></tr>
       <tr><td>${T('card.semi')}</td><td>${oe.semiMajorAxisAu.toFixed(3)} ${T('unit.au')}</td></tr>
 ` : '';
   // Ось вращения и магнитный полюс: из импортированного каталога (Java
@@ -1745,6 +1748,55 @@ const timeBack = document.getElementById('timeBack');
 const timeFwd = document.getElementById('timeFwd');
 const timeSpeedBtn = document.getElementById('timeSpeed');
 const timeTicksInput = document.getElementById('timeTicksInput');
+// Период в понятных единицах: минуты до двух часов, дальше часы и сутки.
+function periodText(ticks) {
+  const minutes = ticks / 1200;
+  const rounded = Math.round(ticks);
+  if (minutes >= 2880) return (minutes / 1440).toFixed(2) + ' ' + T('unit.d') + ' · ' + rounded + ' t';
+  if (minutes >= 120) return (minutes / 60).toFixed(1) + ' ' + T('unit.h') + ' · ' + rounded + ' t';
+  return minutes.toFixed(1) + ' ' + T('unit.min') + ' · ' + rounded + ' t';
+}
+
+// Режим орбит: условная (как в игре) или реалистичная (по Кеплеру).
+const ORBIT_MODE_KEY = 'eu_orbit_mode';
+function applyOrbitMode(realistic, remember) {
+  const on = EUOrbits.setRealistic(realistic);
+  MOON_CACHE.clear();
+  const btn = document.getElementById('orbitMode');
+  if (btn) {
+    const label = on ? T('time.mode.realistic') : T('time.mode.conditional');
+    btn.innerHTML = '<span>' + esc(label) + '</span>';
+    btn.classList.toggle('is-realistic', on);
+  }
+  if (remember !== false) {
+    try { localStorage.setItem(ORBIT_MODE_KEY, on ? 'realistic' : 'conditional'); } catch (e) {}
+  }
+  if (selected) {
+    if (selected.kind === 'planet' || selected.kind === 'moon') showPlanet(selected.planet, selected.system);
+    else if (selected.kind === 'star') showStar(selected.system);
+    else if (selected.kind === 'system') showSystem(selected.system);
+  }
+  draw(performance.now());
+}
+function initOrbitMode() {
+  let saved = null;
+  try { saved = localStorage.getItem(ORBIT_MODE_KEY); } catch (e) {}
+  applyOrbitMode(saved === 'realistic', false);
+  const btn = document.getElementById('orbitMode');
+  if (btn) btn.addEventListener('click', () => {
+    const turningOn = !EUOrbits.isRealistic();
+    applyOrbitMode(turningOn, true);
+    // Первое включение реалистичного — всегда ×1.
+    if (turningOn) setSpeedIndex(SPEED_STEPS.indexOf(1));
+  });
+}
+window.addEventListener('eu-lang', () => {
+  const btn = document.getElementById('orbitMode');
+  if (!btn) return;
+  btn.innerHTML = '<span>' + esc(EUI18N.t(EUOrbits.isRealistic() ? 'time.mode.realistic' : 'time.mode.conditional')) + '</span>';
+});
+initOrbitMode();
+
 if (timeBack) timeBack.addEventListener('click', () => setSpeedIndex(speedIndex - 1));
 if (timeFwd) timeFwd.addEventListener('click', () => setSpeedIndex(speedIndex + 1));
 // Клик по центру — ровно ×1, как просил заказчик (не «следующий шаг»).
