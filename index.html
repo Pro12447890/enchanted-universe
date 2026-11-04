@@ -51,8 +51,10 @@
   #results div { padding:7px 10px; border-bottom:1px solid #182033; cursor:pointer; }
   #results div:hover { background:#16223a; }
   #results small { color:var(--dim); display:block; }
-  #info { position:fixed; right:12px; top:64px; width:340px; max-height:calc(100% - 90px); overflow:auto;
-          background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; z-index:4;
+  #info { position:fixed; right:12px; top:64px; width:340px; flex-direction:column;
+          max-height:min(calc(100% - 90px), var(--eu-info-max, 100%)); overflow:hidden;
+          overscroll-behavior:contain;
+          background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:0; z-index:4;
           backdrop-filter:blur(6px); display:none; }
   #info h2 { margin:0 0 2px; font-size:19px; color:var(--gold); font-weight:600; }
   #info .sub { color:var(--dim); margin:10px 0 4px; }
@@ -73,6 +75,37 @@
   .chips span.biome.vanilla { color:#8fa0c0; border-color:#243250; background:transparent; }
 .chips span { display:inline-block; border:1px solid #2c3a5c; border-radius:6px; padding:2px 6px;
                 margin:2px 3px 0 0; font-size:11px; color:#b9c8ea; }
+  /* Тёмно-синий «двигатель» внутри карточки: свой, всегда видимый и таскаемый */
+  #info .infoScroll { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden;
+                      padding:14px 20px 14px 16px; scrollbar-width:none; overscroll-behavior:contain; }
+  #info .infoScroll::-webkit-scrollbar { width:0; height:0; }
+  #info .infoBar { display:none; position:absolute; right:4px; top:10px; bottom:10px; width:9px;
+                   border-radius:999px; background:#0b1220; border:1px solid #17233a; touch-action:none; z-index:3; }
+  #info .infoBar.on { display:block; }
+  #info .infoThumb { position:absolute; left:0; right:0; top:0; border-radius:999px;
+                     background:#24456f; cursor:grab; }
+  #info .infoThumb:hover { background:#2f5c92; }
+  #info .infoThumb.drag { background:#33619c; cursor:grabbing; }
+  /* Сворачивание блока «Тип … Кольца» */
+  #info { position:fixed; }
+  #info .foldBtn { position:absolute; right:10px; top:9px; width:22px; height:22px; padding:0;
+                   display:flex; align-items:center; justify-content:center; font-size:12px; line-height:1;
+                   border-radius:6px; background:#0d1526cc; border:1px solid #2a3550; color:#9fb0d8; cursor:pointer; z-index:2; }
+  #info .foldBtn:hover { border-color:#5b74a8; color:#dfe7ff; }
+  #info .foldWrap.folded { display:none; }
+  /* Характеристика: три строки с тонкими перегородками */
+  #info .spec { margin:8px 0 2px; }
+  #info .spec div { display:flex; justify-content:space-between; gap:12px; padding:5px 0;
+                    border-bottom:1px solid #1b2a44; font-size:12.5px; }
+  #info .spec div:first-child { border-top:1px solid #1b2a44; }
+  #info .spec span:first-child { color:var(--dim); }
+  #info .spec span:last-child { text-align:right; color:#cfdcf6; }
+  /* Цвета биомов: главный набор и второй */
+  #info .pal { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 2px; }
+  #info .pal span { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px;
+                    border:1px solid #24314c; background:#0c1424; font-size:11.5px; color:#c7d4ee; }
+  #info .pal span.main { border-color:#4a6ea8; color:#e6efff; background:#122037; }
+  #info .pal i { width:10px; height:10px; border-radius:50%; display:block; flex:none; }
   #hint { position:fixed; left:14px; bottom:12px; color:var(--dim); font-size:12px; z-index:3; }
   #hint b { color:var(--gold); font-weight:500; }
   .hidden { display:none !important; }
@@ -143,6 +176,7 @@
     #hint { display:none; }
     #info { top:auto; bottom:var(--eu-info-bottom, 150px); left:8px; right:8px; width:auto;
             max-height:min(30vh, var(--eu-sheet-max, 320px)); border-radius:12px; }
+    #info .infoBar { display:none !important; }
     #info.expanded { max-height:var(--eu-sheet-max, 320px); }
     .infoHandle { display:flex; position:fixed; left:50%; transform:translateX(-50%);
       width:64px; height:18px; align-items:center; justify-content:center; z-index:11;
@@ -195,7 +229,7 @@
 </div>
 
 <script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
-<script src="js/i18n.js?v=42"></script>
+<script src="js/i18n.js?v=43"></script>
 <script src="js/generator.js?v=36"></script>
 <script src="js/orbits.js?v=2"></script>
 <script src="js/rings3d.js?v=1"></script>
@@ -636,11 +670,11 @@ function draw(now) {
   }
   ctx.globalAlpha = 1;
 
-  const systemAlpha = 1 - smooth(30, 140, cam.z);
-  if (systemAlpha > 0.01) drawGalaxy(systemAlpha, now);
-  // Чёрные дыры — отдельный слой галактического LOD, не системы.
+  // Чёрные дыры — САМЫЙ НИЖНИЙ слой: звёзды и их орбиты рисуются поверх.
   const bhAlpha = 1 - smooth(40, 110, cam.z);
   if (bhAlpha > 0.01) drawBlackHoles(bhAlpha, now);
+  const systemAlpha = 1 - smooth(30, 140, cam.z);
+  if (systemAlpha > 0.01) drawGalaxy(systemAlpha, now);
   const localAlpha = smooth(18, 70, cam.z);
   if (localAlpha > 0.01) drawPlanets(localAlpha, now);
   drawFocusStar(now);
@@ -1519,7 +1553,7 @@ function focusSystem(i, system) {
 }
 
 function showPlanet(p, system) {
-  info.style.display = 'block';
+  info.style.display = 'flex';
   info.classList.remove('expanded');
   const moons = EUGenerator.moonSpecs(p);
   let moonHtml = '';
@@ -1536,8 +1570,6 @@ function showPlanet(p, system) {
   const comp = (p.composition || []).map(c => `<span style="border-color:${atmosphereColor(p)}55">${esc(c)}</span>`).join('');
   const customBiomes = (p.biomes || []).filter(b => !String(b).startsWith('minecraft:'));
   const vanillaBiomes = (p.biomes || []).filter(b => String(b).startsWith('minecraft:'));
-  // Чипы биомов: человеческое название, сырой id — в подсказке. Модовые и
-  // ванильные — отдельными строками со своей подписью, чтобы граница читалась.
   const chipsFor = (list, cls) => list
     .map(b => `<span class="biome ${cls}" title="${esc(b)}">${esc(EUI18N.biome(b))}</span>`).join('');
   const modGroup = customBiomes.length
@@ -1548,10 +1580,9 @@ function showPlanet(p, system) {
     : '';
   const biomeChips = p.category === 'gas_giant' ? '<span>' + T('biome.unknown') + '</span>'
     : (modGroup + vanGroup || '<span>—</span>');
+  const palette = biomePaletteHtml(p);
   const typeLabel = T('card.type');
   const spectralLabel = T('card.spectral');
-  const ru = EUI18N.current() === 'ru';
-  // Метаданные орбиты: те же числа, по которым реально движется планета.
   const oe = EUOrbits.elementFor(system, p);
   const oeRows = oe ? `
       <tr><td>${T('card.ecc')}</td><td>${oe.e.toFixed(3)}</td></tr>
@@ -1560,15 +1591,19 @@ function showPlanet(p, system) {
       <tr><td>${T('card.period')}</td><td>${periodText(oe.periodTicks)}</td></tr>
       <tr><td>${T('card.semi')}</td><td>${oe.semiMajorAxisAu.toFixed(3)} ${T('unit.au')}</td></tr>
 ` : '';
-  // Ось вращения и магнитный полюс: из импортированного каталога (Java
-  // PlanetRotation) либо из реальной таблицы Солнечной системы. Вымышленным
-  // мирам без импорта строку не показываем — не выдумываем число.
   const rot = EUOrbits.rotationOf(p);
   const rotRows = rot ? `
       <tr><td>${T('card.tilt')}</td><td>${rot.obliquityDeg.toFixed(1)}°${rot.retrograde ? (T('card.retro')) : ''}</td></tr>
       ${rot.magneticTiltDeg > 0 ? `<tr><td>${T('card.magpole')}</td><td>${rot.magneticTiltDeg.toFixed(1)}°${T('card.fromAxis')}</td></tr>` : ''}
       ${rot.auroraLatitudeDeg != null ? `<tr><td>${T('card.aurora')}</td><td>${rot.auroraLatitudeDeg.toFixed(0)}°</td></tr>` : ''}
 ` : '';
+  // Характеристика: три строки с тонкими перегородками между блоками.
+  const habState = habitabilityState(p);
+  const habValue = T('trait.hab.' + habState) + (habState === 'ideal' ? '' : ' · ' + earthSimilarity(p).toFixed(2));
+  const traits = `
+      <div><span>${T('trait.suit')}</span><span>${T('trait.suit.' + suitState(p))}</span></div>
+      <div><span>${T('trait.rad')}</span><span>${T('trait.rad.' + radiationState(p))}</span></div>
+      <div><span>${T('trait.hab')}</span><span>${esc(habValue)}</span></div>`;
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
     <h2>${esc(N(p.designation))}</h2>
@@ -1576,7 +1611,7 @@ function showPlanet(p, system) {
     <table>
       <tr><td>${typeLabel}</td><td>${esc(EUGenerator.planetClass(p))}${cityLevel(p) === 2 ? ' · высокоразвитая' : cityLevel(p) === 1 ? ' · развитая' : ''}</td></tr>
       <tr><td>${spectralLabel}</td><td>${esc(EUGenerator.starSpectral(system.star))}</td></tr>
-      <tr><td>${T('info.atmosphere')}</td><td>${atmDot}${esc(T('atm.'+p.atmosphere))}</td></tr>
+      <tr><td>${T('info.atmosphere')}</td><td>${atmDot}${esc(atmosphereText(p))}</td></tr>
       <tr><td>${T('info.gravity')}</td><td>${p.gravity.toFixed(2)} ${T('unit.g')}</td></tr>
       <tr><td>${T('info.temperature')}</td><td>${p.temperatureC.toFixed(0)} ${T('unit.c')}</td></tr>
       <tr><td>${T('info.radiation')}</td><td>${p.radiation.toFixed(0)}</td></tr>
@@ -1589,6 +1624,9 @@ function showPlanet(p, system) {
     ${moonHtml}
     <div class="sub">${T('info.biomes')}</div>
     <div class="chips">${biomeChips}</div>
+    ${palette}
+    <div class="sub">${T('info.traits')}</div>
+    <div class="spec">${traits}</div>
     <div class="sub">${T('info.seed')}</div>
     <div class="seed">${esc(p.seed)}</div>
     ${comp ? `<div class="sub">${T('atm.composition')}</div><div class="chips">${comp}</div>` : ''}`;
@@ -1597,8 +1635,230 @@ function showPlanet(p, system) {
   });
 }
 
+/* ── Атмосфера: пять ступеней + «Почти/Довольно» по положению в ступени ──── */
+const ATM_STAGE_OF = { none: 'none', minimal: 'faint', thin: 'thin', moderate: 'avg', medium: 'avg', thick: 'dense' };
+function hashUnit(text) {
+  let h = 2166136261 >>> 0;
+  const s = String(text == null ? '' : text);
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  h ^= h >>> 13; h = Math.imul(h, 16777619); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+/* Положение внутри СВОЕЙ ступени, 0…1: от сида — стабильно, от сида к сиду — разное. */
+function atmosphereStagePosition(p) {
+  if (p && typeof p.atmosphereDensity === 'number' && isFinite(p.atmosphereDensity)) {
+    const band = { none: [0, 0.12], minimal: [0.12, 0.28], thin: [0.28, 0.46], moderate: [0.46, 0.68], medium: [0.68, 0.87], thick: [0.87, 1] }[p.atmosphere];
+    if (band && band[1] > band[0]) return Math.max(0, Math.min(1, (p.atmosphereDensity - band[0]) / (band[1] - band[0])));
+  }
+  return hashUnit((p && p.seed != null ? p.seed : '') + '|atm|' + (p && p.id ? p.id : ''));
+}
+function atmosphereText(p) {
+  if (!p || p.atmosphere === 'none') return T('atm.stage.none');
+  const stage = ATM_STAGE_OF[p.atmosphere] || 'thin';
+  const word = T('atm.stage.' + stage);
+  const pos = atmosphereStagePosition(p);
+  if (pos < 1 / 3) return T('atm.q.low') + ' ' + word.toLowerCase();
+  if (pos > 2 / 3) return T('atm.q.high') + ' ' + word.toLowerCase();
+  return word;
+}
+
+/* ── Характеристика: скафандр, радиация, благоприятность (ESI) ───────────── */
+function isEarthPlanet(p) {
+  const n = String(p && p.name ? p.name : '').trim().toLowerCase();
+  return n === 'земля' || n === 'earth';
+}
+function suitState(p) {
+  const atm = p && p.atmosphere;
+  if (!atm || atm === 'none' || atm === 'minimal') return 'required';
+  const breaths = (p.composition || []).some(g => String(g).toUpperCase().startsWith('O2'));
+  const friendly = p.category === 'habitable' || p.category === 'cold_habitable';
+  if (friendly && breaths && p.temperatureC > -25 && p.temperatureC < 60) return 'none';
+  return 'unsealed';
+}
+function radiationState(p) {
+  const r = Number(p && p.radiation) || 0;
+  if (r < 1) return 'none';
+  if (r <= 50) return 'local';
+  if (r <= 150) return 'feel';
+  return 'strong';
+}
+/* Индекс подобия Земле (ESI, Schulze-Makuch 2011), адаптированный под мод:
+   радиус, плотность (ρ ∝ g/R), вторая космическая (v ∝ √(gR)) и температура
+   288.15 K, плюс множители за атмосферу и радиацию. */
+function earthSimilarity(p) {
+  const R = Math.max(0.05, Number(p.diameterEarth) || 1);
+  const g = Math.max(0.05, Number(p.gravity) || 1);
+  const rho = g / R;
+  const v = Math.sqrt(g * R);
+  const T = Math.max(1, (Number(p.temperatureC) || 0) + 273.15);
+  const values = [R, rho, v, T], targets = [1, 1, 1, 288.15], weights = [0.57, 1.07, 0.70, 5.58];
+  let esi = 1;
+  for (let i = 0; i < 4; i++) {
+    const x = values[i], x0 = targets[i];
+    const term = Math.max(1e-6, 1 - Math.abs((x - x0) / (x + x0)));
+    esi *= Math.pow(term, weights[i] / 4);
+  }
+  const atmFactor = ({ none: 0.55, minimal: 0.72, thin: 0.86, moderate: 1.0, medium: 1.0, thick: 0.93 })[p.atmosphere] || 0.86;
+  const radFactor = Math.max(0.6, Math.min(1, 1 - (Number(p.radiation) || 0) / 400));
+  return Math.max(0, Math.min(1, esi * atmFactor * radFactor));
+}
+function habitabilityState(p) {
+  if (isEarthPlanet(p)) return 'ideal';
+  const esi = earthSimilarity(p);
+  if (esi >= 0.90) return 'great';
+  if (esi >= 0.75) return 'good';
+  if (esi >= 0.55) return 'poor';
+  return 'none';
+}
+
+/* ── Наборы цветов биомов: главный >50 %, второй ≥25 % ───────────────────── */
+function biomeSetOf(id) {
+  const k = String(id || '').toLowerCase().split(':').pop();
+  if (/ocean|river|sea|lake/.test(k)) return 'water';
+  if (/snow|ice|frozen|tundra|cryo|glacier|jagged|peaks/.test(k)) return 'ice';
+  if (/scarlet|burgundy|volcan|lava|magma|ember|blood|rust/.test(k)) return 'red';
+  if (/desert|badlands|savanna|mesa|dune|sand|ochre|golden|yellow|beige|arid|sulfur|steppe|beach/.test(k)) return 'yellow';
+  if (/forest|grove|jungle|plains|meadow|swamp|taiga|cherry|birch|mushroom|garden|greensprout|night_forest|windy|windswept|flower|lush|moss|ashy/.test(k)) return 'green';
+  return 'stone';
+}
+/* Оттенок набора чуть «холоднее/теплее» от сида — как просил заказчик. */
+function biomeSetColor(key, p) {
+  const base = ({ green: [118, 34, 44], yellow: [44, 52, 56], ice: [190, 40, 72], red: [8, 46, 46], water: [212, 46, 46], stone: [220, 8, 54] })[key] || [220, 8, 50];
+  const seed = (p && p.seed != null ? p.seed : '') + '|' + key;
+  const hue = (base[0] + (hashUnit(seed + '|h') * 2 - 1) * 14 + 360) % 360;
+  const sat = Math.max(8, Math.min(78, base[1] + (hashUnit(seed + '|s') * 2 - 1) * 10));
+  const light = Math.max(26, Math.min(76, base[2] + (hashUnit(seed + '|l') * 2 - 1) * 7));
+  return 'hsl(' + hue.toFixed(0) + ' ' + sat.toFixed(0) + '% ' + light.toFixed(0) + '%)';
+}
+function biomePaletteHtml(p) {
+  const list = (p && p.biomes ? p.biomes : []).filter(Boolean);
+  if (!list.length || p.category === 'gas_giant') return '';
+  const counts = new Map();
+  for (const b of list) { const k = biomeSetOf(b); counts.set(k, (counts.get(k) || 0) + 1); }
+  const rows = [...counts.entries()].map(([k, n]) => ({ k, share: n / list.length })).sort((a, b) => b.share - a.share);
+  const main = rows[0].share > 0.5 ? rows[0] : null;
+  const shown = main ? rows.filter(r => r === main || r.share >= 0.25).slice(0, 2) : rows.slice(0, 3);
+  const pills = shown.map(r => {
+    const title = T('biome.set.' + r.k) + ' · ' + Math.round(r.share * 100) + '%';
+    return '<span class="' + (main && r === main ? 'main' : '') + '"><i style="background:' + biomeSetColor(r.k, p) + '"></i>' + esc(title) + '</span>';
+  }).join('');
+  return '<div class="sub">' + T('biome.set.title') + '</div><div class="pal">' + pills + '</div>';
+}
+
+/* Свой «двигатель» внутри карточки: содержимое живёт в .infoScroll,
+   полоса — в самой карточке, поэтому она не уезжает вместе с текстом. */
+function infoParts() {
+  if (!info) return null;
+  let scroller = null;
+  for (const child of info.children) if (child.classList && child.classList.contains('infoScroll')) scroller = child;
+  if (!scroller) {
+    scroller = document.createElement('div');
+    scroller.className = 'infoScroll';
+    [...info.children].forEach((child) => {
+      if (child.classList && (child.classList.contains('infoBar') || child.classList.contains('foldBtn'))) return;
+      scroller.appendChild(child);
+    });
+    info.appendChild(scroller);
+  }
+  let bar = null;
+  for (const child of info.children) if (child.classList && child.classList.contains('infoBar')) bar = child;
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'infoBar';
+    const thumb = document.createElement('div');
+    thumb.className = 'infoThumb';
+    bar.appendChild(thumb);
+    info.appendChild(bar);
+    let dragging = false, startY = 0, startTop = 0;
+    thumb.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      dragging = true; startY = e.clientY; startTop = scroller.scrollTop;
+      thumb.classList.add('drag');
+      thumb.setPointerCapture(e.pointerId);
+    });
+    thumb.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const track = bar.clientHeight - thumb.offsetHeight;
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+      if (track <= 0 || maxScroll <= 0) return;
+      scroller.scrollTop = startTop + (e.clientY - startY) * (maxScroll / track);
+    });
+    const stop = (e) => {
+      dragging = false;
+      thumb.classList.remove('drag');
+      if (thumb.hasPointerCapture && thumb.hasPointerCapture(e.pointerId)) thumb.releasePointerCapture(e.pointerId);
+    };
+    thumb.addEventListener('pointerup', stop);
+    thumb.addEventListener('pointercancel', stop);
+    // Клик по дорожке — прыжок на это место.
+    bar.addEventListener('pointerdown', (e) => {
+      if (e.target === thumb) return;
+      const rect = bar.getBoundingClientRect();
+      const frac = (e.clientY - rect.top - thumb.offsetHeight / 2) / Math.max(1, rect.height - thumb.offsetHeight);
+      scroller.scrollTop = Math.max(0, Math.min(1, frac)) * (scroller.scrollHeight - scroller.clientHeight);
+    });
+    scroller.addEventListener('scroll', () => updateInfoBar(), { passive: true });
+  }
+  return { scroller, bar };
+}
+function updateInfoBar() {
+  const parts = infoParts();
+  if (!parts) return;
+  const { scroller, bar } = parts;
+  const track = scroller.scrollHeight;
+  const view = scroller.clientHeight;
+  if (!track || !view || track - view < 2) { bar.classList.remove('on'); return; }
+  bar.classList.add('on');
+  const thumb = bar.firstElementChild;
+  const barH = bar.clientHeight;
+  const ratio = Math.max(0.08, Math.min(1, view / track));
+  const thumbH = Math.max(30, Math.round(barH * ratio));
+  thumb.style.height = thumbH + 'px';
+  const maxScroll = track - view;
+  const top = maxScroll > 0 ? (scroller.scrollTop / maxScroll) * (barH - thumbH) : 0;
+  thumb.style.top = Math.max(0, Math.min(barH - thumbH, top)) + 'px';
+}
+
+/* Кнопка «свернуть блок Тип…Кольца» ставится на любую карточку с таблицей. */
+let infoFolded = false;
+function installFold() {
+  if (!info) return;
+  const table = info.querySelector('table');
+  const old = info.querySelector('.foldBtn');
+  if (!table) { if (old) old.remove(); return; }
+  let wrap = table.parentElement;
+  if (!wrap || !wrap.classList.contains('foldWrap')) {
+    wrap = document.createElement('div');
+    wrap.className = 'foldWrap';
+    table.parentNode.insertBefore(wrap, table);
+    wrap.appendChild(table);
+  }
+  wrap.classList.toggle('folded', infoFolded);
+  let btn = old;
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.className = 'foldBtn';
+    btn.type = 'button';
+    btn.addEventListener('click', () => {
+      infoFolded = !infoFolded;
+      const w = info.querySelector('.foldWrap');
+      if (w) w.classList.toggle('folded', infoFolded);
+      btn.textContent = infoFolded ? '▸' : '▾';
+      updateInfoSheet();
+    });
+    info.appendChild(btn);
+  }
+  btn.textContent = infoFolded ? '▸' : '▾';
+  btn.title = T('info.fold');
+  btn.setAttribute('aria-label', T('info.fold'));
+  const parts = infoParts();
+  if (parts) parts.scroller.scrollTop = Math.min(parts.scroller.scrollTop, parts.scroller.scrollHeight);
+  updateInfoBar();
+}
+if (info) new MutationObserver(() => installFold()).observe(info, { childList: true });
+
 function showMoon(m, p, system) {
-  info.style.display = 'block';
+  info.style.display = 'flex';
   info.classList.remove('expanded');
   info.innerHTML = `
     <h2>${esc(N(m.name))}</h2>
@@ -1619,7 +1879,7 @@ function showMoon(m, p, system) {
 function showCompanion(system) {
   const c = system.companion;
   const data = STAR_DATA[c.star] || STAR_DATA.white_dwarf;
-  info.style.display = 'block';
+  info.style.display = 'flex';
   info.classList.remove('expanded');
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
@@ -1637,7 +1897,7 @@ function showCompanion(system) {
 }
 function showStar(system) {
   const data = STAR_DATA[system.star] || STAR_DATA.yellow_dwarf;
-  info.style.display = 'block';
+  info.style.display = 'flex';
   info.classList.remove('expanded');
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
@@ -1837,6 +2097,7 @@ if (barEl && barToggleEl) {
 let lastInfoLayout = 0;
 function updateInfoSheet() {
   const handle = document.getElementById('infoHandle');
+  if (typeof updateInfoBar === 'function') updateInfoBar();
   if (!handle) return;
   if (innerWidth > 900) {
     handle.classList.add('hidden');
@@ -1844,6 +2105,13 @@ function updateInfoSheet() {
     info.style.removeProperty('--eu-info-bottom');
     info.style.removeProperty('--eu-sheet-max');
     info.style.right = '';
+    // Карточка не уходит под нижние кнопки: обрезаем ровно по их верхнему краю,
+    // дальше внутри появляется тёмно-синий «двигатель» (скроллбар).
+    const dockEl = document.querySelector('.dock');
+    const dockTop = dockEl ? dockEl.getBoundingClientRect().top : innerHeight - 14;
+    const infoTop = info.getBoundingClientRect().top;
+    const room = Math.max(190, Math.round(dockTop - (infoTop > 0 ? infoTop : 64) - 10));
+    info.style.setProperty('--eu-info-max', room + 'px');
     return;
   }
   const bar = document.querySelector('.bar');
@@ -1951,16 +2219,23 @@ function drawBlackHoles(alpha, now) {
     ctx.beginPath(); ctx.arc(x, y, r * 3.4, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
     ctx.save();
-    // Слои как в Java: мягкое гало, тёмное гало, сам горизонт.
-    const halo = PSR_IMAGES['halo_soft.png'], dark = PSR_IMAGES['darkhalo.png'];
-    if (halo && halo.complete && halo.naturalWidth) {
-      ctx.globalAlpha = alpha * 0.55;
-      ctx.drawImage(halo, x - r * 5.5, y - r * 5.5, r * 11, r * 11);
-    }
-    if (dark && dark.complete && dark.naturalWidth) {
-      ctx.globalAlpha = alpha * 0.75;
-      ctx.drawImage(dark, x - r * 2.5, y - r * 2.5, r * 5, r * 5);
-    }
+    // Слои вокруг горизонта — ГРАДИЕНТАМИ, а не PNG: у darkhalo.png фон был
+    // светлый и непрозрачный, поэтому вокруг дыры появлялся белый квадрат.
+    // Градиент заканчивается ровно нулём, у квадрата шансов нет.
+    const gHalo = ctx.createRadialGradient(x, y, r * 0.35, x, y, r * 5.4);
+    gHalo.addColorStop(0, 'rgba(255,236,206,' + (0.16 * alpha) + ')');
+    gHalo.addColorStop(0.55, 'rgba(198,180,255,' + (0.055 * alpha) + ')');
+    gHalo.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = gHalo;
+    ctx.beginPath(); ctx.arc(x, y, r * 5.4, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    // Тёмный ореол у самого горизонта: мягкая виньетка, тоже без краёв.
+    const gDark = ctx.createRadialGradient(x, y, r * 0.9, x, y, r * 2.4);
+    gDark.addColorStop(0, 'rgba(2,3,10,' + (0.55 * alpha) + ')');
+    gDark.addColorStop(1, 'rgba(2,3,10,0)');
+    ctx.fillStyle = gDark;
+    ctx.beginPath(); ctx.arc(x, y, r * 2.4, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = alpha * 0.96;
     if (img && img.complete && img.naturalWidth) {
       ctx.drawImage(img, x - r * 2.1, y - r * 2.1, r * 4.2, r * 4.2);
@@ -1989,7 +2264,7 @@ function showBlackHole(entry) {
   const h = entry.hole;
   const near = EUOrbits.nearestSystemLy(h, catalog.systems, catalog.worldSeed);
   selected = null; selectedHole = entry;
-  info.style.display = 'block';
+  info.style.display = 'flex';
   info.classList.remove('expanded');
   const ru = EUI18N.current() === 'ru';
   info.innerHTML = `
