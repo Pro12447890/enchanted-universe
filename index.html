@@ -3,7 +3,14 @@
 <head>
 <script>if (location.protocol === 'http:') location.replace('https://' + location.host + location.pathname + location.search + location.hash);</script>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+// Один адрес и одна карта. Компактность определяет экран + основной тип ввода,
+// а не URL/название браузера. Та же проверка обновляется при resize и повороте.
+window.euCompactLayout = () => matchMedia('(max-width: 900px)').matches
+  || matchMedia('(max-width: 1200px) and (pointer: coarse)').matches;
+document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayout());
+</script>
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 <link rel="canonical" href="./">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -185,6 +192,7 @@
     .infoHandle.hidden { display:none; }
   }
 </style>
+<link rel="stylesheet" href="assets/mobile-map.css?v=2">
 </head>
 <body>
 <canvas id="map"></canvas>
@@ -215,7 +223,6 @@
 
   <button id="barToggle" class="barToggle" type="button" aria-expanded="true" data-i18n-title="bar.toggle" title="Показать/скрыть панель">▾</button>
 <div id="info"></div>
-<button id="infoHandle" class="infoHandle hidden" type="button" aria-label="Развернуть или свернуть карточку" title="Развернуть/свернуть карточку">⌃</button>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 <div id="hint" data-i18n-html="hint"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
 <div id="loading" data-i18n="loading">Генерация каталога…</div>
@@ -228,11 +235,12 @@
   <input id="timeTicksInput" type="text" inputmode="decimal" spellcheck="false" aria-label="Локальные тики" data-i18n-title="time.ticksTitle" title="Локальные тики с начала эпохи. Не синхронизировано с миром: введи значение вручную или импортируй каталог.">
 </div>
 
-<script>if (innerWidth <= 760 && !location.search.includes("desktop") && !location.pathname.endsWith("mobile.html")) location.replace("mobile.html" + location.search);</script>
-<script src="js/i18n.js?v=44"></script>
+<script src="js/i18n.js?v=45"></script>
 <script src="js/generator.js?v=38"></script>
 <script src="js/orbits.js?v=2"></script>
 <script src="js/rings3d.js?v=1"></script>
+<script src="js/map-touch.js?v=2"></script>
+<script src="js/mobile-ui.js?v=2"></script>
 <div class="dock">
   <div class="zoomctl">
     <button id="zoomIn" title="Приблизить">+</button>
@@ -600,17 +608,7 @@ function applyZoomAnchor() {
 
 /** Свободная от карточки и тулбара область на мобильном: туда ставим тело. */
 function infoSheetTargetPin() {
-  if (innerWidth > 900) return { x: 0, y: 0 };
-  if (!info || info.style.display === 'none' || info.classList.contains('hidden')) return { x: 0, y: 0 };
-  const barH = document.querySelector('.bar') ? document.querySelector('.bar').getBoundingClientRect().height : 0;
-  const r = info.getBoundingClientRect();
-  if (!r.height) return { x: 0, y: 0 };
-  const free = (barH + r.top) / 2;
-  let y = free - innerHeight / 2;
-  const minY = -innerHeight / 2 + barH + 12;
-  const maxY = r.top - 14 - innerHeight / 2;
-  y = Math.max(minY, Math.min(maxY, y));
-  return { x: 0, y };
+  return adaptiveUi.targetPin();
 }
 function applyFollow(dt) {
   const w = bodyWorld(follow);
@@ -1509,7 +1507,8 @@ function selectedBodyPos() {
   return planetPos(idx, selected.system, selected.planet);
 }
 
-function clickAt(sx, sy) {
+function clickAt(sx, sy, inputType) {
+  const touchInput = inputType === 'touch' || adaptiveUi.isEnabled();
   selectedHole = null;
   // Чёрные дыры кликаются только на галактическом LOD: это не системы.
   if (cam.z < 160) {
@@ -1521,11 +1520,13 @@ function clickAt(sx, sy) {
     for (const [i, s] of catalog.systems.entries()) {
       for (const p of s.planets) {
         if (!p.moons) continue;
+        const moonsVisible = (selected && selected.planet === p) || (follow && follow.planet === p) || cam.z > 2200;
+        if (!moonsVisible) continue;
         const pp = planetPos(i, s, p);
         const px = screenX(pp.x), py = screenY(pp.y);
         const pr = Math.max(1.1, planetRadiusUnits(p) * cam.z);
         for (const it of moonLayouts(px, py, pr, p)) {
-          if (Math.hypot(it.x - sx, it.y - sy) <= Math.max(9, it.r + 6)) {
+          if (Math.hypot(it.x - sx, it.y - sy) <= Math.max(touchInput ? 16 : 9, it.r + 6)) {
             selected = { kind: 'moon', system: s, planet: p, moon: it.m, index: i };
             zoomAnchor = null;
             goal = { x: pp.x, y: pp.y, z: Math.max(2600, Math.min(12000, cam.z * 1.4)) };
@@ -1542,7 +1543,7 @@ function clickAt(sx, sy) {
         const pp = planetPos(i, s, p);
         const px = screenX(pp.x), py = screenY(pp.y);
         const pr = Math.max(8, planetRadiusUnits(p) * cam.z);
-        const hit = Math.max(12, pr * (1 + 0.28 * (p._hover || 0)) + 10);
+        const hit = Math.max(touchInput ? 20 : 12, pr * (1 + 0.28 * (p._hover || 0)) + 10);
         if (Math.hypot(px - sx, py - sy) <= hit) {
           focusPlanet(i, s, p); return;
         }
@@ -1594,6 +1595,7 @@ function focusStar(i, system) {
   // Оставляем в кадре хотя бы несколько орбит, а не только диск звезды.
   const fit = Math.min(innerWidth, innerHeight) * 0.34 / Math.max(1, maxOrbit);
   goal = { x: sp.x, y: sp.y, z: Math.max(120, Math.min(1400, fit)) };
+  if(adaptiveUi.isEnabled())setFollow({kind:'star',system,index:i},'center');
   showStar(system);
 }
 function focusSystem(i, system) {
@@ -1603,6 +1605,7 @@ function focusSystem(i, system) {
   let maxOrbit = EUOrbits.AU_WORLD_MAX;
   selected = { kind: 'system', system };
   goal = { x: sp.x, y: sp.y, z: 900 };
+  if(adaptiveUi.isEnabled()){setFollow({kind:'star',system,index:i},'center');showStar(system);}
 }
 
 function showPlanet(p, system) {
@@ -1809,7 +1812,7 @@ function infoParts() {
     scroller = document.createElement('div');
     scroller.className = 'infoScroll';
     [...info.children].forEach((child) => {
-      if (child.classList && (child.classList.contains('infoBar') || child.classList.contains('foldBtn'))) return;
+      if (child.classList && (child.classList.contains('infoBar') || child.classList.contains('foldBtn') || child.classList.contains('sheetHeader') || child.classList.contains('sheetFacts'))) return;
       scroller.appendChild(child);
     });
     info.appendChild(scroller);
@@ -1876,7 +1879,7 @@ function updateInfoBar() {
 /* Кнопка «свернуть блок Тип…Кольца» ставится на любую карточку с таблицей. */
 let infoFolded = false;
 function installFold() {
-  if (!info) return;
+  if (!info || document.documentElement.classList.contains('mobile-map-ui')) return;
   const table = info.querySelector('table');
   const old = info.querySelector('.foldBtn');
   if (!table) { if (old) old.remove(); return; }
@@ -2010,37 +2013,44 @@ canvas.addEventListener('wheel', e => {
   goal.z = nz;
 }, { passive:false });
 
-canvas.addEventListener('pointerdown', e => { dragging = true; moved = 0; lastX = e.clientX; lastY = e.clientY; canvas.classList.add('drag'); });
-canvas.addEventListener('pointerleave', () => { pointerX = -1; pointerY = -1; });
-addEventListener('pointerup', e => {
-  canvas.classList.remove('drag');
-  if (dragging && moved < 6) clickAt(e.clientX, e.clientY);
-  if (moved > 6) hoverBlock = { x: e.clientX, y: e.clientY };
-  dragging = false;
+// Одни и те же обработчики для мыши, пальцев и гибридных устройств.
+const mapTouch = EUMapTouch.attach(canvas, {
+  getCamera: () => cam,
+  setCamera: value => { cam = { ...value }; goal = { ...value }; zoomAnchor = null; },
+  minZoom: 0.04, maxZoom: 20000,
+  onActivity: active => { dragging = active; canvas.classList.toggle('drag', active); },
+  onGestureStart: type => {
+    clearFollow(); zoomAnchor = null; goal = { ...cam };
+    if(type !== 'mouse')pointerX = pointerY = -1;
+    hoverBlock = null;
+    document.querySelector('.mobileGestureHint')?.classList.add('hidden');
+  },
+  onGestureEnd: (x,y,type) => { if(type === 'mouse')hoverBlock = {x,y}; },
+  onTap: clickAt
 });
+canvas.addEventListener('pointerleave', () => { pointerX = -1; pointerY = -1; });
 addEventListener('pointermove', e => {
+  if(e.pointerType !== 'mouse')return;
   pointerX = e.clientX; pointerY = e.clientY;
   if (hoverBlock && Math.hypot(e.clientX - hoverBlock.x, e.clientY - hoverBlock.y) > 6) hoverBlock = null;
-  if (!dragging) return;
-  const dx = e.clientX - lastX, dy = e.clientY - lastY;
-  moved += Math.abs(dx) + Math.abs(dy);
-  lastX = e.clientX; lastY = e.clientY;
-  if (moved > 3 && follow) clearFollow();
-  if (moved > 3) zoomAnchor = null;
-  const wx = dx / cam.z, wy = dy / cam.z;
-  cam.x -= wx; cam.y -= wy; goal.x -= wx; goal.y -= wy;
 });
 
-let uiScale = 1;
+let uiScale = 1, mobileTextScale = 1;
 function setUiScale(v) {
   uiScale = Math.max(0.75, Math.min(1.5, v));
   document.documentElement.style.setProperty('--ui-scale', uiScale);
   try { localStorage.setItem('eu_ui_scale', String(uiScale)); } catch (e) {}
 }
+function setMobileTextScale(v) {
+  mobileTextScale = Math.max(0.9, Math.min(1.3, v));
+  document.documentElement.style.setProperty('--mobile-text-scale', mobileTextScale);
+  try { localStorage.setItem('eu_mobile_text_scale', String(mobileTextScale)); } catch (e) {}
+}
 try { const saved = parseFloat(localStorage.getItem('eu_ui_scale')); if (saved) setUiScale(saved); } catch (e) {}
-document.getElementById('uiIn').addEventListener('click', () => setUiScale(uiScale * 1.12));
-document.getElementById('uiOut').addEventListener('click', () => setUiScale(uiScale / 1.12));
-function nudgeZoom(f) { zoomAnchor = null; goal.z = Math.max(0.0005, Math.min(20000, goal.z * f)); }
+try { const saved = parseFloat(localStorage.getItem('eu_mobile_text_scale')); if (saved) setMobileTextScale(saved); } catch (e) {}
+document.getElementById('uiIn').addEventListener('click', () => adaptiveUi.isEnabled()?setMobileTextScale(mobileTextScale*1.10):setUiScale(uiScale*1.12));
+document.getElementById('uiOut').addEventListener('click', () => adaptiveUi.isEnabled()?setMobileTextScale(mobileTextScale/1.10):setUiScale(uiScale/1.12));
+function nudgeZoom(f) { zoomAnchor = null; goal.z = Math.max(0.04, Math.min(20000, goal.z * f)); }
 
 /* ─── Время: ← / ×N / →, центральная кнопка — сброс на ×1 ─────────────────── */
 function speedText(v) { return '×' + String(v); }
@@ -2095,7 +2105,7 @@ function applyOrbitMode(realistic, remember) {
   if (selected) {
     if (selected.kind === 'planet' || selected.kind === 'moon') showPlanet(selected.planet, selected.system);
     else if (selected.kind === 'star') showStar(selected.system);
-    else if (selected.kind === 'system') showSystem(selected.system);
+    else if (selected.kind === 'system') showStar(selected.system);
   }
   draw(performance.now());
 }
@@ -2129,90 +2139,43 @@ if (timeTicksInput) {
 }
 setSpeedIndex(2);
 
-/* Телефон: по умолчанию тулбар свёрнут в «brand + стрелка», как просил заказчик.
-   Десктоп не трогаем: там интерфейс уже устраивает. */
-const barEl = document.querySelector('.bar');
-const barToggleEl = document.getElementById('barToggle');
-function setBarCollapsed(collapsed) {
-  if (!barEl || !barToggleEl) return;
-  barEl.classList.toggle('collapsed', !!collapsed);
-  barToggleEl.textContent = collapsed ? '▾' : '▴';
-  barToggleEl.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-  if (typeof updateInfoSheet === 'function') updateInfoSheet();
-}
-if (barEl && barToggleEl) {
-  barToggleEl.addEventListener('click', () => setBarCollapsed(!barEl.classList.contains('collapsed')));
-  if (innerWidth <= 900) setBarCollapsed(true);
-}
-
-/* ─── Мобильная карточка-шторка: свёрнута ≤30vh, разворот по ручке ──────────
-   Карточка стоит НАД доком (док не перекрывается), а тело камеры держится
-   в свободной полосе между тулбаром и верхом карточки (infoSheetTargetPin). */
-let lastInfoLayout = 0;
-function updateInfoSheet() {
-  const handle = document.getElementById('infoHandle');
-  if (typeof updateInfoBar === 'function') updateInfoBar();
-  if (!handle) return;
-  if (innerWidth > 900) {
-    handle.classList.add('hidden');
-    info.classList.remove('expanded');
-    info.style.removeProperty('--eu-info-bottom');
-    info.style.removeProperty('--eu-sheet-max');
-    info.style.right = '';
-    // Карточка не уходит под нижние кнопки: обрезаем ровно по их верхнему краю,
-    // дальше внутри появляется тёмно-синий «двигатель» (скроллбар).
-    const dockEl = document.querySelector('.dock');
-    const dockTop = dockEl ? dockEl.getBoundingClientRect().top : innerHeight - 14;
-    const infoTop = info.getBoundingClientRect().top;
-    const room = Math.max(190, Math.round(dockTop - (infoTop > 0 ? infoTop : 64) - 10));
-    info.style.setProperty('--eu-info-max', room + 'px');
-    return;
-  }
-  const bar = document.querySelector('.bar');
-  const dock = document.querySelector('.dock');
-  const tb = document.getElementById('timeBar');
-  const visible = info.style.display !== 'none' && !info.classList.contains('hidden');
-  let barH = bar ? bar.getBoundingClientRect().height : 0;
-  const landscape = innerHeight < innerWidth;
-  let bottom, available;
-  if (landscape) {
-    // Альбом: док — высокая правая колонка, поэтому карточку ставим над
-    // ТАЙМБАРОМ и оставляем справа место под док, а не отталкиваемся от dock.top.
-    const tbH = tb ? tb.getBoundingClientRect().height : 40;
-    const dockLeft = dock ? dock.getBoundingClientRect().left : innerWidth - 8;
-    bottom = 8 + tbH + 6;
-    info.style.right = Math.max(8, innerWidth - dockLeft + 8) + 'px';
-    available = innerHeight - barH - bottom - 8;
-    if (visible && available < 150 && bar && !bar.classList.contains('collapsed')) {
-      // Развёрнутый тулбар в альбоме не оставляет места — сворачиваем его.
-      bar.classList.add('collapsed');
-      const bt = document.getElementById('barToggle');
-      if (bt) { bt.textContent = '▾'; bt.setAttribute('aria-expanded', 'false'); }
-      barH = bar.getBoundingClientRect().height;
-      available = innerHeight - barH - bottom - 8;
-    }
-    info.style.setProperty('--eu-info-bottom', bottom + 'px');
-    info.style.setProperty('--eu-sheet-max', Math.max(110, available) + 'px');
-  } else {
-    info.style.right = '';
-    const dockTop = dock ? dock.getBoundingClientRect().top : innerHeight - 8;
-    bottom = Math.max(6, innerHeight - dockTop + 6);
-    available = Math.min(dockTop - barH - 18, innerHeight - barH - bottom - 8);
-    info.style.setProperty('--eu-info-bottom', bottom + 'px');
-    info.style.setProperty('--eu-sheet-max', Math.max(120, available) + 'px');
-  }
-  handle.classList.toggle('hidden', !visible);
-  if (visible) {
-    const r = info.getBoundingClientRect();
-    handle.style.bottom = Math.max(0, innerHeight - r.top + 2) + 'px';
-    handle.style.left = (r.left + r.width / 2) + 'px';
-  }
-}
-const infoHandleEl = document.getElementById('infoHandle');
-if (infoHandleEl) infoHandleEl.addEventListener('click', () => {
-  info.classList.toggle('expanded');
-  updateInfoSheet();
+/* Адаптивна только раскладка: canvas, каталог, камера, время и обработчики — одни. */
+const adaptiveUi = EUAdaptiveUI.mount({
+  info, prepareInfo: infoParts,
+  enabled: window.euCompactLayout(),
+  getSeed: () => catalog?.worldSeed || seedInput.value,
+  getSpeed: () => simSpeed,
+  hasSelection: () => !!(selected || selectedHole),
+  isSeedValid: () => parseSeed(seedInput.value) !== null,
+  cancelGestures: () => mapTouch.cancel(),
+  onDesktop: () => { installFold(); updateDesktopInfo(); },
+  togglePause: () => {
+    if (simSpeed === 0) setSpeedIndex(speedIndex); else simSpeed = 0;
+    if (timeSpeedBtn) timeSpeedBtn.textContent = speedText(simSpeed);
+  },
+  toast: showToast
 });
+let lastInfoLayout = 0;
+function updateDesktopInfo() {
+  const dockEl = document.querySelector('.dock');
+  const dockTop = dockEl ? dockEl.getBoundingClientRect().top : innerHeight - 14;
+  const infoTop = info.getBoundingClientRect().top;
+  const room = Math.max(190, Math.round(dockTop - (infoTop > 0 ? infoTop : 64) - 10));
+  info.style.setProperty('--eu-info-max', room + 'px');
+}
+function updateInfoSheet() {
+  updateInfoBar();
+  if(adaptiveUi.isEnabled())adaptiveUi.sync();else updateDesktopInfo();
+}
+function adaptLayout() {
+  adaptiveUi.setEnabled(window.euCompactLayout());
+  updateInfoSheet();
+}
+addEventListener('resize', adaptLayout);
+for(const query of ['(max-width: 900px)','(max-width: 1200px) and (pointer: coarse)']) {
+  const media = matchMedia(query);
+  if(media.addEventListener)media.addEventListener('change',adaptLayout);else media.addListener(adaptLayout);
+}
 
 /* Видимый тост: на мобильном seedLabel скрыт, ошибки импорта нельзя терять. */
 function showToast(msg, isError) {
@@ -2513,7 +2476,15 @@ document.querySelectorAll('.avail a[data-slot]').forEach(a => {
 });
 window.addEventListener('eu-lang', () => {
   if (seedInput && seedInput.value) seedLabel.textContent = T('seed.label') + ': ' + seedInput.value;
-  if (!selected) return; if (selected.kind === 'planet') showPlanet(selected.planet, selected.system); else if (selected.kind === 'star') showStar(selected.system); });
+  if (selectedHole) { showBlackHole(selectedHole); return; }
+  if (!selected) return;
+  if (selected.kind === 'planet') showPlanet(selected.planet, selected.system);
+  else if (selected.kind === 'moon') showMoon(selected.moon, selected.planet, selected.system);
+  else if (selected.kind === 'companion') showCompanion(selected.system);
+  else showStar(selected.system);
+});
+const canonicalUrl = new URL(location.href);
+if(canonicalUrl.searchParams.has('desktop')){canonicalUrl.searchParams.delete('desktop');history.replaceState(null,'',canonicalUrl);}
 const initial = parseSeed(new URL(location.href).searchParams.get('seed') || '') ?? randomSeed();
 showSmesharia = new URL(location.href).searchParams.get('smesh') === '1';
 document.getElementById('smeshariaVersion').checked = showSmesharia;

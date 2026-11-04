@@ -11,7 +11,7 @@
     const cancelledClicks = new Map();
     const pruneCancelled = () => { for (const [id, p] of cancelledClicks) if (p.until < performance.now()) cancelledClicks.delete(id); };
     const minZoom = options.minZoom ?? 0.04, maxZoom = options.maxZoom ?? 20000;
-    let tap = null, multi = false, moving = false, pair = null;
+    let tap = null, multi = false, moving = false, pair = null, inputType = 'touch';
     const disposers = [];
     canvas.style.touchAction = 'none';
     const listen = (target, name, fn, opts) => {
@@ -26,7 +26,7 @@
     const begin = () => {
       if (moving) return;
       moving = true;
-      options.onGestureStart?.();
+      options.onGestureStart?.(inputType);
     };
     function rebasePair() {
       if (points.size < 2) { pair = null; return; }
@@ -43,6 +43,7 @@
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       pruneCancelled(); cancelledClicks.delete(e.pointerId);
       if (points.size === 0) {
+        inputType = e.pointerType || 'touch';
         tap = { x: e.clientX, y: e.clientY, time: performance.now() };
         multi = false; moving = false; pair = null;
       }
@@ -69,7 +70,7 @@
         const z = clamp(pair.zoom * distance / pair.distance, minZoom, maxZoom);
         options.setCamera({ x: pair.world.x - (mid.x - ctr.x) / z, y: pair.world.y - (mid.y - ctr.y) / z, z });
       } else {
-        if (!moving && tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) <= 7) return;
+        if (!moving && tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) <= (inputType === 'mouse' ? 3 : 7)) return;
         const wasMoving = moving;
         begin();
         const c = options.getCamera();
@@ -93,8 +94,11 @@
       try { if (canvas.hasPointerCapture?.(e.pointerId)) canvas.releasePointerCapture(e.pointerId); } catch (_) {}
       if (points.size < 2) pair = null; else rebasePair();
       activity();
-      if (isTap) options.onTap?.(e.clientX, e.clientY);
-      if (!points.size) { tap = null; pair = null; moving = false; multi = false; }
+      if (isTap) options.onTap?.(e.clientX, e.clientY, inputType);
+      if (!points.size) {
+        if(moving||multi)options.onGestureEnd?.(e.clientX,e.clientY,inputType);
+        tap = null; pair = null; moving = false; multi = false;
+      }
     }
     function cancel() {
       pruneCancelled();

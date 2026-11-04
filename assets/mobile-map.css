@@ -1,4 +1,10 @@
-/* Только mobile.html. Десктопная карта и её CSS не меняются. */
+/* Компактная раскладка единой index.html: класс переключается по экрану и вводу.
+   Без класса сохраняется прежняя десктопная раскладка. */
+html:not(.mobile-map-ui) .mobileHeaderActions,
+html:not(.mobile-map-ui) .mobileNav,
+html:not(.mobile-map-ui) .mobileGestureHint { display:none!important; }
+.mobile-map-ui #info .sheetOriginal { display:none!important; }
+.mobile-map-ui #info .foldWrap.folded { display:block; }
 .mobile-map-ui {
   --mobile-text-scale:1;
   --mobile-vh:100dvh;

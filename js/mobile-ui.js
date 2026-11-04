@@ -1,4 +1,5 @@
-/* Компактные панели только мобильной карты. Узлы со старыми id переносим, а не клонируем: обработчики сохраняются. */
+/* Адаптивные панели ЕДИНОЙ карты. Переносим те же узлы, а не клонируем карту.
+   При смене экрана все панели возвращаются на прежние места без потери состояния. */
 (function () {
   'use strict';
   const svg = {
@@ -19,6 +20,21 @@
     const info=options.info, bar=document.querySelector('.bar'), menuButton=document.getElementById('barToggle');
     const dock=document.querySelector('.dock'), timeBar=document.getElementById('timeBar');
     const original=[...bar.children], brand=bar.querySelector('.brand');
+    const desktopSub=brand.querySelector('small');
+    const desktopSubKey=desktopSub.dataset.i18n;
+    const galaxy=document.getElementById('galaxy');
+    const desktopGalaxyChildren=[...galaxy.childNodes];
+    const desktopGalaxyKey=galaxy.dataset.i18n;
+    const movedNodes=[...new Set([
+      ...original.filter(e=>e!==brand), menuButton, timeBar,
+      document.getElementById('uiIn'),document.getElementById('uiOut'),
+      ...[...dock.children].filter(e=>!e.classList.contains('zoomctl'))
+    ])];
+    const slots=movedNodes.map(element=>{
+      const original=document.createComment('responsive original slot');
+      element.parentNode.insertBefore(original,element);
+      return {element,original,compact:null};
+    });
     const controls=node('section','mobileControls hidden'); controls.id='mobileControls'; controls.tabIndex=-1;
     controls.setAttribute('role','dialog'); controls.setAttribute('aria-modal','true'); controls.setAttribute('aria-labelledby','mobileControlsTitle');
     const title=translated('h2','', 'mobile.menu'); title.id='mobileControlsTitle'; controls.append(title);
@@ -38,9 +54,8 @@
     const more=node('details','mobileMore'); more.append(translated('summary','', 'mobile.more'));
     const links=node('div','mobileLinkGrid');
     for(const e of [...dock.children]) if(!e.classList.contains('zoomctl'))links.append(e);
-    const full=document.getElementById('full'); full.dataset.i18n='mobile.desktop'; full.textContent=t('mobile.desktop'); links.append(full);
     more.append(links); controls.append(more);
-    // Старые дублёры +/- остаются в DOM скрытыми, но на карте есть только одна пара.
+    // Неключевые элементы шапки сохраняются в компактном режиме и возвращаются на ПК.
     const leftovers=node('div','hidden'); original.forEach(e=>{if(e!==brand&&e.parentNode===bar)leftovers.append(e);}); controls.append(leftovers);
     const headerActions=node('div','mobileHeaderActions'), searchButton=node('button','mobileSearchButton');
     searchButton.type='button'; searchButton.id='mobileSearch'; searchButton.innerHTML=svg.search;
@@ -50,16 +65,21 @@
     const scrim=node('button','mobileScrim hidden'); scrim.type='button'; scrim.tabIndex=-1;
     document.body.append(scrim,controls);
     const nav=node('nav','mobileNav'); nav.setAttribute('aria-label',t('mobile.navigation'));
-    const galaxy=document.getElementById('galaxy'); iconButton(galaxy,'galaxy','galaxy');
+    iconButton(galaxy,'galaxy','galaxy');
     const pause=button('mobilePause','mobile.pause'), object=button('mobileObject','mobile.object'); iconButton(object,'object','mobile.object');
     nav.append(galaxy,pause,object); document.body.append(nav);
     const hint=translated('div','mobileGestureHint','mobile.gesture'); document.body.append(hint);
     try { if(sessionStorage.getItem('eu_mobile_gesture_seen'))hint.classList.add('hidden'); else sessionStorage.setItem('eu_mobile_gesture_seen','1'); } catch (_) {}
     setTimeout(()=>hint.classList.add('hidden'),6500);
-    let open=false, returnFocus=menuButton, scheduled=0, cardText=null, lastSwipe=0, hadKeyboard=false;
+    for(const slot of slots){
+      slot.compact=document.createComment('responsive compact slot');
+      slot.element.parentNode.insertBefore(slot.compact,slot.element);
+    }
+    let enabled=true, open=false, returnFocus=menuButton, scheduled=0, cardText=null, lastSwipe=0, hadKeyboard=false;
     const css=(key,value)=>{if(document.documentElement.style.getPropertyValue(key)!==value)document.documentElement.style.setProperty(key,value);};
     const schedule=()=>{if(scheduled)return; scheduled=requestAnimationFrame(()=>{scheduled=0;sync();});};
     function syncLabels() {
+      if(!enabled)return;
       menuButton.textContent=open?'×':'☰'; menuButton.setAttribute('aria-expanded',String(open));
       menuButton.setAttribute('aria-label',t(open?'mobile.controlsClose':'mobile.menu'));
       menuButton.dataset.i18nTitle=open?'mobile.controlsClose':'mobile.menu'; menuButton.title=menuButton.getAttribute('aria-label');
@@ -79,6 +99,7 @@
       pause.setAttribute('aria-label',t(speed===0?'mobile.resume':'mobile.pause'));pause.setAttribute('aria-pressed',String(speed===0));
     }
     function setMenuOpen(value, focusSearch=false) {
+      if(!enabled&&value)return;
       const wasOpen=open;
       open=!!value;
       if(open)options.cancelGestures?.();
@@ -102,6 +123,8 @@
     object.addEventListener('click',()=>{if(!cardText||!options.hasSelection())return;info.style.display='flex';info.classList.remove('expanded');sync();});
     function expand(value){info.classList.toggle('expanded',!!value);info.style.transform='';sync();}
     function hydrateInfo() {
+      if(!enabled)return;
+      if(info.querySelector('.sheetHeader')){schedule();return;}
       const heading=info.querySelector('h2');
       if(!heading){schedule();return;}
       const parts=options.prepareInfo();
@@ -111,7 +134,9 @@
       const text=node('span','sheetText'), name=node('strong','sheetTitle',cardText.title), sub=node('small','sheetSubtitle',cardText.subtitle);
       name.id='mobileSheetTitle';text.append(name,sub);toggle.append(text,node('span','sheetAction'));
       const close=node('button','sheetClose','×');close.type='button';close.addEventListener('click',closeCard);
-      header.append(toggle,close);heading.remove();description?.remove();
+      header.append(toggle,close);
+      // Исходные узлы остаются в карточке: на ПК они возвращаются без пересборки HTML.
+      heading.classList.add('sheetOriginal');description?.classList.add('sheetOriginal');
       const facts=node('div','sheetFacts'), rows=[...info.querySelectorAll('table tr')];
       const wanted=['info.orbit','info.diameter','info.planets','info.gravity'];const picked=[];
       for(const key of wanted){const row=rows.find(r=>r.firstElementChild?.textContent.trim()===t(key));if(row&&!picked.includes(row))picked.push(row);if(picked.length===3)break;}
@@ -128,6 +153,7 @@
     }
     new MutationObserver(hydrateInfo).observe(info,{childList:true});
     function sync() {
+      if(!enabled)return;
       const vv=window.visualViewport, top=vv?.offsetTop||0, height=vv?.height||innerHeight;
       const editing=document.activeElement?.matches('input[type=text]');
       const keyboard=!!editing&&(vv?.scale||1)<1.05&&height<innerHeight*.78;
@@ -149,6 +175,7 @@
       syncLabels();
     }
     function targetPin() {
+      if(!enabled)return {x:0,y:0};
       const header=bar.getBoundingClientRect(), navBox=nav.getBoundingClientRect();
       const bounds={left:12,right:innerWidth-12,top:header.bottom+12,bottom:navBox.top-12};
       if(info.style.display!=='none'&&!info.classList.contains('hidden')&&cardText){
@@ -169,7 +196,7 @@
       } catch(e){if(e.name==='AbortError')return;shareField.classList.remove('hidden');shareField.value=text;shareField.focus();shareField.select();options.toast(t('mobile.copyFallback'),false);}
     });
     document.addEventListener('keydown',e=>{
-      if(!document.getElementById('langModal').classList.contains('hidden'))return;
+      if(!enabled||!document.getElementById('langModal').classList.contains('hidden'))return;
       if(e.key==='Escape'&&open){e.preventDefault();e.stopImmediatePropagation();setMenuOpen(false);return;}
       if(e.key==='Escape'&&info.classList.contains('expanded')){e.preventDefault();e.stopImmediatePropagation();expand(false);return;}
       if(e.key==='Tab'&&open){
@@ -182,8 +209,45 @@
     controls.addEventListener('focusin',schedule);controls.addEventListener('focusout',schedule);
     if(typeof ResizeObserver==='function'){new ResizeObserver(schedule).observe(bar);new ResizeObserver(schedule).observe(nav);}
     window.addEventListener('eu-lang',()=>{syncLabels();schedule();});
-    setMenuOpen(false);hydrateInfo();sync();
-    return {sync,setMenuOpen,targetPin,closeCard,isMenuOpen:()=>open,expand};
+    function setEnabled(value){
+      const next=!!value;
+      if(next===enabled){document.documentElement.classList.toggle('mobile-map-ui',next);if(next){hydrateInfo();sync();}return;}
+      if(!next)setMenuOpen(false);
+      options.cancelGestures?.();
+      enabled=next;
+      document.documentElement.classList.toggle('mobile-map-ui',enabled);
+      for(const slot of slots){
+        const marker=enabled?slot.compact:slot.original;
+        marker.parentNode.insertBefore(slot.element,marker.nextSibling);
+      }
+      headerActions.classList.toggle('hidden',!enabled);nav.classList.toggle('hidden',!enabled);
+      controls.classList.add('hidden');scrim.classList.add('hidden');
+      bar.classList.toggle('collapsed',enabled);
+      info.style.transform='';info.classList.remove('expanded');
+      if(enabled){
+        menuButton.setAttribute('aria-controls',controls.id);
+        brandSub.dataset.i18n='mobile.subtitle';brandSub.textContent=t('mobile.subtitle');
+        iconButton(galaxy,'galaxy','galaxy');
+        hint.classList.add('hidden');
+        hydrateInfo();sync();
+      }else{
+        brandSub.dataset.i18n=desktopSubKey;brandSub.textContent=t(desktopSubKey);
+        galaxy.dataset.i18n=desktopGalaxyKey;galaxy.replaceChildren(...desktopGalaxyChildren);galaxy.textContent=t(desktopGalaxyKey);
+        menuButton.removeAttribute('aria-controls');menuButton.dataset.i18nTitle='bar.toggle';menuButton.textContent='▾';
+        menuButton.title=t('bar.toggle');menuButton.setAttribute('aria-expanded','true');menuButton.setAttribute('aria-label',t('bar.toggle'));
+        info.querySelectorAll('.sheetHeader,.sheetFacts').forEach(e=>e.remove());
+        info.querySelectorAll('.sheetOriginal').forEach(e=>e.classList.remove('sheetOriginal'));
+        info.removeAttribute('aria-labelledby');info.removeAttribute('role');
+        document.body.removeAttribute('data-menu-open');document.body.removeAttribute('data-sheet-state');document.body.removeAttribute('data-keyboard');
+        hint.classList.add('hidden');
+        options.onDesktop?.();
+      }
+    }
+    // Конструкция однажды; затем перенос узлов при resize без повторных listeners.
+    setMenuOpen(false);
+    setEnabled(options.enabled!==false);
+    return {sync,setMenuOpen,targetPin,closeCard,isMenuOpen:()=>enabled&&open,expand,setEnabled,isEnabled:()=>enabled};
   }
-  window.EUMobileUI={mount};
+  window.EUAdaptiveUI={mount};
+  window.EUMobileUI=window.EUAdaptiveUI; // Старый кеш страницы: совместимость без второй карты.
 })();
