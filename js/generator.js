@@ -345,12 +345,14 @@ function smeshariaSystems(worldSeed) {
   const jung = [p('junglya','Джунгля','Junglya','habitable','medium',['N2:0.72','O2:0.26','AR:0.02'],1.0,8,1.42,1.16,2,false,['minecraft:jungle','minecraft:ocean','minecraft:river','minecraft:bamboo_jungle'],0xE301)];
   const ur = [p('uranium_planet','Ураниум','Uranium','distant','thin',['CO2:0.70','N2:0.20','AR:0.10'],0.5,-90,1.8,0.9,1,false,['enchanted_universe:cratered_regolithbasin'],0xE401)];
   const home = [p('centra_alphara','Центра-Альфара','Centra-Alphara','habitable','moderate',['N2:0.71','O2:0.25','AR:0.04'],1.0,14,1.0,1.0,0,false,['enchanted_universe:greensproutsgroves'],0xE501)];
+  // id — как у Java SmeshariaSystems (system_*): эти системы в игре тоже видны
+  // как кандидаты для загадочной планеты, иначе она выбирала бы другую систему.
   const systems = [
-    { name:'NCS-3301', formalName:'NCS-3301', star:'white_yellow_dwarf', distanceLy:34, planets:nbc, smesharia:true },
-    { name:'DVN-03', formalName:'DVN-03', star:'red_dwarf', distanceLy:52, planets:dvn, smesharia:true },
-    { name:'Джунгля', formalName:'Junglya', star:'yellow_dwarf', distanceLy:47, planets:jung, smesharia:true },
-    { name:'Ураниум', formalName:'Uranium', star:'magnetar', distanceLy:61, planets:ur, smesharia:true },
-    { name:'Центра-Альфара', formalName:'Centra-Alphara', star:'yellow_dwarf', distanceLy:18, planets:home, smesharia:true }
+    { id:'system_nbc_3301', name:'NCS-3301', formalName:'NCS-3301', star:'white_yellow_dwarf', distanceLy:34, planets:nbc, smesharia:true },
+    { id:'system_dvn_03', name:'DVN-03', formalName:'DVN-03', star:'red_dwarf', distanceLy:52, planets:dvn, smesharia:true },
+    { id:'system_junglya', name:'Джунгля', formalName:'Junglya', star:'yellow_dwarf', distanceLy:47, planets:jung, smesharia:true },
+    { id:'system_uranium', name:'Ураниум', formalName:'Uranium', star:'magnetar', distanceLy:61, planets:ur, smesharia:true },
+    { id:'system_centra_alphara', name:'Центра-Альфара', formalName:'Centra-Alphara', star:'yellow_dwarf', distanceLy:18, planets:home, smesharia:true }
   ];
   for (const sys of systems) {
     sys.smesharia = true;
@@ -464,7 +466,7 @@ function companionFor(r, formal, star) {
     const pool = ['red_dwarf','yellow_dwarf','white_yellow_dwarf','blue_dwarf','white_dwarf','red_giant','yellow_giant'];
     comp = pool[r.nextInt(pool.length)];
   }
-  return { star: comp, name: formal + ' B', orbitAu: 1.5 + r.nextDouble() * 4.5, kind };
+  return { star: comp, name: formal + ' B', orbitAu: 0, kind };
 }
 
 function generateCatalog(worldSeed, options = {}) {
@@ -478,9 +480,13 @@ function generateCatalog(worldSeed, options = {}) {
     const r = new JavaRandom(systemSeed);
     const distance = 4.0 + i * 3.15 + r.nextDouble() * 0.8;
     const star = pickStar(r);
+    // Порядок как в Java SpaceGenerator.generate(): компаньон тянется ДО имён,
+    // а его орбита — уже после планет. Иначе имена систем и планеты в системах
+    // с компаньоном не совпадали бы с игрой.
+    const companion = companionFor(r, '', star);
     const name = systemName(r);
     const formal = formalName(r);
-    const companion = companionFor(r, formal, star);
+    if (companion) companion.name = formal + ' B';
     const planetCount = 1 + r.nextInt(5);
     const planets = [];
     let previousOrbit = 0;
@@ -489,6 +495,7 @@ function generateCatalog(worldSeed, options = {}) {
       planets.push(planet);
       previousOrbit = planet.orbitAu;
     }
+    if (companion) companion.orbitAu = 1.5 + r.nextDouble() * 4.5;
     systems.push({ name, formalName: formal, star, companion, distanceLy: distance, planets, systemIndex: i, id: 'system_' + i });
   }
   // Магнитары в Java StarSystem получают префикс PSR- (нормализация старых имён).
