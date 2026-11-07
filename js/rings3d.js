@@ -90,7 +90,7 @@
     const bandAlpha = [1, 0.82, 0.64, 0.9];
     const gap = bands > 1 ? 0.08 : 0;
     const span = outer - inner;
-    const tilt = TILT, roll = ROLL;
+    const tilt = style.tilt == null ? TILT : style.tilt, roll = style.roll == null ? ROLL : style.roll;
     const ct = Math.cos(tilt), st = Math.sin(tilt), cr = Math.cos(roll), sr = Math.sin(roll);
 
     for (let b = 0; b < bands; b++) {
@@ -134,8 +134,8 @@
     ctx.strokeStyle = style.color;
     ctx.lineWidth = Math.max(0.8, R * style.width);
     ctx.beginPath();
-    if (back) ctx.ellipse(x, y, R * style.radius, R * 0.54, 0, Math.PI, Math.PI * 2);
-    else ctx.ellipse(x, y, R * style.radius, R * 0.54, 0, 0, Math.PI);
+    if (back) ctx.ellipse(x, y, R * style.radius, R * 0.54, style.roll || 0, Math.PI, Math.PI * 2);
+    else ctx.ellipse(x, y, R * style.radius, R * 0.54, style.roll || 0, 0, Math.PI);
     ctx.stroke();
     ctx.restore();
   }

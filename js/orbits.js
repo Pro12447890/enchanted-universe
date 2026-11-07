@@ -645,21 +645,44 @@
     'Нептун':   { obliquityDeg: 28.3,  magneticTiltDeg: 47, retrograde: false },
     'Плутон':   { obliquityDeg: 119.5, magneticTiltDeg: 0, retrograde: true }
   };
+  // Java PlanetRotation SplitMix64 parity. BigInt preserves signed 64-bit seeds.
+  function rotationUnit(seed, salt) {
+    let n; try { n = BigInt(String(seed == null ? 0 : seed)); } catch (_) { n = 0n; }
+    const u = x => BigInt.asUintN(64, x);
+    let z = u(n + salt * 0x9E3779B97F4A7C15n);
+    z = u((z ^ (z >> 30n)) * 0xBF58476D1CE4E5B9n);
+    z = u((z ^ (z >> 27n)) * 0x94D049BB133111EBn);
+    return Number((z ^ (z >> 31n)) >> 11n) / 9007199254740992;
+  }
+  function wrapRoll(v) { return ((v + 180) % 360 + 360) % 360 - 180 || 0; }
+  const ROTATION_CACHE = new WeakMap();
   function rotationOf(planet) {
     if (!planet) return null;
     const r = planet.rotation;
     if (r && Number.isFinite(Number(r.obliquityDeg))) {
+      const obliquity = clamp(Number(r.obliquityDeg), 0, 180);
       return {
-        obliquityDeg: Number(r.obliquityDeg),
+        obliquityDeg: obliquity,
         magneticTiltDeg: Number.isFinite(Number(r.magneticTiltDeg)) ? Number(r.magneticTiltDeg) : 0,
-        retrograde: !!r.retrograde || Number(r.obliquityDeg) > 90,
+        retrograde: !!r.retrograde || obliquity > 90,
         auroraLatitudeDeg: Number.isFinite(Number(r.auroraLatitudeDeg)) ? Number(r.auroraLatitudeDeg) : null,
-        source: 'catalog'
+        skyRollDeg: Number.isFinite(Number(r.skyRollDeg)) ? Number(r.skyRollDeg) : wrapRoll(obliquity),
+        source: String(r.source || 'catalog')
       };
     }
+    if (ROTATION_CACHE.has(planet)) return ROTATION_CACHE.get(planet);
     const known = SOLAR_ROTATION[planet.name];
-    if (known) return Object.assign({ auroraLatitudeDeg: null, source: 'nasa' }, known);
-    return null;
+    let result;
+    if (known) result = Object.assign({ auroraLatitudeDeg: null, source: 'nasa', skyRollDeg: wrapRoll(known.obliquityDeg) }, known);
+    else {
+      const u = rotationUnit(planet.seed, 0x0B4F2A7D6C1E93n);
+      const obliquity = u < .70 ? 25*u/.70 : u < .92 ? 25+20*(u-.70)/.22 : u < .98 ? 45+45*(u-.92)/.06 : 90+30*(u-.98)/.02;
+      const side = rotationUnit(planet.seed, 0x2F9C1D3E7B6A45n) < .5 ? -1 : 1;
+      result = { obliquityDeg: obliquity, magneticTiltDeg: 5+35*rotationUnit(planet.seed,0x6D3B7A1C9E5F42n),
+        auroraLatitudeDeg: 60+18*rotationUnit(planet.seed,0x1B7E4C9D2A8F36n), retrograde: obliquity>90,
+        skyRollDeg: wrapRoll(side*obliquity), source: 'seed / Java PlanetRotation' };
+    }
+    ROTATION_CACHE.set(planet,result); return result;
   }
 
   const API = {
