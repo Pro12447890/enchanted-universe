@@ -411,6 +411,9 @@
         const yLy = Number(h.yLy != null ? h.yLy : h.y) || 0;
         out.push({
           id: String(h.id || ('black_hole_' + i)), name: h.name || null,
+          massSolar:Number(h.massSolar)||undefined,schwarzschildKm:Number(h.schwarzschildKm)||undefined,
+          spin:h.spin==null?undefined:Number(h.spin),accretion:h.accretion==null?undefined:Number(h.accretion),
+          diskTemperatureK:Number(h.diskTemperatureK)||undefined,diskRgb:h.diskRgb||undefined,
           xLy, yLy, zLy, texture: h.texture || BH_TEXTURES[i % BH_TEXTURES.length],
           world: galaxyWorld(xLy, zLy), real: true, worldSeed: String(catalog.worldSeed)
         });
@@ -605,6 +608,11 @@
         name: String(s.name || s.formalName || s.formal || ('SYS-' + si)),
         formalName: String(s.formalName || s.formal || s.name || ('SYS-' + si)),
         star: String(s.star || 'yellow_dwarf'),
+        massSolar: Number(s.massSolar)||undefined,
+        companion: s.companion ? {...s.companion} : s.companionStar ? {
+          star:String(s.companionStar),name:String(s.companionName||''),orbitAu:Number(s.companionOrbitAu||s.companionOrbit)||1,
+          massSolar:Number(s.companionMassSolar)||undefined
+        } : null,
         distanceLy: Number(s.distanceLy != null ? s.distanceLy : s.distance) || 0,
         positionLy: pos ? {
           x: Number(pos.x) || 0,

@@ -157,3 +157,27 @@ html:not(.mobile-map-ui) .mobileGestureHint { display:none!important; }
   .mobileControls { padding:12px; }
 }
 @media (prefers-reduced-motion:reduce) { .mobile-map-ui #info { transition:none; } }
+
+/* 08.11: separate compact world/settings panels, shared desktop information table. */
+.mobile-map-ui .mobileGearButton {display:flex;align-items:center;justify-content:center;width:40px;height:44px;padding:0;background:#10233a;border:1px solid #375774;color:#a8deff;flex:none;}
+.mobile-map-ui .barToggle,.mobile-map-ui .mobileSearchButton {width:40px;}
+.mobile-map-ui .mobileHeaderActions {gap:4px;}
+.mobileControls .panelInactive,.mobile-map-ui .compactLanguageAlias {display:none!important;}
+.mobileControls[data-panel=world] {max-width:460px;padding:12px;}
+.mobileLanguageChoices {display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.mobileLanguageChoices label {grid-column:1/-1;}
+.mobileLanguageChoices button[aria-pressed=true] {border-color:#73ceff;background:#163a54;color:#ddf7ff;}
+.mobileControls {animation:euMenuReveal .18s cubic-bezier(.2,.7,.3,1);}
+@keyframes euMenuReveal {from{opacity:0;transform:translateY(-9px)}to{opacity:1;transform:translateY(0)}}
+.mobile-map-ui #info {max-height:151px;transition:max-height .28s cubic-bezier(.2,.7,.3,1),transform .18s ease,opacity .18s ease;}
+.mobile-map-ui #info .sheetDetails {flex:none;width:calc(100% - 28px);margin:0 14px 10px;min-height:32px;height:32px;padding:4px;border-radius:9px;border-color:#3b6488;color:#c2e6ff;background:#102a42;}
+.mobile-map-ui #info.sheetClosing {opacity:0;transform:translateY(18px);pointer-events:none;}
+.mobile-map-ui #info .infoScroll {scrollbar-width:none;padding-right:24px;}
+.mobile-map-ui #info .infoScroll::-webkit-scrollbar {display:none;}
+.mobile-map-ui #info.expanded .infoBar {display:block!important;right:7px;top:77px;bottom:53px;width:6px;border-radius:10px;overflow:hidden;mask-image:linear-gradient(transparent,#000 8%,#000 92%,transparent);}
+.mobile-map-ui #info:not(.expanded) .infoBar {display:none!important;}
+.mobile-map-ui #info .infoBar .infoThumb {background:#5599c5;border-radius:8px;min-height:30px;touch-action:none;}
+.mobile-map-ui #info table {font-size:13px;line-height:1.4;}
+.dockrow #crafts,.dockrow #planets,.dockrow #charts {border-color:#3b6789;background:linear-gradient(135deg,#14334a,#101c30);color:#b7ebff;box-shadow:0 0 14px #338bc31c;}
+.dockrow #crafts svg,.dockrow #planets svg,.dockrow #charts svg {box-sizing:content-box;width:19px;height:19px;padding:6px;border:1px solid #45759b;border-radius:7px;background:#1b3c55;}
+@media(prefers-reduced-motion:reduce){.mobileControls{animation:none}.mobile-map-ui #info{transition:none}}

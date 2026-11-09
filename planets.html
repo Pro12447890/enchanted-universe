@@ -109,6 +109,9 @@
         <option value="medium" data-i18n="atm.medium">средняя</option>
         <option value="thick" data-i18n="atm.thick">плотная</option>
       </select></label>
+      <label><span data-i18n="p.composition">Состав атмосферы</span><input id="composition" type="text" value="N2,O2,AR,H2O" placeholder="N2,O2,CO2,H2O"></label>
+      <label><span data-i18n="p.habitable">Обитаемость</span><input id="habitable" type="checkbox"></label>
+      <label><span data-i18n="p.clouds">Облачность</span><span class="row"><input id="clouds" type="range" min="0" max="1" value="0.36" step="0.02" style="width:96px"><b id="cloudsv">36%</b></span></label>
       <label><span data-i18n="p.field">Магнитное поле</span>
         <span class="row"><input id="field" type="range" min="0" max="5" value="0.5" step="0.05" style="width:96px">
           <b id="fieldv">0,50 Гс</b></span></label>
@@ -461,17 +464,21 @@ function rgba3(c, a) {
 }
 
 /* Цвет ореола от температуры: холодные — голубой, тёплые — оранжевый. */
-function atmosphereColor(tempC) {
-  const cold = [112, 190, 255], mid = [176, 226, 255], warm = [255, 150, 82];
-  const t = clamp((tempC + 60) / 380, 0, 1);
-  return t < 0.5 ? lerp(cold, mid, t * 2) : lerp(mid, warm, (t - 0.5) * 2);
+function atmosphereColor(tempC,composition='') {
+  const c=String(composition).toUpperCase();
+  if(/SO2|H2S|S2/.test(c))return[236,214,72];
+  if(/CH4|C2H6|HCN/.test(c))return[78,181,206];
+  if(/CO2/.test(c)&&!/O2/.test(c))return[214,154,105];
+  if(/CL2|F2/.test(c))return[154,224,120];
+  const cold=[112,190,255],mid=[176,226,255],warm=[255,150,82],t=clamp((tempC+60)/380,0,1);
+  return t<.5?lerp(cold,mid,t*2):lerp(mid,warm,(t-.5)*2);
 }
 
-function drawAtmosphere(bctx, size, atm, tempC) {
+function drawAtmosphere(bctx, size, atm, tempC, composition, cloudiness) {
   const s = ATM_HALO[atm] || 0;
   if (!s) return;
   const R = planetRadius(size), c = size / 2;
-  const col = atmosphereColor(tempC);
+  const col = atmosphereColor(tempC,composition);
   const outer = R * (1.02 + 0.13 * s);
   const g = bctx.createRadialGradient(c, c, R * 0.86, c, c, outer);
   g.addColorStop(0, rgba3(col, 0.62 * s));
@@ -488,6 +495,15 @@ function drawAtmosphere(bctx, size, atm, tempC) {
   bctx.beginPath();
   bctx.arc(c, c, R + 0.5, 0, Math.PI * 2);
   bctx.stroke();
+
+}
+
+function drawCloudOverlay(c2,size,cloudiness,composition,seed) {
+  if(!(cloudiness>0))return;const R=planetRadius(size),c=size/2;
+  c2.save();c2.beginPath();c2.arc(c,c,R,0,Math.PI*2);c2.clip();c2.globalAlpha=.08+.34*cloudiness;
+  c2.strokeStyle=rgba3(/CH4|NH3/i.test(composition)?[196,224,238]:[244,248,255],1);c2.lineWidth=Math.max(1,size*.012);
+  for(let k=0;k<7;k++){const yy=c-R*.64+k*R*.215+(h01(seed,k+90)-.5)*R*.12;c2.beginPath();for(let q=0;q<=24;q++){const xx=c-R+2*R*q/24,y=yy+Math.sin(q*.68+k+h01(seed,k)*2)*R*(.025+.025*cloudiness);if(q===0)c2.moveTo(xx,y);else c2.lineTo(xx,y);}c2.stroke();}
+  c2.restore();
 }
 
 /* --- полярное сияние: модель яркости как в моде ------------------------------ */
@@ -558,7 +574,7 @@ function drawFieldLines(c2, size, p) {
   if (!p || p.field <= 0.02) return;
   const R = planetRadius(size), c = size / 2;
   const a = p.magtilt * Math.PI / 180;
-  const loops = clamp(4 + Math.round(p.field * 0.8), 4, 8);
+  const loops = clamp(4 + Math.round(Math.log1p(p.field) * 2.2), 4, 11);
   c2.save();
   // Линии не должны проходить по диску: они выходят из-за планеты, как и в игре.
   c2.beginPath();
@@ -572,7 +588,7 @@ function drawFieldLines(c2, size, p) {
     const t = loops === 1 ? 0 : i / (loops - 1);
     c2.strokeStyle = "rgba(150, 200, 255, " + (0.22 - 0.10 * t).toFixed(3) + ")";
     c2.beginPath();
-    c2.ellipse(0, 0, R * (0.55 + 0.75 * t), R * 1.02, 0, 0, Math.PI * 2);
+    c2.ellipse(0, 0, R * (0.48 + (0.62+0.05*p.field) * t), R * (0.92+0.20*t), 0, 0, Math.PI * 2);
     c2.stroke();
   }
   c2.restore();
@@ -589,6 +605,9 @@ function current() {
     atm: document.getElementById("atm").value,
     field: parseFloat(document.getElementById("field").value),
     magtilt: parseFloat(document.getElementById("magtilt").value),
+    composition: document.getElementById("composition").value,
+    habitable: document.getElementById("habitable").checked,
+    clouds: parseFloat(document.getElementById("clouds").value)
   };
 }
 
@@ -608,6 +627,7 @@ function updateControls(c) {
   document.getElementById("tempv").textContent = fmtNum(c.tempC);
   document.getElementById("fieldv").textContent = fmt2(c.field) + " " + T('p.unit.gs');
   document.getElementById("magtiltv").textContent = fmtNum(c.magtilt) + "°";
+  document.getElementById("cloudsv").textContent=fmtNum(c.clouds*100)+"%";
 }
 
 function updateInfo(c, model) {
@@ -637,7 +657,7 @@ function updateInfo(c, model) {
     level: c.field > 0.02 ? T('p.aur.' + model.level) : T('p.aur.none'),
     vis: fmtNum(visible ? model.vis : 0, 3)
   });
-  document.getElementById("info").textContent = base + "\n" + auroraInfo;
+  document.getElementById("info").textContent = base + "\n" + auroraInfo + "\n" + (c.habitable?"✓ ":"○ ") + T('p.hab.independent') + " · " + c.composition;
 }
 
 /* --- отрисовка: статичная база (ореол + планета), поверх — живое сияние ---- */
@@ -689,8 +709,9 @@ function draw() {
   planetCv.getContext("2d").putImageData(
     render(c.size, c.seed, c.tempC, c.kind, c.tilt), 0, 0);
   baseCtx.clearRect(0, 0, c.size, c.size);
-  drawAtmosphere(baseCtx, c.size, c.atm, c.tempC);
+  drawAtmosphere(baseCtx, c.size, c.atm, c.tempC, c.composition, c.clouds);
   baseCtx.drawImage(planetCv, 0, 0);
+  drawCloudOverlay(baseCtx,c.size,c.clouds,c.composition,c.seed);
   params = c;
   aurora = model;
   updateControls(c);
@@ -698,7 +719,7 @@ function draw() {
   startAnimation();
 }
 
-["seed", "temp", "size", "pix", "type", "tilt", "atm", "field", "magtilt"].forEach((id) =>
+["seed", "temp", "size", "pix", "type", "tilt", "atm", "field", "magtilt", "composition", "habitable", "clouds"].forEach((id) =>
   document.getElementById(id).addEventListener("input", () => {
     draw();
   }));

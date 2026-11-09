@@ -18,6 +18,8 @@
   }
   function mount(options) {
     const info=options.info, bar=document.querySelector('.bar'), menuButton=document.getElementById('barToggle');
+    // Keep references while panels are detached during the responsive move.
+    const langButton=document.getElementById('langBtn'), smeshariaControl=document.getElementById('smeshariaWrap'), zonesButton=document.getElementById('zones');
     const dock=document.querySelector('.dock'), timeBar=document.getElementById('timeBar');
     const original=[...bar.children], brand=bar.querySelector('.brand');
     const desktopSub=brand.querySelector('small');
@@ -59,7 +61,26 @@
     const leftovers=node('div','hidden'); original.forEach(e=>{if(e!==brand&&e.parentNode===bar)leftovers.append(e);}); controls.append(leftovers);
     const headerActions=node('div','mobileHeaderActions'), searchButton=node('button','mobileSearchButton');
     searchButton.type='button'; searchButton.id='mobileSearch'; searchButton.innerHTML=svg.search;
-    headerActions.append(searchButton,menuButton); bar.append(headerActions);
+    const gearButton=node('button','mobileGearButton');gearButton.type='button';gearButton.id='mobileSettings';
+    gearButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 2 3-1 1-3 3-1 1-3-2-2 1-3-3-2-3 1-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    headerActions.append(searchButton,gearButton,menuButton); bar.append(headerActions);
+    const language=node('div','mobileLanguageChoices');language.id='mobileLanguageChoices';
+    language.append(translated('label','mobileLabel','mobile.language'));
+    for(const [code,label] of [['ru','Русский'],['en','English']]){
+      const choice=node('button','',label);choice.type='button';choice.dataset.language=code;
+      choice.addEventListener('click',()=>window.EUI18N.setLang(code));language.append(choice);
+    }
+    settings.prepend(language);
+    let panelMode='world';
+    function selectPanel(mode){
+      panelMode=mode;controls.dataset.panel=mode;
+      title.dataset.i18n=mode==='settings'?'mobile.settings':mode==='search'?'mobile.search':'mobile.world';title.textContent=t(title.dataset.i18n);
+      for(const [section,visible] of [[seedSection,mode==='world'],[searchSection,mode==='search'],[settings,mode==='settings'],[timeSection,mode==='settings'],[more,mode==='settings']])section.classList.toggle('panelInactive',!visible);
+      // The exact same controls are moved, not copied; responsive original slots survive.
+      seedSection.append(smeshariaControl,zonesButton);
+      langButton.classList.add('compactLanguageAlias');
+    }
+    selectPanel('world');
     const brandSub=brand.querySelector('small'); brandSub.dataset.i18n='mobile.subtitle'; brandSub.textContent=t('mobile.subtitle');
     menuButton.setAttribute('aria-controls',controls.id);
     const scrim=node('button','mobileScrim hidden'); scrim.type='button'; scrim.tabIndex=-1;
@@ -80,10 +101,12 @@
     const schedule=()=>{if(scheduled)return; scheduled=requestAnimationFrame(()=>{scheduled=0;sync();});};
     function syncLabels() {
       if(!enabled)return;
-      menuButton.textContent=open?'×':'☰'; menuButton.setAttribute('aria-expanded',String(open));
+      menuButton.textContent=open&&panelMode==='world'?'⌃':'⌄'; menuButton.setAttribute('aria-expanded',String(open));
       menuButton.setAttribute('aria-label',t(open?'mobile.controlsClose':'mobile.menu'));
       menuButton.dataset.i18nTitle=open?'mobile.controlsClose':'mobile.menu'; menuButton.title=menuButton.getAttribute('aria-label');
       searchButton.title=t('mobile.search'); searchButton.setAttribute('aria-label',t('mobile.search'));
+      gearButton.title=t('mobile.settings');gearButton.setAttribute('aria-label',t('mobile.settings'));gearButton.setAttribute('aria-expanded',String(open&&panelMode==='settings'));
+      language.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.language===window.EUI18N.current())));
       scrim.setAttribute('aria-label',t('mobile.controlsClose')); nav.setAttribute('aria-label',t('mobile.navigation'));
       document.getElementById('uiIn').textContent='A+'; document.getElementById('uiOut').textContent='A−';
       document.getElementById('uiIn').setAttribute('aria-label',t('mobile.textLarger'));
@@ -92,6 +115,7 @@
       shareField.setAttribute('aria-label',t('mobile.copyFallback'));
       const expanded=info.classList.contains('expanded');
       const action=info.querySelector('.sheetAction'); if(action)action.textContent=t(expanded?'mobile.collapse':'mobile.details');
+      const details=info.querySelector('.sheetDetails');if(details){details.textContent=t(expanded?'mobile.collapse':'mobile.details');details.setAttribute('aria-expanded',String(expanded));}
       const toggle=info.querySelector('.sheetExpand'); if(toggle){toggle.setAttribute('aria-expanded',String(expanded));toggle.setAttribute('aria-label',(expanded?t('mobile.collapse'):t('mobile.details'))+' · '+(cardText?.title||''));}
       const close=info.querySelector('.sheetClose'); if(close){close.title=t('mobile.close');close.setAttribute('aria-label',t('mobile.close'));}
       const speed=Number(options.getSpeed());
@@ -110,8 +134,9 @@
       if(open){requestAnimationFrame(()=>{const target=focusSearch?document.getElementById('search'):controls;target.focus({preventScroll:true});if(focusSearch)target.scrollIntoView({block:'nearest'});});}
       else if(wasOpen) {try{returnFocus.focus({preventScroll:true});}catch(_) {}}
     }
-    menuButton.addEventListener('click',()=>{returnFocus=menuButton;setMenuOpen(!open);});
-    searchButton.addEventListener('click',()=>{returnFocus=searchButton;setMenuOpen(true,true);});
+    menuButton.addEventListener('click',()=>{returnFocus=menuButton;const next=!open||panelMode!=='world';selectPanel('world');setMenuOpen(next);});
+    gearButton.addEventListener('click',()=>{returnFocus=gearButton;const next=!open||panelMode!=='settings';selectPanel('settings');setMenuOpen(next);});
+    searchButton.addEventListener('click',()=>{returnFocus=searchButton;selectPanel('search');setMenuOpen(true,true);});
     scrim.addEventListener('click',()=>setMenuOpen(false));
     controls.addEventListener('click',e=>{
       if(e.target.closest('#results div'))setMenuOpen(false);
@@ -119,9 +144,13 @@
     });
     controls.querySelector('#importFile').addEventListener('change',e=>{if(e.target.files?.length)setMenuOpen(false);});
     pause.addEventListener('click',()=>{options.togglePause();syncLabels();});
-    function closeCard(){info.style.display='none';info.classList.remove('expanded');sync();}
-    object.addEventListener('click',()=>{if(!cardText||!options.hasSelection())return;info.style.display='flex';info.classList.remove('expanded');sync();});
-    function expand(value){info.classList.toggle('expanded',!!value);info.style.transform='';sync();}
+    let closeTimer=0;
+    function closeCard(){
+      clearTimeout(closeTimer);info.classList.add('sheetClosing');
+      closeTimer=setTimeout(()=>{info.style.display='none';info.classList.remove('expanded','sheetClosing');sync();},180);
+    }
+    object.addEventListener('click',()=>{if(!cardText||!options.hasSelection())return;clearTimeout(closeTimer);info.classList.remove('sheetClosing');info.style.display='flex';info.classList.remove('expanded');sync();});
+    function expand(value){clearTimeout(closeTimer);info.classList.remove('sheetClosing');info.classList.toggle('expanded',!!value);info.style.transform='';sync();}
     function hydrateInfo() {
       if(!enabled)return;
       if(info.querySelector('.sheetHeader')){schedule();return;}
@@ -142,6 +171,9 @@
       for(const key of wanted){const row=rows.find(r=>r.firstElementChild?.textContent.trim()===t(key));if(row&&!picked.includes(row))picked.push(row);if(picked.length===3)break;}
       if(!picked.length)picked.push(...rows.slice(0,2));
       for(const row of picked){const label=row.firstElementChild?.textContent.trim()||'',value=row.lastElementChild?.textContent.trim()||'';const chip=node('span','',value);chip.title=label+' · '+value;facts.append(chip);}
+      const details=button('mobileSheetDetails','mobile.details');details.classList.add('sheetDetails');
+      details.addEventListener('click',()=>expand(!info.classList.contains('expanded')));
+      info.append(details);
       info.insertBefore(facts,parts.scroller);info.insertBefore(header,facts);info.setAttribute('role','region');info.setAttribute('aria-labelledby','mobileSheetTitle');
       toggle.addEventListener('click',e=>{if(performance.now()-lastSwipe<350){e.preventDefault();return;}expand(!info.classList.contains('expanded'));});
       let start=null;
@@ -235,7 +267,8 @@
         galaxy.dataset.i18n=desktopGalaxyKey;galaxy.replaceChildren(...desktopGalaxyChildren);galaxy.textContent=t(desktopGalaxyKey);
         menuButton.removeAttribute('aria-controls');menuButton.dataset.i18nTitle='bar.toggle';menuButton.textContent='▾';
         menuButton.title=t('bar.toggle');menuButton.setAttribute('aria-expanded','true');menuButton.setAttribute('aria-label',t('bar.toggle'));
-        info.querySelectorAll('.sheetHeader,.sheetFacts').forEach(e=>e.remove());
+        info.querySelectorAll('.sheetHeader,.sheetFacts,.sheetDetails').forEach(e=>e.remove());
+        langButton.classList.remove('compactLanguageAlias');
         info.querySelectorAll('.sheetOriginal').forEach(e=>e.classList.remove('sheetOriginal'));
         info.removeAttribute('aria-labelledby');info.removeAttribute('role');
         document.body.removeAttribute('data-menu-open');document.body.removeAttribute('data-sheet-state');document.body.removeAttribute('data-keyboard');
