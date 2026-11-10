@@ -193,6 +193,7 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
   }
 </style>
 <link rel="stylesheet" href="assets/mobile-map.css?v=3">
+<link rel="stylesheet" href="assets/star-browser.css?v=2">
 </head>
 <body>
 <canvas id="map"></canvas>
@@ -235,15 +236,17 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
   <input id="timeTicksInput" type="text" inputmode="decimal" spellcheck="false" aria-label="Локальные тики" data-i18n-title="time.ticksTitle" title="Локальные тики с начала эпохи. Не синхронизировано с миром: введи значение вручную или импортируй каталог.">
 </div>
 
-<script src="js/i18n.js?v=47"></script>
+<script src="js/i18n.js?v=48"></script>
 <script src="js/generator.js?v=38"></script>
-<script src="js/orbits.js?v=4"></script>
+<script src="js/orbits.js?v=5"></script>
+<script src="js/object-index.js?v=2"></script>
+<script src="js/star-browser.js?v=2"></script>
 <script src="js/binary-view.js?v=1"></script>
 <script src="js/black-hole-view.js?v=1"></script>
 <script src="js/planet-climate.js?v=1"></script>
 <script src="js/rings3d.js?v=2"></script>
 <script src="js/map-touch.js?v=2"></script>
-<script src="js/mobile-ui.js?v=3"></script>
+<script src="js/mobile-ui.js?v=4"></script>
 <div class="dock">
   <div class="zoomctl">
     <button id="zoomIn" title="Приблизить">+</button>
@@ -253,11 +256,12 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
   </div>
   <div class="avail">
     <span class="availLabel" data-i18n="avail">Доступно на:</span>
-    <a class="tgk store" data-slot="minecraft-inside" href="#" data-i18n="avail.mi" data-i18n-hide="en">Minecraft Inside</a>
-    <a class="tgk store" data-slot="curseforge" href="#" data-i18n="avail.cf">CurseForge</a>
-    <a class="tgk store" data-slot="modrinth" href="#" data-i18n="avail.mr">Modrinth</a>
+    <a class="tgk store store-soon" data-slot="minecraft-inside" href="#" aria-disabled="true" data-i18n="avail.mi" title="Скоро…">Minecraft Inside</a>
+    <a class="tgk store" data-slot="curseforge" href="https://www.curseforge.com/minecraft/mc-mods/enchanted-universe/preview" target="_blank" rel="noopener noreferrer" data-i18n="avail.cf">CurseForge</a>
+    <a class="tgk store" data-slot="modrinth" href="https://modrinth.com/project/enchanted-universe" target="_blank" rel="noopener noreferrer" data-i18n="avail.mr">Modrinth</a>
   </div>
   <div class="dockrow">
+    <button class="tgk" id="starBrowserOpen" data-i18n="browser.open">Браузер звёзд</button>
     <a class="tgk" id="modver" href="https://github.com/Pro12447890/enchanted-universe/releases" target="_blank" rel="noopener noreferrer"
        data-i18n-title="ver.title" title="Последняя версия мода"><i class="dot" aria-hidden="true"></i><span>1.0.0-RC-1</span></a>
     <a class="tgk" id="crafts" href="crafts.html" title="Крафты мода"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" fill="none" stroke="currentColor" stroke-width="1.7"/></svg><span data-i18n="dock.crafts">Крафты</span></a>
@@ -2511,6 +2515,34 @@ search.addEventListener('input', () => {
 });
 addEventListener('click', e => { if (!e.target.closest('#searchWrap')) results.style.display = 'none'; });
 
+const browserAdapter={
+ catalog:()=>catalog,ticks:()=>simTicks,name:x=>N(x),biome:x=>EUI18N.biome(x),star:key=>starAppearance(key),starName:key=>starDisplayName(key),mass:key=>EUBinary.mass(key),
+ moons:p=>moonSpecsCached(p),holes:()=>blackHoleList(),holeProfile:(h,seed)=>EUBlackHole.profile(h,seed),
+ systemLy:(seed,index,d)=>EUOrbits.javaSystemLy(seed,index,d),binary:(s,t)=>EUBinary.at(s,t,EUOrbits.isRealistic()),planetAu:(s,p,t)=>EUOrbits.physicalPosition(s,p,t),moonAngle:(m,t)=>EUOrbits.moonAngle(m,t),
+ referenceKey:db=>{
+  if(selectedHole)return 'hole:'+selectedHole.hole.id;
+  const ref=follow||selected;if(ref?.system){const si=catalog.systems.indexOf(ref.system),pi=ref.planet?ref.system.planets.indexOf(ref.planet):-1;
+   if(ref.kind==='moon')return `moon:${si}:${pi}:${ref.moon.index}`;
+   if(ref.kind==='planet')return `planet:${si}:${pi}`;
+   if(ref.kind==='companion')return 'companion:'+si;
+   return(ref.kind==='system'?'system:':'star:')+si;
+  }
+  return db.entries.find(e=>e.kind==='planet'&&/^(земля|earth)$/i.test(e.name))?.key||'system:0';
+ },
+ beforeOpen:()=>adaptiveUi.setMenuOpen(false),
+ focus:e=>{
+  clearFollow();zoomAnchor=null;selectedHole=null;
+  if(e.kind==='hole'){showBlackHole({hole:e.hole,index:e.hi});return;}
+  if(e.kind==='system'){focusSystem(e.si,e.system);return;}
+  if(e.kind==='star'){focusStar(e.si,e.system);return;}
+  if(e.kind==='planet'){focusPlanet(e.si,e.system,e.planet);return;}
+  selectedHole=null;
+  if(e.kind==='companion'){selected={kind:'companion',system:e.system,index:e.si};setFollow(selected,'center');goal.z=Math.min(60000,Math.min(innerWidth,innerHeight)*.22/starRadiusUnits({star:e.system.companion.star}));showCompanion(e.system);return;}
+  if(e.kind==='moon'){selected={kind:'moon',system:e.system,planet:e.planet,moon:e.moon,index:e.si};const w=moonWorld(e.si,e.system,e.planet,e.moon),mr=planetRadiusUnits(e.planet)*e.moon.radiusKm/Math.max(500,6371*e.planet.diameterEarth)*1.4;goal={x:w.x,y:w.y,z:Math.min(60000,Math.min(innerWidth,innerHeight)*.2/Math.max(.0001,mr))};setFollow(selected,'center');showMoon(e.moon,e.planet,e.system);}
+ }
+};
+const starBrowser=EUStarBrowser.mount(browserAdapter);
+document.getElementById('starBrowserOpen').addEventListener('click',()=>starBrowser.open());
 resize();
 EUI18N.init();
 // Плашка версии: зелёный кружок + последняя версия из update.json (и ссылка на релизы оттуда же).
@@ -2530,7 +2562,11 @@ EUI18N.init();
 })();
 // Магазины пока без ссылок: заглушка не должна дёргать страницу вверх.
 document.querySelectorAll('.avail a[data-slot]').forEach(a => {
-  if (a.getAttribute('href') === '#') a.addEventListener('click', e => e.preventDefault());
+  if(a.dataset.slot==='minecraft-inside') {
+    const soon=()=>EUI18N.current()==='ru'?'Скоро…':'Coming soon…';
+    a.title=soon();a.addEventListener('click',e=>{e.preventDefault();showToast(soon(),false)});
+    window.addEventListener('eu-lang',()=>{a.title=soon()});
+  }
 });
 window.addEventListener('eu-lang', () => {
   if (seedInput && seedInput.value) seedLabel.textContent = T('seed.label') + ': ' + seedInput.value;

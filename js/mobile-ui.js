@@ -48,6 +48,7 @@
     importActions.append(document.getElementById('importBtn'),share); seedSection.append(importActions,document.getElementById('importFile'));
     const shareField=node('input','hidden'); shareField.type='text'; shareField.readOnly=true; shareField.id='mobileShareLink'; seedSection.append(shareField);
     const searchSection=section('mobile.search'); searchSection.firstChild.htmlFor='search'; searchSection.append(document.getElementById('searchWrap'));
+    const browserShortcut=button('mobileStarBrowser','browser.open');browserShortcut.onclick=()=>document.getElementById('starBrowserOpen').click();searchSection.append(browserShortcut);
     const settings=section('mobile.settings'), settingsGrid=node('div','mobileSettings');
     settingsGrid.append(document.getElementById('zones'),document.getElementById('rings3d'),document.getElementById('langBtn'),document.getElementById('smeshariaWrap'));
     settings.append(settingsGrid);

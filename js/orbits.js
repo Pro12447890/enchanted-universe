@@ -693,13 +693,20 @@
     ROTATION_CACHE.set(planet,result); return result;
   }
 
+  /** Uncompressed orbital coordinates in AU: x/y in orbital plane, z out of plane. */
+  function physicalPosition(system, planet, ticks) {
+    const el=elementFor(system,planet);if(!el)return null;
+    const E=eccentricAnomaly(el.m0+TAU*((ticks-el.epochTicks)/el.periodTicks),el.e);
+    const pf=perifocal(el,E);return ecliptic(pf.x,pf.y,el);
+  }
+
   const API = {
     TAU, TICKS_PER_SECOND, RATE_1AU, E_CAP, AU_WORLD_MAX,
     fnv1a32, unit, seedPhase, clamp, periodTicksFor, rateFor,
     setRealistic, isRealistic, REAL_YEAR_TICKS, TICKS_PER_DAY, DAYS_PER_YEAR,
     elementsFor, elementFor, localPosition, orbitPath, moonAngle, companionAngle,
     blackHoles, galaxyWorld, systemPosition, nearestSystemLy, adaptServerCatalog,
-    validateServerCatalog, rotationOf,
+    validateServerCatalog, rotationOf, physicalPosition, javaSystemLy,
     solarElements: SOLAR, solarRotation: SOLAR_ROTATION
   };
   if (typeof window !== 'undefined') window.EUOrbits = API;
