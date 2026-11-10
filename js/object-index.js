@@ -28,11 +28,11 @@
     put({...common,key:kind+':'+si,kind,name:kind==='star'?s.name:s.companion.name,star:key,temperatureK:d.t,luminosity:d.lum,mass:kind==='star'?(s.massSolar||adapter.mass(key)):(s.companion.massSolar||adapter.mass(key))});
    }
    for(const [pi,p] of s.planets.entries()){
-    const body={...common,pi,planet:p,category:p.category,archetype:p.archetype,atmosphere:p.atmosphere,temperatureC:p.mystery?null:p.temperatureC,gravity:p.mystery?null:p.gravity,radiation:p.mystery?null:p.radiation,field:p.mystery?null:(p.gauss??p.magneticGauss),diameter:p.diameterEarth,radiusKm:p.diameterEarth*6371,moons:p.moons,rings:!!p.rings,land:p.category!=='gas_giant'&&!p.mystery&&!['forbidden','brown_dwarf'].includes(p.archetype),biomes:p.biomes,gases:(p.composition||[]).map(x=>x.split(':')[0].trim().toUpperCase()),esi:p.mystery?null:esi(p),habitable:habitable(p)};
+    const body={...common,pi,planet:p,category:p.category,archetype:p.archetype,atmosphere:p.atmosphere,temperatureC:p.mystery?null:p.temperatureC,gravity:p.mystery?null:p.gravity,radiation:p.mystery?null:p.radiation,field:p.mystery?null:(p.gauss??p.magneticGauss),diameter:p.diameterEarth,radiusKm:p.diameterEarth*6371,moons:p.moons,rings:!!p.rings,land:p.category!=='gas_giant'&&!p.mystery&&!['forbidden','brown_dwarf'].includes(p.archetype),biomes:p.biomes,gases:(p.composition||[]).map(x=>x.split(':')[0].trim().toUpperCase()),esi:p.mystery?null:esi(p),habitable:habitable(p),life:EUSurfaceFacts.life(p)};
     put({...body,key:`planet:${si}:${pi}`,kind:'planet',name:p.name,designation:p.designation,id:p.id,aliases:p.aliases,star:s.star});
     for(const m of adapter.moons(p)){
      const cat=m.category||m.type,diameter=2*m.radiusKm/12742,mp={...m,category:cat,diameterEarth:diameter};
-     put({...common,pi,planet:p,moon:m,key:`moon:${si}:${pi}:${m.index}`,kind:'moon',name:m.name,star:s.star,category:cat,archetype:m.archetype,temperatureC:m.temperatureC,gravity:m.gravity,radiation:m.radiation,diameter,radiusKm:m.radiusKm,atmosphere:m.atmosphere,biomes:m.biomes,gases:(m.composition||[]).map(x=>x.split(':')[0].trim().toUpperCase()),rings:false,land:cat!=='gas_giant'&&m.archetype!=='forbidden',habitable:habitable(m),esi:esi(mp)});
+     put({...common,pi,planet:p,moon:m,key:`moon:${si}:${pi}:${m.index}`,kind:'moon',name:m.name,star:s.star,category:cat,archetype:m.archetype,temperatureC:m.temperatureC,gravity:m.gravity,radiation:m.radiation,diameter,radiusKm:m.radiusKm,atmosphere:m.atmosphere,biomes:m.biomes,gases:(m.composition||[]).map(x=>x.split(':')[0].trim().toUpperCase()),rings:false,land:cat!=='gas_giant'&&m.archetype!=='forbidden',habitable:habitable(m),life:EUSurfaceFacts.life(m),esi:esi(mp)});
     }
    }
   }
@@ -71,7 +71,7 @@
    if(filters.category&&e.category!==filters.category)continue;
    if(filters.atmosphere&&e.atmosphere!==filters.atmosphere)continue;
    if(filters.archetype&&e.archetype!==filters.archetype)continue;
-   let ok=true;for(const k of ['rings','land','habitable','sm'])if(filters[k]!==undefined&&filters[k]!==''&&e[k]!==filters[k])ok=false;if(!ok)continue;
+   let ok=true;for(const k of ['rings','land','habitable','life','sm'])if(filters[k]!==undefined&&filters[k]!==''&&e[k]!==filters[k])ok=false;if(!ok)continue;
    if(wanted.length&&!(filters.biomeMode==='all'?wanted.every(b=>e.biomes.includes(b)):wanted.some(b=>e.biomes.includes(b))))continue;
    if(gases.length&&!gases.every(g=>e.gases.includes(g)))continue;
    for(const [k,r] of Object.entries(ranges)){
