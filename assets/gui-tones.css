@@ -1,0 +1,23 @@
+/* Related panels use subtly different mineral/stellar tones, not one flat blue. */
+:root{--panel:rgba(14,18,30,.94);--line:#384359;--dim:#99a3ba}
+#info{background:linear-gradient(145deg,#111c2af5,#171827f5);border-color:#526079}
+#info[data-object-kind=star],#info[data-object-kind=companion]{background:linear-gradient(145deg,#2a231af5,#141d2cf5);border-color:#826e48}
+#info[data-object-kind=moon]{background:linear-gradient(145deg,#211e30f5,#111f2bf5);border-color:#655a83}
+#info[data-object-kind=hole]{background:linear-gradient(145deg,#261b30f5,#111724f5);border-color:#715474}
+.object-browser{background:linear-gradient(130deg,#101c28,#171b2b);border-color:#536b79}
+.ob-group-head{background:linear-gradient(110deg,#1a3540,#222b3c)}
+.mobileControls[data-panel=settings]{background:linear-gradient(140deg,#222036f7,#12242cf7);border-color:#645879}
+.mobileControls[data-panel=world]{background:linear-gradient(140deg,#1f2a25f7,#142034f7);border-color:#506c63}
+.object-link{display:inline;text-align:left;white-space:normal;background:#172c3c88;color:#bddccd;border:1px solid #45665f;border-radius:7px;padding:3px 6px;cursor:pointer;font:inherit}
+.object-link:hover,.object-link:focus-visible{background:#284637;color:#def9ad;border-color:#9acb71;outline:none}
+.object-link:active{background:#335144;color:#efffcf}
+.card-related{border-top:1px solid #48556888;margin-top:14px;padding-top:4px}
+.related-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:5px 0}
+.related-row small{font-size:10px;color:#a5b2bf;flex:none}
+/* A definite sheet height lets its flex scroller shrink instead of stretching below the clip. */
+.mobile-map-ui #info.expanded{height:var(--mobile-sheet-max);max-height:var(--mobile-sheet-max)}
+.mobile-map-ui #info.expanded .infoScroll{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-right:14px}
+.mobile-map-ui #info .infoScroll *{touch-action:pan-y}
+.mobile-map-ui #info.expanded .infoBar{display:none!important}
+.mobile-map-ui #info .object-link{min-height:36px;padding:5px 7px}
+.mobile-map-ui #info .related-row small{max-width:95px;overflow-wrap:anywhere}
