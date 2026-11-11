@@ -194,7 +194,7 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
 </style>
 <link rel="stylesheet" href="assets/mobile-map.css?v=3">
 <link rel="stylesheet" href="assets/star-browser.css?v=2">
-<link rel="stylesheet" href="assets/gui-tones.css?v=1">
+<link rel="stylesheet" href="assets/gui-tones.css?v=2">
 </head>
 <body>
 <canvas id="map"></canvas>
@@ -237,21 +237,30 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
   <input id="timeTicksInput" type="text" inputmode="decimal" spellcheck="false" aria-label="Локальные тики" data-i18n-title="time.ticksTitle" title="Локальные тики с начала эпохи. Не синхронизировано с миром: введи значение вручную или импортируй каталог.">
 </div>
 
-<script src="js/i18n.js?v=48"></script>
-<script src="js/generator.js?v=38"></script>
+<script src="js/i18n.js?v=49"></script>
+<script src="js/moon-facts.js?v=2"></script>
+<script src="js/generation-pools.js?v=2"></script>
+<script src="js/generation-policy.js?v=2"></script>
+<script src="js/galaxy-distribution.js?v=2"></script>
+<script src="js/generator.js?v=42"></script>
 <script src="js/orbits.js?v=5"></script>
-<script src="js/biome-materials.js?v=1"></script>
-<script src="js/surface-facts.js?v=1"></script>
-<script src="js/planet-materials.js?v=1"></script>
+<script src="js/biome-materials.js?v=2"></script>
+<script src="js/surface-facts.js?v=2"></script>
+<script src="js/texture-bake-queue.js?v=2"></script>
+<script src="js/planet-materials.js?v=4"></script>
 <script src="js/object-index.js?v=3"></script>
 <script src="js/star-browser.js?v=3"></script>
 <script src="js/card-navigation.js?v=1"></script>
-<script src="js/binary-view.js?v=1"></script>
+<script src="js/planet-clouds.js?v=3"></script>
+<script src="js/thermal-emission.js?v=2"></script>
+<script src="js/city-lights.js?v=3"></script>
+<script src="js/binary-view.js?v=2"></script>
 <script src="js/black-hole-view.js?v=1"></script>
 <script src="js/planet-climate.js?v=1"></script>
 <script src="js/rings3d.js?v=2"></script>
 <script src="js/map-touch.js?v=2"></script>
-<script src="js/mobile-ui.js?v=4"></script>
+<script src="js/tools-panel.js?v=2"></script>
+<script src="js/mobile-ui.js?v=6"></script>
 <div class="dock">
   <div class="zoomctl">
     <button id="zoomIn" title="Приблизить">+</button>
@@ -329,6 +338,7 @@ const STAR_DATA = {
   red_supergiant:{ru:'красный сверхгигант',t:3200,lum:400,color:'#ff6040'},
   carbon_star:{ru:'углеродная звезда',t:2800,lum:25,color:'#ff8844'},
   brown_dwarf:{ru:'коричневый карлик',t:1500,lum:0.01,color:'#8a3a2a'},
+  orange_dwarf:{ru:'оранжевый карлик',t:4200,lum:.45,color:'#ffad68'},white_star:{ru:'белая звезда',t:9000,lum:8,color:'#f2f2ff'},white_blue_dwarf:{ru:'голубо-белая звезда',t:15000,lum:16,color:'#cbdeff'},white_supergiant:{ru:'белый сверхгигант',t:9000,lum:500,color:'#f2f2ff'},blue_supergiant:{ru:'голубой сверхгигант',t:23000,lum:1000,color:'#9dc5ff'},
   magnetar:{ru:'магнитар',t:1000000,lum:0.001,color:'#bfe0ff'}
 };
 function starAppearance(key) {
@@ -781,6 +791,13 @@ function drawPulsarStar(x, y, half, alpha, now) {
   ctx.restore();
 }
 
+function drawDetailedStar(key,x,y,r,alpha,now){
+ const data=starAppearance(key);ctx.save();
+ if(key==='magnetar'){drawPulsarStar(x,y,Math.max(2.4,r*1.15),alpha,now);ctx.restore();return;}
+ ctx.globalAlpha=.20*alpha;const g=ctx.createRadialGradient(x,y,0,x,y,r*5.5);g.addColorStop(0,data.color);g.addColorStop(.35,data.color+'66');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*5.5,0,Math.PI*2);ctx.fill();
+ ctx.globalAlpha=alpha;const disc=ctx.createRadialGradient(x-r*.18,y-r*.18,Math.max(.2,r*.12),x,y,r);disc.addColorStop(0,'#fffbe8');disc.addColorStop(.55,data.color);disc.addColorStop(1,shade(data.color,.7));ctx.fillStyle=disc;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
+}
+
 function drawGalaxy(alpha, now) {
   const placed = [];
   const labelGap = innerWidth <= 700 ? 80 : 48;
@@ -796,17 +813,8 @@ function drawGalaxy(alpha, now) {
     let r = Math.max(1.6, Math.min(9, base)) * (i === 0 ? 1.25 : 1);
     if (innerWidth <= 700) r *= 0.78;
     ctx.save();
-    if (s.star === 'magnetar') {
-      // PSR: слоистый пульсар вместо круглой звезды.
-      drawPulsarStar(sx, sy, Math.max(2.4, r * 1.35), alpha, now);
-    } else {
-      ctx.globalAlpha = 0.20 * alpha;
-      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r*5.5);
-      g.addColorStop(0, starColor); g.addColorStop(0.35, starColor + '66'); g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, r*5.5, 0, Math.PI*2); ctx.fill();
-      ctx.globalAlpha = alpha; ctx.fillStyle = starColor;
-      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
-    }
+    const farDim=EUGalaxyDistribution.farBrightness(s.star),farAlpha=alpha*(1-(1-farDim)*(1-smooth(2.5,7,cam.z)));
+    drawDetailedStar(s.star,sx,sy,r,farAlpha,now);
     const companionFade = smooth(0.10, 0.35, cam.z);
     if (s.companion && companionFade > 0.01) {
       const cp = companionPosition(s, sx, sy, r);
@@ -814,8 +822,8 @@ function drawGalaxy(alpha, now) {
       if (cp) {
         ctx.globalAlpha = alpha * companionFade * 0.22; ctx.strokeStyle = cd.color;
         drawBinaryOrbits(s,sx,sy,r,alpha*companionFade);
-        ctx.globalAlpha = alpha * companionFade * 0.95; ctx.fillStyle = cd.color;
-        ctx.beginPath(); ctx.arc(cp.x, cp.y, Math.max(1, cp.r), 0, Math.PI*2); ctx.fill();
+        const cdim=EUGalaxyDistribution.farBrightness(s.companion.star),ca=alpha*companionFade*(1-(1-cdim)*(1-smooth(2.5,7,cam.z)));
+        drawDetailedStar(s.companion.star,cp.x,cp.y,Math.max(1,cp.r),ca,now);
       }
     }
     if (i === 0) {
@@ -1072,8 +1080,7 @@ function drawPlanets(alpha, now) {
         if (cp) {
           ctx.globalAlpha = alpha * nearFade * 0.26; ctx.strokeStyle = cd.color;
           drawBinaryOrbits(s,starX,starY,Math.max(5,starRadiusUnits(s)*cam.z),alpha*nearFade);
-          ctx.globalAlpha = alpha * nearFade; ctx.fillStyle = cd.color;
-          ctx.beginPath(); ctx.arc(cp.x, cp.y, Math.max(1.5, cp.r), 0, Math.PI*2); ctx.fill();
+          drawDetailedStar(s.companion.star,cp.x,cp.y,Math.max(1.5,cp.r),alpha*nearFade,now);
         }
       }
     }
@@ -1223,18 +1230,24 @@ function moonBody(m,parent,system){
   MOON_RENDER_CACHE.set(m,p);
  }return p;
 }
-function drawMoonDisc(x,y,r,m,parent){const p=moonBody(m,parent);drawRockySurface(x,y,r,p,planetSurface(p),moonColor(m,parent));}
+function drawMoonDisc(x,y,r,m,parent){const p=moonBody(m,parent),surf=planetSurface(p);drawRockySurface(x,y,r,p,surf,moonColor(m,parent));EUThermal.draw(ctx,x,y,r,p);EUClouds.draw(ctx,x,y,r,p,performance.now()/1000); }
 
+function gasSurfaceColor(p){
+ const a=p.archetype||'',n=String(p.name||'').toLowerCase();
+ if(/уран|uranus/.test(n))return '#69bec9';if(/нептун|neptune/.test(n))return '#4579c0';
+ return ({ice_giant:'#66a9c2',mini_neptune:'#748cbd',gas_dwarf:'#698798',helium_giant:'#a8a0be',puffy:'#d8c9bb',super_puff:'#e4d9c8',brown_dwarf:'#66314f',hot_jupiter:'#d98b58',evaporating:'#ce7159'})[a]||['#d8b685','#6fc8d8','#e7a58a','#c8a0e0','#e8c060','#8ac8a0'][Math.floor(EUOrbits.unit(String(p.seed)+'|gas-palette')*6)];
+}
 function drawGasGiant(x, y, r, p, base) {
   const u = k => EUOrbits.unit(String(p.seed) + '|gas|' + k);
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
   // Полосы с лёгким наклоном и разной толщиной — не «пять одинаковых линий».
-  for (let k = 0; k < 7; k++) {
-    const t = (k / 6) * 2 - 1;
+  const bands=['puffy','super_puff'].includes(p.archetype)?4:['ice_giant','mini_neptune','gas_dwarf'].includes(p.archetype)?5:9;
+  for (let k = 0; k < bands; k++) {
+    const t = (k / (bands-1)) * 2 - 1;
     const yy = y + t * r * 0.82;
     const h = r * (0.08 + 0.06 * u('bh' + k));
-    ctx.globalAlpha = 0.13 + 0.07 * u('ba' + k);
+    ctx.globalAlpha = (['puffy','super_puff'].includes(p.archetype)?.075:.14)+.065*u('ba'+k);
     ctx.fillStyle = k % 2 ? shade(base, 1.26) : shade(base, 0.66);
     ctx.beginPath();
     ctx.ellipse(x + (u('bx' + k) - 0.5) * r * 0.18, yy, r * (1.02 + 0.10 * u('bw' + k)), h,
@@ -1242,7 +1255,8 @@ function drawGasGiant(x, y, r, p, base) {
     ctx.fill();
   }
   // Крупные когерентные вихри: овалы с общим наклоном, а не случайные пятна.
-  for (let s = 0; s < 4; s++) {
+  const storms=['puffy','super_puff','helium_giant'].includes(p.archetype)?2:4;
+  for (let s = 0; s < storms; s++) {
     const ang = u('sa' + s) * Math.PI * 2;
     const dist = Math.sqrt(u('sd' + s)) * r * 0.66;
     const cx = x + Math.cos(ang) * dist;
@@ -1330,7 +1344,7 @@ function drawPlanet(x, y, r, p, starX, starY) {
 }
 function drawPlanetLocal(x, y, r, p, starX, starY) {
   if (p && p.mystery) { drawMysteryPlanet(x, y, r, p, starX, starY); return; }
-  const base = CAT_COLOR[p.category] || '#8a8aa0';
+  const base = p.category==='gas_giant'?gasSurfaceColor(p):(CAT_COLOR[p.category]||'#8a8aa0');
   if(p.hostLuminosity==null){const host=catalog.systems.find(s=>s.planets.includes(p));p.hostLuminosity=host?starAppearance(host.star).lum:1;}
   const surf = planetSurface(p);
   const gas = p.category === 'gas_giant';
@@ -1370,50 +1384,20 @@ function drawPlanetLocal(x, y, r, p, starX, starY) {
   ctx.fillStyle = sh; ctx.fillRect(x - r, y - r, r * 2, r * 2);
   ctx.restore();
 
-  // 6. Города: только существующие, только на суше, только ночью,
-  //    с плавным затуханием к терминатору. Цвет: жёлтый / голубой.
-  const cl = cityLevel(p);
-  if (cl) {
-    let h = 2166136261 >>> 0;
-    const src = String(p.seed) + 'lights';
-    for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619); }
-    ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = cl === 2 ? 'rgba(72,216,255,.9)' : 'rgba(255,208,96,.86)';
-    const dots = cl === 2 ? 70 : 46;
-    for (let i = 0; i < dots; i++) {
-      h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
-      const a = ((h >>> 0) / 4294967295) * Math.PI * 2;
-      const rr = Math.sqrt(((h >>> 8) & 255) / 255) * 0.96;
-      const nx = Math.cos(a) * rr, ny = Math.sin(a) * rr;
-      if (!landAt(surf, nx, ny, p)) continue;
-      const dot = (nx * lx + ny * ly) * r;
-      const night = smooth(0.16 * r, -0.28 * r, dot);
-      if (night < 0.06) continue;
-      ctx.globalAlpha = 0.25 + 0.75 * night;
-      const ds = r > 40 ? 2 : 1.2;
-      ctx.fillRect(x + nx * r - ds * 0.5, y + ny * r - ds * 0.5, ds, ds);
-    }
-    ctx.restore(); ctx.globalAlpha = 1;
-    if (orbitalSite(p)) {
-      ctx.strokeStyle = cl === 2 ? 'rgba(80,220,255,.55)' : 'rgba(255,214,120,.5)';
-      ctx.lineWidth = Math.max(0.7, r * 0.06);
-      ctx.beginPath(); ctx.ellipse(x, y, r * 1.5, r * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
-    }
+  // Thermal emission is applied AFTER the terminator, so hot rock emits on the night side.
+  EUThermal.draw(ctx,x,y,r,p);
+  EUCities.draw(ctx,x,y,r,p,surf,lx,ly,performance.now()/1000);
+  EUClouds.draw(ctx,x,y,r,p,performance.now()/1000,lx,ly);
+  if(orbitalSite(p)){
+    ctx.save();ctx.strokeStyle=cityLevel(p)===2?'rgba(80,220,255,.45)':'rgba(255,214,120,.42)';ctx.lineWidth=Math.max(.7,r*.015);ctx.beginPath();ctx.ellipse(x,y,r*1.5,r*.5,0,0,Math.PI*2);ctx.stroke();ctx.restore();
   }
 }
-function cityLevel(p) {
-  if (!p || p.category !== 'habitable') return 0;
-  let h = 2166136261 >>> 0;
-  const src = String(p.seed) + String(p.id || '') + 'city';
-  for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619); }
-  h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15;
-  if ((h >>> 0) % 10000 >= 120) return 0;
-  return ((h >>> 8) % 1000 < 225) ? 2 : 1;
-}
+function cityLevel(p){return EUCities.level(p);}
+
 function orbitalSite(p) {
   // Загадочная планета: орбитальное кольцо есть всегда.
   if (p && p.mystery) return true;
-  if (cityLevel(p) === 0) return false;
+  if (EUCities.orbital(p) === 0) return false;
   let h = 2166136261 >>> 0;
   const src = String(p.seed) + 'ring';
   for (let i = 0; i < src.length; i++) { h ^= src.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -1491,8 +1475,7 @@ function drawFocusStar(now) {
     if (cp) {
       ctx.globalAlpha = 0.35 * focusFade; ctx.strokeStyle = cd.color;
       drawBinaryOrbits(best.system,x,y,r,focusFade);
-      ctx.globalAlpha = 0.95 * focusFade; ctx.fillStyle = cd.color;
-      ctx.beginPath(); ctx.arc(cp.x, cp.y, Math.max(2, cp.r), 0, Math.PI*2); ctx.fill();
+      drawDetailedStar(best.system.companion.star,cp.x,cp.y,Math.max(2,cp.r),.95*focusFade,now);
     }
   }
   // Имя звезды гаснет, когда в кадре уже видны диски/орбиты планет.
@@ -2444,7 +2427,7 @@ document.getElementById('apply').addEventListener('click', () => {
 });
 seedInput.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('apply').click(); });
 document.getElementById('random').addEventListener('click', () => generate(randomSeed()));
-addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('galaxy').click(); });
+addEventListener('keydown', e => { if(document.querySelector('dialog[open]'))return;if (e.key === 'Escape') document.getElementById('galaxy').click(); });
 
 search.addEventListener('input', () => {
   const q = search.value.trim().toLowerCase();
@@ -2506,6 +2489,7 @@ const browserAdapter={
 };
 const starBrowser=EUStarBrowser.mount(browserAdapter);
 const cardNavigation=EUCardNavigation.mount(browserAdapter,()=>selected);
+const universeTools=EUTools.mount();
 document.getElementById('starBrowserOpen').addEventListener('click',()=>starBrowser.open());
 resize();
 EUI18N.init();

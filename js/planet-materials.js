@@ -1,7 +1,7 @@
 /* Cached spherical Perlin materials. Baking is triggered only by visible screen coverage. */
 (function(){'use strict';
  const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x)),mix=(a,b,t)=>a+(b-a)*t,blend=(a,b,t)=>a.map((v,i)=>mix(v,b[i],t)),smooth=(a,b,x)=>{x=clamp((x-a)/(b-a));return x*x*(3-2*x);};
- const models=new WeakMap(),cache=new Map(),birth=new Map(),session=globalThis.crypto?.getRandomValues?crypto.getRandomValues(new Uint32Array(1))[0]:0x745182;
+ const models=new WeakMap(),cache=new Map(),birth=new Map(),masks=new WeakMap(),session=globalThis.crypto?.getRandomValues?crypto.getRandomValues(new Uint32Array(1))[0]:0x745182;
  function hash(s){let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;}
  function rng(seed){let s=hash(seed)||1;return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return(s>>>0)/4294967296;};}
  function perm(seed){const p=Array.from({length:256},(_,i)=>i),r=rng(seed);for(let i=255;i>0;i--){const j=Math.floor(r()*(i+1));[p[i],p[j]]=[p[j],p[i]];}return p.concat(p);}
@@ -34,7 +34,7 @@
  }
  function snowScore(m,x,y,z,e){return Math.abs(y)+fb(m,x,y,z,53,2.4,4)*.42+fb(m,x,y,z,61,9,3)*.075+(e-.5)*.16;}
  function quantile(a,t){a.sort((x,y)=>x-y);return a[Math.min(a.length-1,Math.max(0,Math.floor(t*(a.length-1))))];}
- function prepare(m){if(m.ready)return;const heights=[],snows=[];for(let i=0,n=3072;i<n;i++){const y=1-2*(i+.5)/n,a=i*2.399963,r=Math.sqrt(1-y*y),x=Math.cos(a)*r,z=Math.sin(a)*r,e=elevation(m,x,y,z);heights.push(e);snows.push(snowScore(m,x,y,z,e));}
+ function* prepareSteps(m){if(m.ready)return;const heights=[],snows=[];for(let i=0,n=3072;i<n;i++){const y=1-2*(i+.5)/n,a=i*2.399963,r=Math.sqrt(1-y*y),x=Math.cos(a)*r,z=Math.sin(a)*r,e=elevation(m,x,y,z);heights.push(e);snows.push(snowScore(m,x,y,z,e));if(i%128===127)yield;}
   m.landThreshold=m.water?quantile(heights,m.waterFrac):-Infinity;m.snowThreshold=m.snow?quantile(snows,1-m.snow):Infinity;m.ready=true;
  }
  function province(m,x,y,z){let best=-Infinity,second=-Infinity,a=m.provinces[0],b=a;const xx=x+fb(m,x,y,z,80,3.7,4)*.52,yy=y+fb(m,x,y,z,93,4.1,4)*.52,zz=z+fb(m,x,y,z,108,3.5,4)*.52;for(const p of m.provinces){const score=xx*p.x+yy*p.y+zz*p.z;if(score>best){second=best;b=a;best=score;a=p;}else if(score>second){second=score;b=p;}}return {a:a.biome,b:b.biome,blend:(1-smooth(0,.09,best-second))*.5};}
@@ -52,12 +52,15 @@
   if(frost>0){const snow=blend([210,225,229],[246,249,248],clamp(.56+hill*.8));col=blend(col,snow,frost);}
   return col.map(v=>clamp(v,0,255));
  }
- function bake(p,m=model(p)){prepare(m);const side=256,cv=document.createElement('canvas');cv.width=cv.height=side;const ctx=cv.getContext('2d'),image=ctx.createImageData(side,side);let liquid=0,snow=0,count=0;
-  for(let py=0;py<side;py++)for(let px=0;px<side;px++){const x=(px+.5)/side*2-1,y=1-(py+.5)/side*2,q=x*x+y*y;if(q>1)continue;const z=Math.sqrt(1-q),e=elevation(m,x,y,z),c=colorAt(m,x,y,z,e),i=(py*side+px)*4,limb=.79+.21*z;
-   image.data[i]=c[0]*limb;image.data[i+1]=c[1]*limb;image.data[i+2]=c[2]*limb;image.data[i+3]=255;count++;if(e<=m.landThreshold)liquid++;if(snowScore(m,x,y,z,e)>m.snowThreshold)snow++;
-  }ctx.putImageData(image,0,0);cv.surfaceStats={liquidPixels:liquid/count,snowPixels:snow/count,targetLiquid:m.waterFrac,targetSnow:m.snow,fluid:m.fluid};return cv;
+ function* bakeSteps(p,m=model(p)){yield* prepareSteps(m);const side=256,cv=document.createElement('canvas');cv.width=cv.height=side;const ctx=cv.getContext('2d'),image=ctx.createImageData(side,side),liquidMask=new Uint8Array(side*side),settleable=new Uint8Array(side*side);let liquid=0,snow=0,count=0;
+  for(let py=0;py<side;py++){for(let px=0;px<side;px++){const x=(px+.5)/side*2-1,y=1-(py+.5)/side*2,q=x*x+y*y;if(q>1)continue;const z=Math.sqrt(1-q),e=elevation(m,x,y,z),c=colorAt(m,x,y,z,e),i=(py*side+px)*4,limb=.79+.21*z;
+   image.data[i]=c[0]*limb;image.data[i+1]=c[1]*limb;image.data[i+2]=c[2]*limb;image.data[i+3]=255;count++;const wet=e<=m.landThreshold,frozen=snowScore(m,x,y,z,e)>m.snowThreshold;
+    liquidMask[py*side+px]=wet?1:0;if(wet)liquid++;if(frozen)snow++;
+    if(!wet&&!frozen){const region=province(m,x,y,z).a;const col=region.color;if(region.vegetation&&col[1]>col[0]+6&&col[1]>col[2]+8)settleable[py*side+px]=1;}
+  }yield;}ctx.putImageData(image,0,0);masks.set(p,{side,liquid:liquidMask,settleable});cv.surfaceStats={liquidPixels:liquid/count,snowPixels:snow/count,targetLiquid:m.waterFrac,targetSnow:m.snow,fluid:m.fluid};return cv;
  }
- function transition(radius,width,height){const old=Math.sqrt(width*height*.005/Math.PI),start=old/2.5;return smooth(start,start*1.65,radius);}
+ function bake(p,m=model(p)){const it=bakeSteps(p,m);let step;do{step=it.next();}while(!step.done);return step.value;}
+ function transition(radius,width,height){const old=Math.sqrt(width*height*.005/Math.PI),start=old/2.5;return smooth(start,start*4.5,radius);}
  function visible(x,y,r,w,h){
   const dx=Math.max(0,-x,x-w),dy=Math.max(0,-y,y-h);if(dx*dx+dy*dy>=r*r)return false;
   const intersection=Math.max(0,Math.min(w,x+r)-Math.max(0,x-r))*Math.max(0,Math.min(h,y+r)-Math.max(0,y-r));
@@ -66,9 +69,9 @@
  function promo(ctx,x,y,r,m){const color=m.water?m.liquidColor:m.base;const g=ctx.createRadialGradient(x-r*.3,y-r*.3,r*.05,x,y,r);g.addColorStop(0,'rgb('+color.map(v=>Math.min(255,v*1.3)).join(',')+')');g.addColorStop(1,'rgb('+color.map(v=>v*.55).join(',')+')');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}
  function draw(ctx,x,y,r,p,m=model(p),width=innerWidth,height=innerHeight){
   let alpha=transition(r,width,height);if(!visible(x,y,r,width,height)){promo(ctx,x,y,r,m);return;}
-  let tex=cache.get(m.key);if(alpha>0&&!tex){tex=bake(p,m);cache.set(m.key,tex);birth.set(m.key,performance.now());}
-  if(tex)alpha*=smooth(0,240,performance.now()-(birth.get(m.key)||0));if(alpha<1)promo(ctx,x,y,r,m);if(alpha<=0||!tex)return;
+  let tex=cache.get(m.key);if(alpha>0&&!tex&&!m.failed){EUTextureBakes.enqueue(m.key,()=>bakeSteps(p,m),result=>{cache.set(m.key,result);birth.set(m.key,performance.now());},()=>{m.failed=true;});}
+  if(tex)alpha*=smooth(0,900,performance.now()-(birth.get(m.key)||0));if(alpha<1)promo(ctx,x,y,r,m);if(alpha<=0||!tex)return;
   ctx.save();ctx.globalAlpha*=alpha;ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(tex,x-r,y-r,r*2,r*2);ctx.restore();
  }
- const api={model,bake,draw,landAt,transition,cache,session,elevation};if(typeof window!=='undefined')window.EUPlanetMaterials=api;if(typeof module!=='undefined')module.exports=api;
+ const api={model,bake,bakeSteps,draw,landAt,transition,cache,session,elevation,materialMask:p=>masks.get(p)};if(typeof window!=='undefined')window.EUPlanetMaterials=api;if(typeof module!=='undefined')module.exports=api;
 })();

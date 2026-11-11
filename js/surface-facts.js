@@ -7,7 +7,7 @@
  function life(p){
   if(!p||p.mystery||(p.category||p.type)==='gas_giant')return false;
   if(typeof p.life==='boolean')return p.life;
-  return (p.biomes||[]).some(id=>{const k=key(id).split(':')[1];if(k==='regolith_river'||/regolith|icy|iced|frozen|ice_spikes|oxidized|desert|badlands/.test(k))return false;return material(id).vegetation||/forest|grove|sprout|jungle|mushroom|meadow|plains|swamp|savanna|garden|ocean|river/.test(k);});
+  return (p.biomes||[]).some(id=>{const k=key(id).split(':')[1];if(k==='regolith_river'||/bare_|lifeless_|regolith|icy|iced|frozen|ice_spikes|oxidized|desert|badlands/.test(k))return false;return material(id).vegetation||/forest|grove|sprout|jungle|mushroom|meadow|plains|swamp|savanna|garden|ocean|river/.test(k);});
  }
  function fluid(p){
   const t=Number(p.temperatureC),a=p.archetype||'',composition=(p.composition||[]).join(',').toUpperCase();
@@ -22,11 +22,11 @@
  }
  function climate(p){
   const category=p.category||p.type,orb=Number(p.orbitAu),lum=Number(p.hostLuminosity)||1;
-  const normalized=Number.isFinite(p.distanceMark)&&p.distanceMark>0?p.distanceMark:orb/Math.sqrt(Math.max(.01,lum));
+  const normalized=orb/Math.sqrt(Math.max(.01,lum));
   let cold=category==='habitable'?clamp((normalized-.66)/.84,0,1):category==='temperate'?0:category==='cold_habitable'?1:0;
   if(!Number.isFinite(cold))cold=clamp((30-Number(p.temperatureC))/60,0,1);
   // Moons inherit the host orbit, not their distance from their parent in kilometres.
-  let snow=category==='habitable'?.60*cold:category==='cold_habitable'?.62:0;
+  let snow=p.generationModel==='ClassicClimateV1'?EUGenerationPolicy.snowFraction(category,orb,lum):category==='habitable'?.60*cold:category==='cold_habitable'?.62:0;
   const ice=(p.biomes||[]).filter(id=>material(id).ice).length/Math.max(1,(p.biomes||[]).length);
   if(category!=='habitable'&&ice>0)snow=Math.max(snow,Math.min(.86,.3+.5*ice));
   if(Number(p.temperatureC)>60)snow=0;

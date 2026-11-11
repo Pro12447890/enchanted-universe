@@ -1,7 +1,7 @@
 /* Circular two-body model shared with Java BinaryOrbitMath; display scaling is separate. */
 (function(){'use strict';
  const TAU=2*Math.PI;
- const MASS={brown_dwarf:.055,white_dwarf:.6,magnetar:1.4,red_dwarf:.35,white_yellow_dwarf:1.3,blue_dwarf:2.2,red_giant:2,carbon_star:2,yellow_giant:3,white_giant:4,blue_giant:8,yellow_supergiant:12,red_supergiant:16};
+ const MASS={brown_dwarf:.055,white_dwarf:.6,magnetar:1.4,red_dwarf:.35,orange_dwarf:.7,white_star:2,white_blue_dwarf:3.5,white_yellow_dwarf:1.3,blue_dwarf:2.2,red_giant:2,carbon_star:2,yellow_giant:3,white_giant:4,blue_giant:8,yellow_supergiant:12,red_supergiant:16,white_supergiant:18,blue_supergiant:25};
  function phase(id){let h=0x811c9dc5;for(let i=0;i<String(id).length;i++)h=Math.imul(h^String(id).charCodeAt(i),0x01000193);return(h>>>0)/4294967296*TAU;}
  function mass(key){return MASS[key]||1;}
  function at(system,ticks,realistic){

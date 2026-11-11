@@ -63,8 +63,10 @@
     const headerActions=node('div','mobileHeaderActions'), searchButton=node('button','mobileSearchButton');
     searchButton.type='button'; searchButton.id='mobileSearch'; searchButton.innerHTML=svg.search;
     const gearButton=node('button','mobileGearButton');gearButton.type='button';gearButton.id='mobileSettings';
-    gearButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 2 3-1 1-3 3-1 1-3-2-2 1-3-3-2-3 1-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>';
-    headerActions.append(searchButton,gearButton,menuButton); bar.append(headerActions);
+    gearButton.innerHTML='<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 3h6l.7 3 2.6 1.5 2.9-.8 3 5.2-2.2 2.1v3l2.2 2.1-3 5.2-2.9-.8-2.6 1.5-.7 3H9l-.7-3-2.6-1.5-2.9.8-3-5.2L2 16v-3L-.2 10.9l3-5.2 2.9.8 2.6-1.5Z" transform="translate(2.4 0) scale(.8)" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.9"/></svg>';
+    const toolsButton=node('button','mobileToolsButton');toolsButton.type='button';toolsButton.id='mobileTools';toolsButton.innerHTML=EUTools.icon;
+    toolsButton.addEventListener('click',()=>{setMenuOpen(false);document.getElementById('desktopTools').click();});
+    headerActions.append(searchButton,toolsButton,gearButton,menuButton); bar.append(headerActions);
     const language=node('div','mobileLanguageChoices');language.id='mobileLanguageChoices';
     language.append(translated('label','mobileLabel','mobile.language'));
     for(const [code,label] of [['ru','Русский'],['en','English']]){
@@ -106,6 +108,7 @@
       menuButton.setAttribute('aria-label',t(open?'mobile.controlsClose':'mobile.menu'));
       menuButton.dataset.i18nTitle=open?'mobile.controlsClose':'mobile.menu'; menuButton.title=menuButton.getAttribute('aria-label');
       searchButton.title=t('mobile.search'); searchButton.setAttribute('aria-label',t('mobile.search'));
+      toolsButton.title=t('mobile.tools');toolsButton.setAttribute('aria-label',t('mobile.tools'));
       gearButton.title=t('mobile.settings');gearButton.setAttribute('aria-label',t('mobile.settings'));gearButton.setAttribute('aria-expanded',String(open&&panelMode==='settings'));
       language.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.language===window.EUI18N.current())));
       scrim.setAttribute('aria-label',t('mobile.controlsClose')); nav.setAttribute('aria-label',t('mobile.navigation'));
