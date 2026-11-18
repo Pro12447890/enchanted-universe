@@ -1,4 +1,5 @@
 /* Related panels use subtly different mineral/stellar tones, not one flat blue. */
+.object-origin{display:inline-flex;align-items:center;align-self:flex-start;margin:-2px 0 7px;padding:2px 8px;border-radius:999px;border:1px solid #52647a;background:#172131;color:#aebed2;font-size:10px;letter-spacing:.025em}.object-origin.real{border-color:#587659;background:#17291c;color:#c7e7af}.object-origin.procedural{border-color:#66577b;background:#241e31;color:#d3c2e8}
 :root{--panel:rgba(14,18,30,.94);--line:#384359;--dim:#99a3ba}
 #info{background:linear-gradient(145deg,#111c2af5,#171827f5);border-color:#526079}
 #info[data-object-kind=star],#info[data-object-kind=companion]{background:linear-gradient(145deg,#2a231af5,#141d2cf5);border-color:#826e48}

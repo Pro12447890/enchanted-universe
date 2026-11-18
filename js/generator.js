@@ -4,6 +4,8 @@
 
 const NEW_POLICY=typeof window!=='undefined'?window.EUGenerationPolicy:require('./generation-policy.js');
 const NEW_GALAXY=typeof window!=='undefined'?window.EUGalaxyDistribution:require('./galaxy-distribution.js');
+const EUBinaryPolicy=typeof window!=='undefined'?window.EUBinaryPolicy:require('./binary-policy.js');
+const EUHierarchy=typeof window!=='undefined'?window.EUHierarchy:require('./stellar-hierarchy.js');
 const MASK48 = (1n << 48n) - 1n;
 class JavaRandom {
   constructor(seed) { this.seed = (BigInt.asUintN(64, BigInt(seed)) ^ 0x5DEECE66Dn) & MASK48; }
@@ -81,12 +83,13 @@ const AQUARIA_BIOMES = [
 const WET_BIOME_RE = /(^|:)(ocean|deep_ocean|warm_ocean|lukewarm_ocean|deep_lukewarm_ocean|cold_ocean|deep_cold_ocean|frozen_ocean|deep_frozen_ocean|river|frozen_river)$/;
 function isWetBiome(id) {
   const key = String(id || '').includes(':') ? String(id).split(':').pop() : String(id || '');
-  return key.includes('ocean') || key.includes('river');
+  return /ocean|river|lake|estuary|shelf|inland_sea|archipelago_sea|frozen_archipelago|frozen_basin/.test(key);
 }
 function biomeTag(id) { return isWetBiome(id) ? 'wet' : 'dry'; }
 function wetCount(list) { return (list || []).filter(isWetBiome).length; }
 function isAquaria(planet) {
   const list = planet && planet.biomes || [];
+  if (planet?.generationModel === 'ClassicClimateV3') return EUHierarchy.isAquariaV3(planet.archetype, list);
   return list.length > 0 && wetCount(list) / list.length >= 2 / 3;
 }
 
@@ -263,7 +266,7 @@ function vegetated(id){const path=id.split(':').pop();if(!id.startsWith('minecra
 function oxygenFraction(comp){if(!comp.length)return 0;const explicit=comp.some(s=>s.includes(':'));let total=0,o2=0;for(const raw of comp){const [g,v]=raw.split(':'),f=explicit&&v!==undefined?Math.fround(Math.max(0,Number(v)||0)):Math.fround(1/comp.length);total=Math.fround(total+f);if(g.trim().toUpperCase()==='O2')o2=Math.fround(o2+f);}return total>0?Math.fround(o2/total):0;}
 function archetypeFrom(p){if(p.atmosphere==='none')return p.category==='distant'?'dwarf_planet':'airless';const gas=(p.composition||[]).join(',').toUpperCase();if(p.category==='gas_giant')return p.temperatureC>700?'hot_jupiter':gas.includes('CH4')&&p.temperatureC<-160?'ice_giant':'gas_giant';if(gas.includes('SO2')||gas.includes('H2S'))return 'sulfur';if(gas.includes('CH4')&&p.category==='cold_habitable')return 'moon_titan';if(p.category==='very_hot')return p.temperatureC>1000?'lava':'ultrahot';if(p.category==='hot')return gas.includes('CO2')?'mars_like':'desert';if(p.category==='cold_habitable')return p.temperatureC<-80?'ice':'snowball';if(p.category==='habitable')return gas.includes('O2')?'ocean':'hycean';if(p.category==='distant')return p.temperatureC<-150?'ice':'dwarf_planet';return 'desert';}
 
-function createPlanet(r,systemIndex,index,formal,star,worldSeed,previousOrbit=0,climate=false,total=0,systemSeed=0n){
+function createPlanet(r,systemIndex,index,formal,star,worldSeed,previousOrbit=0,climate=false,total=0,systemSeed=0n,classicBiomes=false){
  let category=pickCategory(r,index),orbit=(CATEGORIES[category][0]+r.nextDouble()*(CATEGORIES[category][1]-CATEGORIES[category][0]))*Math.sqrt(Math.max(.01,Math.fround(STAR[star])));if(climate){const gas=NEW_GALAXY.gas(systemSeed,index,total,NEW_POLICY.normalizedOrbit(orbit,Math.fround(STAR[star])));if(gas)category='gas_giant';else if(category==='gas_giant')category=NEW_POLICY.normalizedOrbit(orbit,Math.fround(STAR[star]))>1.7?'distant':'habitable';}let temperature=temperatureFor(category,orbit,star);if(orbit<.2)temperature=Math.max(temperature,278.3*Math.max(.000001,Math.fround(STAR[star]))**.25/Math.sqrt(Math.max(.005,orbit))-273.15);
  const pool=ARCH[category].slice();if(['temperate','habitable'].includes(category))pool.push('super_earth');let archetype=category==='gas_giant'?pickGas(r,temperature):pool[r.nextInt(pool.length)],atmosphere;
  if(archetype==='withered'){orbit=.80+r.nextDouble()*.10;category='temperate';atmosphere='thick';}else atmosphere=category==='gas_giant'?(['ice_giant','mini_neptune','gas_dwarf'].includes(archetype)?'medium':'thick'):pickAtmosphere(r,category);
@@ -276,7 +279,7 @@ function createPlanet(r,systemIndex,index,formal,star,worldSeed,previousOrbit=0,
  if(archetype==='brown_dwarf'){r.nextFloat();} // Same palette brightness RNG consumption as the game's current new-catalog path.
  const seed=r.nextLong().toString();if(category==='habitable'&&atmosphere!=='none'&&oxygenFraction(comp)>=.10&&visualUnit(seed+'|taiga')<.4){const taiga=['taiga','old_growth_pine_taiga','old_growth_spruce_taiga'][Math.floor(visualUnit(seed+'|taiga-kind')*3)];if(!biomeList.includes('minecraft:'+taiga))biomeList.push('minecraft:'+taiga);}
    const body={id,designation:desig,name,category,atmosphere,temperatureC:temperature,gravity,radiation,gauss,rings,moons,orbitAu:orbit,diameterEarth:diameter,biomes:biomeList,composition:comp,archetype,aerosol:AEROSOL_BY_ARCH[archetype]||'none',seed,systemIndex,index,generationModel:climate?'ClassicClimateV1':'Classic'};
-  if(climate){body.biomes=NEW_POLICY.biomes(seed,category,atmosphere,orbit,Math.fround(STAR[star]),biomeList);body.moons=NEW_POLICY.moons(seed,moons,category==='gas_giant',orbit,Math.fround(STAR[star]));
+  if(climate&&!classicBiomes){body.biomes=NEW_POLICY.biomes(seed,category,atmosphere,orbit,Math.fround(STAR[star]),biomeList);body.moons=NEW_POLICY.moons(seed,moons,category==='gas_giant',orbit,Math.fround(STAR[star]));
    const specs=moonSpecs(body);body.customMoons=specs.map(m=>{const ms=BigInt.asIntN(64,BigInt(seed)^(0x9e3779b97f4a7c15n*BigInt(m.index+1)));return {...m,radiusKm:Math.min(m.radiusKm,6371*diameter*.45),biomes:NEW_POLICY.biomes(ms,m.category,m.atmosphere,orbit,Math.fround(STAR[star]),m.biomes)};});
   }return body;
 }
@@ -471,7 +474,7 @@ function companionFor(r, formal, star) {
 }
 
 function generateCatalog(worldSeed, options = {}) {
-  const climate=!options.generationModel||options.generationModel==='ClassicClimateV1';
+  const generationModel=options.generationModel||'ClassicClimateV3',climate=generationModel!=='Classic',physics=['ClassicClimateV2','ClassicClimateV3'].includes(generationModel),hierarchical=generationModel==='ClassicClimateV3';
   worldSeed = BigInt.asIntN(64, BigInt(worldSeed));
   const systems=[solarSystem(worldSeed),...demos(worldSeed)];
   for(const p of systems[0].planets)p.archetype=archetypeFrom(p);
@@ -479,31 +482,31 @@ function generateCatalog(worldSeed, options = {}) {
   for(let i=1;i<systems.length;i++){systems[i].id='enchanted_universe:system_demo_'+['asterion','betelgeuse','singularity','rigel'][i-1];for(let j=0;j<systems[i].planets.length;j++)systems[i].planets[j].archetype=demoTypes[i-1][j];}
   systems[0].id='enchanted_universe:system_sol';
   const betel = systems.find(x => x.formalName === 'Betelgeuse');
-  if (betel) betel.companion = { star: 'white_dwarf', name: 'Сиварха', orbitAu: 4.0, kind: 'giant_white_dwarf', real: true };
+  if(betel){betel.companion={star:hierarchical?'white_blue_dwarf':'white_dwarf',name:'Сиварха',orbitAu:hierarchical?8.8:4,kind:'giant_white_dwarf',real:true};if(hierarchical){betel.stellarHierarchy=EUHierarchy.betelgeuse();betel.distanceLy=548;const previous=new Map;for(let pi=0;pi<betel.planets.length;pi++){const body=betel.planets[pi],a=EUHierarchy.choose(betel.stellarHierarchy,body.seed,pi,betel.planets.length,previous);EUHierarchy.adjust(body,a,betel.stellarHierarchy,moonSpecs);}}else if(physics){const e=EUBinaryPolicy.eccentricity('enchanted_universe:system_demo_betelgeuse'),m1=EUBinaryPolicy.mass('red_supergiant'),m2=EUBinaryPolicy.mass('white_dwarf'),sMax=EUBinaryPolicy.safeS(4,e,m1,m2),pMin=EUBinaryPolicy.safeP(4,e,m1,m2),inner=betel.planets[0],outer=betel.planets[1];inner.orbitAu=Math.min(inner.orbitAu,sMax*.9);inner.orbitHost='primary';inner.generationModel='ClassicClimateV2';outer.orbitAu=Math.max(outer.orbitAu,pMin);outer.orbitHost='barycenter';outer.generationModel='ClassicClimateV2';for(const body of [inner,outer]){const effective=EUBinaryPolicy.effectiveLuminosity(body.orbitHost,body.orbitAu,4,Math.fround(STAR.red_supergiant),Math.fround(STAR.white_dwarf));body.biomes=NEW_POLICY.biomes(body.seed,body.category,body.atmosphere,body.orbitAu,effective,body.biomes);body.moons=NEW_POLICY.moons(body.seed,body.moons,body.category==='gas_giant',body.orbitAu,effective);body.customMoons=moonSpecs({...body,customMoons:null});}}}
   if (options && options.smesharia) systems.push(...smeshariaSystems(worldSeed));
   const systemCount=climate?NEW_GALAXY.COUNT:96,starDeck=climate?NEW_GALAXY.deck(worldSeed,systemCount):[];
   for (let i = 0; i < systemCount; i++) {
     const systemSeed = mix(worldSeed, i);
     const r = new MinecraftRandom(systemSeed);
-    const jitter=r.nextDouble(),distance=climate?NEW_GALAXY.distance(worldSeed,i,jitter):4+i*3.15+jitter*.8;
+    const jitter=r.nextDouble(),distance=physics?NEW_GALAXY.distanceV2(i,jitter):climate?NEW_GALAXY.distance(worldSeed,i,jitter):4+i*3.15+jitter*.8;
     const rolled=pickStar(r),star=climate?starDeck[i]:rolled;
     // Порядок как в Java SpaceGenerator.generate(): компаньон тянется ДО имён,
     // а его орбита — уже после планет. Иначе имена систем и планеты в системах
     // с компаньоном не совпадали бы с игрой.
-    const companion = companionFor(r, '', star);
+    let companion=companionFor(r,'',star);
     const name = systemName(r);
     const formal = formalName(r);
-    if (companion) companion.name = formal + ' B';
+    if(companion)companion.name=formal+' B';
     let planetCount=1+r.nextInt(5);if(climate&&!NEW_GALAXY.planets(worldSeed,i))planetCount=0;
-    const planets = [];
-    let previousOrbit = 0;
-    for (let p = 0; p < planetCount; p++) {
-      const planet=createPlanet(r,i,p,formal,star,worldSeed,previousOrbit,climate,planetCount,systemSeed);
-      planets.push(planet);
-      previousOrbit = planet.orbitAu;
-    }
-    if (companion) companion.orbitAu = 1.5 + r.nextDouble() * 4.5;
-    systems.push({ name, formalName: formal, star, companion, distanceLy: distance, planets, systemIndex:i,seed:String(systemSeed),id:'enchanted_universe:system_'+i });
+    if(companion&&physics)companion.orbitAu=1.5+r.nextDouble()*4.5;
+    const planets=[];let previousOrbit=0;
+    let stellarHierarchy=null;
+    if(hierarchical){stellarHierarchy=EUHierarchy.generate(worldSeed,i,'enchanted_universe:system_'+i,name,star);const previous=new Map;for(let pi=0;pi<planetCount;pi++){const body=createPlanet(r,i,pi,formal,star,worldSeed,previousOrbit,climate,planetCount,systemSeed,true),a=EUHierarchy.choose(stellarHierarchy,body.seed,pi,planetCount,previous);EUHierarchy.adjust(body,a,stellarHierarchy,moonSpecs);planets.push(body);previousOrbit=Math.max(previousOrbit,body.orbitAu);}}
+    else if(physics&&companion){const m1=EUBinaryPolicy.mass(star),m2=EUBinaryPolicy.mass(companion.star),e=EUBinaryPolicy.eccentricity('enchanted_universe:system_'+i),primaryLimit=EUBinaryPolicy.safeS(companion.orbitAu,e,m1,m2),secondaryLimit=EUBinaryPolicy.safeS(companion.orbitAu,e,m2,m1),circumbinaryMin=EUBinaryPolicy.safeP(companion.orbitAu,e,m1,m2);let previousPrimary=0,previousSecondary=0,previousBary=0;
+     for(let pi=0;pi<planetCount;pi++){const body=createPlanet(r,i,pi,formal,star,worldSeed,previousOrbit,climate,planetCount,systemSeed);let host,orbit;const pType=body.orbitAu>=circumbinaryMin*.78||(pi===planetCount-1&&planetCount>=4);if(pType){host='barycenter';orbit=Math.max(circumbinaryMin,body.orbitAu,previousBary>0?previousBary*1.34+.22:0);previousBary=orbit;}else{const secondary=EUBinaryPolicy.comparable(m1,m2)&&(pi&1)===1,limit=secondary?secondaryLimit:primaryLimit,previous=secondary?previousSecondary:previousPrimary,raw=Math.max(.06,Math.min(body.orbitAu,limit*.92));host=secondary?'secondary':'primary';orbit=previous>0?Math.max(raw,previous*1.34+.08):raw;if(orbit>limit){host='barycenter';orbit=Math.max(circumbinaryMin,previousBary>0?previousBary*1.34+.22:circumbinaryMin);previousBary=orbit;}else if(secondary)previousSecondary=orbit;else previousPrimary=orbit;}
+      const l1=Math.fround(STAR[star]),l2=Math.fround(STAR[companion.star]),effective=EUBinaryPolicy.effectiveLuminosity(host,orbit,companion.orbitAu,l1,l2);body.orbitAu=orbit;body.orbitHost=host;body.generationModel='ClassicClimateV2';body.hostLuminosity=effective;body.biomes=NEW_POLICY.biomes(body.seed,body.category,body.atmosphere,orbit,effective,body.biomes);body.moons=NEW_POLICY.moons(body.seed,body.moons,body.category==='gas_giant',orbit,effective);body.customMoons=moonSpecs({...body,customMoons:null});planets.push(body);previousOrbit=Math.max(previousOrbit,orbit);}
+    }else{for(let pi=0;pi<planetCount;pi++){const body=createPlanet(r,i,pi,formal,star,worldSeed,previousOrbit,climate,planetCount,systemSeed);body.orbitHost='primary';body.generationModel=generationModel;planets.push(body);previousOrbit=body.orbitAu;}if(companion)companion.orbitAu=1.5+r.nextDouble()*4.5;}
+    if(hierarchical&&stellarHierarchy){const b=stellarHierarchy.components.find(c=>c.id==='B');companion=b?{star:b.star,name:formal+' B',orbitAu:stellarHierarchy.orbits[0]?.semiMajorAu||0,kind:'hierarchy'}:null;}systems.push({name,formalName:formal,star,companion,distanceLy:distance,planets,systemIndex:i,seed:String(systemSeed),id:'enchanted_universe:system_'+i,generationModel,stellarHierarchy});
   }
   // Магнитары в Java StarSystem получают префикс PSR- (нормализация старых имён).
   // Добавляем его и в веб-каталог, чтобы названия совпадали с игрой.
@@ -512,8 +515,11 @@ function generateCatalog(worldSeed, options = {}) {
     if (!String(s.name).startsWith('PSR-')) s.name = 'PSR-' + s.name;
     if (!String(s.formalName).startsWith('PSR-')) s.formalName = 'PSR-' + s.formalName;
   }
-  appendMysteryPlanet(systems, worldSeed);
-  return { worldSeed: worldSeed.toString(), generationType:climate?'ClassicClimateV1':'Classic',generationModel:climate?'ClassicClimateV1':'Classic',systems };
+  for(const system of systems){system.generationModel=generationModel;if(hierarchical&&!system.stellarHierarchy)system.stellarHierarchy={components:[EUHierarchy.component('A',system.name,system.star)],orbits:[],root:'A'};system.realSystem=String(system.id||'').endsWith('system_sol')||String(system.id||'').includes('system_demo_betelgeuse');for(const body of system.planets){body.generationModel=generationModel;if(!body.orbitHost)body.orbitHost='primary';}}
+  if(hierarchical)for(const system of systems){if(system.id.endsWith('system_sol'))continue;for(const p of system.planets){const hab=p.category==='habitable'||(['moderate','medium'].includes(p.atmosphere)&&oxygenFraction(p.composition)>=.10);if(hab||EUHierarchy.isAquariaV3(p.archetype,p.biomes))p.biomes=EUHierarchy.classicBiomes(p.seed,'habitable',p.atmosphere,p.archetype,p.biomes);p.customMoons=moonSpecs(p).map(m=>{const hab=m.category==='habitable'||(['moderate','medium'].includes(m.atmosphere)&&oxygenFraction(m.composition)>=.10);if(!hab&&!EUHierarchy.isAquariaV3(m.archetype,m.biomes))return m;const seed=BigInt.asIntN(64,BigInt(p.seed)^(0x9e3779b97f4a7c15n*BigInt(m.index+1))).toString();return{...m,biomes:EUHierarchy.classicBiomes(seed,'habitable',m.atmosphere,m.archetype,m.biomes)};});}}
+  appendMysteryPlanet(systems,worldSeed,physics);
+  if(hierarchical)EUHierarchy.place(worldSeed,systems);
+  return { worldSeed: worldSeed.toString(), generationType:generationModel,generationModel,systems };
 }
 
 /* ── Загадочная планета ───────────────────────────────────────────────────────
@@ -521,13 +527,13 @@ function generateCatalog(worldSeed, options = {}) {
    Порядок вызовов RNG — КОНТРАКТ с Java SpaceGenerator.appendMysteryPlanet:
    меняешь здесь — меняй там, иначе карта мира и превью по сиду разойдутся. */
 const MYSTERY_SALT = 0x4D595354;
-function appendMysteryPlanet(systems, worldSeed) {
+function appendMysteryPlanet(systems,worldSeed,physics=false) {
   const r = new MinecraftRandom(mix(worldSeed, MYSTERY_SALT));
   if (r.nextFloat() >= 0.20) return;
   const candidates = [];
   systems.forEach((s, idx) => {
     const path=String(s.id||'').split(':').pop();if(!path.startsWith('system_')||path.startsWith('system_demo'))return;
-    if (!s.planets || !s.planets.length) return;
+    if(!s.planets||!s.planets.length)return;if(physics&&s.companion)return;
     if (s.planets.some(p => p.orbitAu >= 2.2)) return;
     candidates.push(idx);
   });
@@ -566,6 +572,7 @@ function appendMysteryPlanet(systems, worldSeed) {
     systemIndex: systemNumber,
     index,
     mystery: true,
+    orbitHost:'primary',
     canLand: false
   });
 }

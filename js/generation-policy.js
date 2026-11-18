@@ -33,8 +33,8 @@
   if(category==='distant')waters=[...iceWater];
   choose(result,waters,Math.min(count-result.length,Math.max(0,waterCount-result.filter(wet).length)),seed,'water',id=>thermalWeight(id,cold));
   if(alive){for(const list of [NORMAL_LAND,WARM_LAND])for(const id of list)if(!snow(id))land.push(id);}
-  else {land.push(...DRY);for(const id of ['desert','badlands','eroded_badlands','stony_shore','windswept_hills','beach','savanna','savanna_plateau'])land.push(barren('minecraft:'+id));}
-  for(const id of old)if(!wet(id)&&!snow(id)&&!id.includes('night_forest'))land.push(!alive?barren(id):id);
+  else {land.push(...DRY);for(const id of ['desert','badlands','eroded_badlands','stony_shore','windswept_hills','beach'])land.push(barren('minecraft:'+id));}
+  for(const id of old)if(!wet(id)&&!snow(id)&&!id.includes('night_forest')&&!id.includes('savanna'))land.push(!alive?barren(id):id);
   choose(result,land,count-result.length,seed,'land',id=>thermalWeight(id,cold));
   if(result.length<count)choose(result,DRY,count-result.length,seed,'fallback',()=>1);
   return result.slice(0,count);

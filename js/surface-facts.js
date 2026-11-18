@@ -30,7 +30,8 @@
   const ice=(p.biomes||[]).filter(id=>material(id).ice).length/Math.max(1,(p.biomes||[]).length);
   if(category!=='habitable'&&ice>0)snow=Math.max(snow,Math.min(.86,.3+.5*ice));
   if(Number(p.temperatureC)>60)snow=0;
-  return {cold,snow,normalized};
+  if((p.biomes||[]).some(id=>String(id).includes("night_forest")))snow=0;
+   return {cold,snow:snow*.5,normalized};
  }
  const api={key,material,life,fluid,climate,categories};if(typeof window!=='undefined')window.EUSurfaceFacts=api;if(typeof module!=='undefined')module.exports=api;
 })();

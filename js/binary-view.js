@@ -1,20 +1,2 @@
-/* Circular two-body model shared with Java BinaryOrbitMath; display scaling is separate. */
-(function(){'use strict';
- const TAU=2*Math.PI;
- const MASS={brown_dwarf:.055,white_dwarf:.6,magnetar:1.4,red_dwarf:.35,orange_dwarf:.7,white_star:2,white_blue_dwarf:3.5,white_yellow_dwarf:1.3,blue_dwarf:2.2,red_giant:2,carbon_star:2,yellow_giant:3,white_giant:4,blue_giant:8,yellow_supergiant:12,red_supergiant:16,white_supergiant:18,blue_supergiant:25};
- function phase(id){let h=0x811c9dc5;for(let i=0;i<String(id).length;i++)h=Math.imul(h^String(id).charCodeAt(i),0x01000193);return(h>>>0)/4294967296*TAU;}
- function mass(key){return MASS[key]||1;}
- function at(system,ticks,realistic){
-  if(!system?.companion)return null;
-  const m1=Number(system.massSolar)>0?Number(system.massSolar):mass(system.star);
-  const m2=Number(system.companion.massSolar)>0?Number(system.companion.massSolar):mass(system.companion.star);
-  const a=Math.max(.01,Number(system.companion.orbitAu)||1),total=m1+m2;
-  const period=(realistic?8766000*a**1.5:TAU/.04*20*Math.sqrt(a))/Math.sqrt(total);
-  const id=system.id||system.formalName||system.name||'';
-  const angle=phase(id+'|binary')+TAU*((Number(ticks)||0)%period)/period;
-  const inclination=(4+8*Math.sin(phase(id)))*Math.PI/180;
-  const relative={x:Math.cos(angle)*a,y:Math.sin(angle)*Math.cos(inclination)*a*.86-Math.sin(angle)*Math.sin(inclination)*a*.55};
-  return {m1,m2,separationAu:a,periodTicks:period,primary:{x:-relative.x*m2/total,y:-relative.y*m2/total},secondary:{x:relative.x*m1/total,y:relative.y*m1/total},inclination,angle};
- }
- const api={mass,phase,at};if(typeof window!=='undefined')window.EUBinary=api;if(typeof module!=='undefined')module.exports=api;
-})();
+/* Keplerian binary model shared with BinaryOrbitMath.java. */
+(function(){'use strict';const TAU=2*Math.PI,policy=globalThis.EUBinaryPolicy||(typeof module!=='undefined'?require('./binary-policy.js'):null);function phase(id){let h=0x811c9dc5;for(let i=0;i<String(id).length;i++)h=Math.imul(h^String(id).charCodeAt(i),0x01000193);return(h>>>0)/4294967296*TAU;}const mass=policy.mass;function eccentric(mean,e){let E=e<.8?mean+e*Math.sin(mean):Math.PI;for(let i=0;i<10;i++){const d=(E-e*Math.sin(E)-mean)/(1-e*Math.cos(E));E-=d;if(Math.abs(d)<1e-12)break;}return E;}function at(system,ticks,realistic){if(!system?.companion)return null;const m1=Number(system.massSolar)>0?Number(system.massSolar):mass(system.star),m2=Number(system.companion.massSolar)>0?Number(system.companion.massSolar):mass(system.companion.star),a=Math.max(.01,Number(system.companion.orbitAu)||1),total=m1+m2,period=(realistic?8766000*a**1.5:TAU/.04*20*Math.sqrt(a))/Math.sqrt(total),id=system.id||system.formalName||system.name||'',e=system.generationModel==='ClassicClimateV2'?policy.eccentricity(id):0,mean=((phase(id+'|binary')+TAU*((Number(ticks)||0)%period)/period)%TAU+TAU)%TAU,E=eccentric(mean,e),inclination=(4+8*Math.sin(phase(id)))*Math.PI/180,x=a*(Math.cos(E)-e),z=a*Math.sqrt(Math.max(0,1-e*e))*Math.sin(E),relative={x,y:z*Math.cos(inclination),z:z*Math.sin(inclination)},trueAnomaly=Math.atan2(Math.sqrt(1-e*e)*Math.sin(E),Math.cos(E)-e);return{m1,m2,separationAu:a,currentSeparationAu:Math.hypot(x,z),periodTicks:period,eccentricity:e,meanAnomaly:mean,trueAnomaly,primary:{x:-relative.x*m2/total,y:-relative.y*m2/total,z:-relative.z*m2/total},secondary:{x:relative.x*m1/total,y:relative.y*m1/total,z:relative.z*m1/total},inclination,angle:trueAnomaly};}const api={mass,phase,at};if(typeof window!=='undefined')window.EUBinary=api;if(typeof module!=='undefined')module.exports=api;})();

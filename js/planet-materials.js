@@ -25,7 +25,7 @@
   if(phase==='sulfur'&&share===0)liquid=.1+.05*r();
   if(share===1&&phase)liquid=clamp(liquid,.85,1);
   const defaultLand={id:'rock',color:[123,119,113],canopy:[102,120,83],vegetation:false,ice:false};
-  const provinces=[];for(let i=0,n=Math.max(15,Math.min(48,(dry.length||1)*5));i<n;i++){const y=1-2*(i+.5)/n,a=i*2.399963+r()*.5,rad=Math.sqrt(1-y*y);provinces.push({x:Math.cos(a)*rad,y,z:Math.sin(a)*rad,biome:dry[i%Math.max(1,dry.length)]||defaultLand});}
+  const provinces=[];for(let i=0,n=Math.max(15,Math.min(48,(dry.length||1)*5));i<n;i++){const biome=dry[i%Math.max(1,dry.length)]||defaultLand,id=String(biome.id||''),snowy=/snow|frozen|icy|iced|ice_spikes|jagged_peaks/.test(id),warm=/jungle|savanna|mangrove|swamp|warm_ocean|lukewarm/.test(id);let y=1-2*(i+.5)/n;if(snowy)y=Math.sign(y||((i&1)?1:-1))*(.58+.38*Math.abs(y));else if(warm)y=Math.sign(y||((i&1)?1:-1))*(.18+.34*Math.abs(y));const a=i*2.399963+r()*.5,rad=Math.sqrt(Math.max(0,1-y*y));provinces.push({x:Math.cos(a)*rad,y,z:Math.sin(a)*rad,biome});}
   m={key,seed:String(p.seed),perm:perm(key+'|'+session),biomes,dry,wet,provinces,fluid:phase,water:liquid>0,waterFrac:liquid,landThreshold:liquid,life:facts.life(p),cold:climate.cold,snow:climate.snow,frequency:2.8+r()*3.1,warp:.28+r()*.48,rotation:r()*Math.PI*2,base:[123,119,113],ready:false};
   let color=phase==='water'?blend([17,56,153],[72,162,207],climate.cold):(EUBiomeMaterials.fluids[phase]||[43,90,138]);
   if(phase==='water'&&wet.length){const b=wet.reduce((sum,b)=>sum.map((v,i)=>v+b.water[i]),[0,0,0]).map(v=>v/wet.length);color=blend(color,b,.18);}
@@ -48,13 +48,14 @@
    const relief=1+hill*.45+detail*.13;col=col.map(v=>v*relief);
    if(!biome.vegetation&&!biome.ice){const crack=Math.pow(Math.max(0,1-Math.abs(fb(m,x,y,z,91,16,2))*18),5);col=col.map(v=>v*(1-.08*crack));}
   }
-  const frost=m.snow?smooth(m.snowThreshold-.014,m.snowThreshold+.014,snowScore(m,x,y,z,e)):0;
+  const score=snowScore(m,x,y,z,e),frost=m.snow?smooth(m.snowThreshold-.014,m.snowThreshold+.014,score):0,rim=m.snow?smooth(m.snowThreshold-.12,m.snowThreshold-.02,score):0;
+  if(rim>0)col=water?blend(col,blend([88,151,187],[174,209,222],rim),rim*.75):blend(col,blend(col,[203,214,203],.42),rim);
   if(frost>0){const snow=blend([210,225,229],[246,249,248],clamp(.56+hill*.8));col=blend(col,snow,frost);}
   return col.map(v=>clamp(v,0,255));
  }
  function* bakeSteps(p,m=model(p)){yield* prepareSteps(m);const side=256,cv=document.createElement('canvas');cv.width=cv.height=side;const ctx=cv.getContext('2d'),image=ctx.createImageData(side,side),liquidMask=new Uint8Array(side*side),settleable=new Uint8Array(side*side);let liquid=0,snow=0,count=0;
   for(let py=0;py<side;py++){for(let px=0;px<side;px++){const x=(px+.5)/side*2-1,y=1-(py+.5)/side*2,q=x*x+y*y;if(q>1)continue;const z=Math.sqrt(1-q),e=elevation(m,x,y,z),c=colorAt(m,x,y,z,e),i=(py*side+px)*4,limb=.79+.21*z;
-   image.data[i]=c[0]*limb;image.data[i+1]=c[1]*limb;image.data[i+2]=c[2]*limb;image.data[i+3]=255;count++;const wet=e<=m.landThreshold,frozen=snowScore(m,x,y,z,e)>m.snowThreshold;
+   image.data[i]=c[0]*limb;image.data[i+1]=c[1]*limb;image.data[i+2]=c[2]*limb;image.data[i+3]=255;count++;const wet=e<=m.landThreshold,frozen=snowScore(m,x,y,z,e)>m.snowThreshold-.12;
     liquidMask[py*side+px]=wet?1:0;if(wet)liquid++;if(frozen)snow++;
     if(!wet&&!frozen){const region=province(m,x,y,z).a;const col=region.color;if(region.vegetation&&col[1]>col[0]+6&&col[1]>col[2]+8)settleable[py*side+px]=1;}
   }yield;}ctx.putImageData(image,0,0);masks.set(p,{side,liquid:liquidMask,settleable});cv.surfaceStats={liquidPixels:liquid/count,snowPixels:snow/count,targetLiquid:m.waterFrac,targetSnow:m.snow,fluid:m.fluid};return cv;

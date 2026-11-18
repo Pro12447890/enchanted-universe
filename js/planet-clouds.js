@@ -33,8 +33,13 @@
   if(family===4){const cx=.30+.40*hash(3,7,seed),cy=.30+.40*hash(8,2,seed),dx=x-cx,dy=y-cy,r=Math.hypot(dx,dy),arms=.5+.5*Math.cos(Math.atan2(dy,dx)*3-r*29+warp*2);return(.64*arms+.36*n)*smooth(.025,.07,r)*(1-.3*smooth(.18,.55,r));}
   if(family===5)return .30+.70*n;return .70*n+.30*noise(px*2,py*2,seed+71+epoch*17);
  }
+ function hash3(x,y,z,seed){return fract(Math.sin(x*127.1+y*311.7+z*74.7+seed*.173)*43758.5453);}
+ function noise3(x,y,z,seed){const ix=Math.floor(x),iy=Math.floor(y),iz=Math.floor(z);let fx=fract(x),fy=fract(y),fz=fract(z);fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy);fz=fz*fz*(3-2*fz);const h=(dx,dy,dz)=>hash3(ix+dx,iy+dy,iz+dz,seed),x00=h(0,0,0)+(h(1,0,0)-h(0,0,0))*fx,x10=h(0,1,0)+(h(1,1,0)-h(0,1,0))*fx,x01=h(0,0,1)+(h(1,0,1)-h(0,0,1))*fx,x11=h(0,1,1)+(h(1,1,1)-h(0,1,1))*fx,a=x00+(x10-x00)*fy,b=x01+(x11-x01)*fy;return a+(b-a)*fz;}
+ function sphereField(p,nx,ny,nz,epoch){const h=Math.round(p.cloudHeightFraction/.018)*.018,f=7-12*h,warp=noise3(nx*2.1+9,ny*2.1+2,nz*2.1+5,p.geometrySeed+epoch*17)-.5,x=nx*f+warp*1.15,y=ny*f-warp*.75,z=nz*f+warp*.55,n=noise3(x,y,z,p.geometrySeed+epoch*17);if(p.family===2)return .72*noise3(nx*2+warp,ny*22,nz*2,p.geometrySeed+epoch*17)+.28*n;if(p.family===3)return .62*(1-Math.abs(Math.sin((ny*6+nx*.8+nz*.45+warp*.8)*Math.PI)))+.38*n;if(p.family===4){const cx=.3+.4*hash(3,7,p.geometrySeed),cy=.3+.4*hash(8,2,p.geometrySeed),dx=nx*.5+.5-cx,dy=ny*.5+.5-cy,r=Math.hypot(dx,dy),arms=.5+.5*Math.cos(Math.atan2(dy,dx)*3-r*29+warp*2);return(.64*arms+.36*n)*smooth(.025,.07,r)*(1-.3*smooth(.18,.55,r));}if(p.family===5)return .3+.7*n;return .7*n+.3*noise3(x*2,y*2,z*2,p.geometrySeed+71+epoch*17);}
+
+
  function sample(p,u,v,seconds,lx=1,ly=0){if(!p.family||!p.coverage)return 0;const time=Math.max(0,seconds),morph=Math.floor(time/p.morphSeconds),phase=smooth(0,1,(time-morph*p.morphSeconds)/p.morphSeconds),drift=time/(p.stepSeconds*256),x=fract(u-drift),y=fract(v-drift*.23),height=Math.round(p.cloudHeightFraction/.018)*.018,freq=7-12*height,warp=noise(x*3+9,y*3+2,p.geometrySeed)-.5;
-  const a=field(p.family,x,y,freq,warp,p.geometrySeed,morph),b=field(p.family,x,y,freq,warp,p.geometrySeed,morph+1);let mask=1;
+  let nx=u*2-1,ny=v*2-1,nz=Math.sqrt(Math.max(0,1-nx*nx-ny*ny));const spin=drift*Math.PI*2,cs=Math.cos(spin),sn=Math.sin(spin),rx=nx*cs+nz*sn,rz=nz*cs-nx*sn;nx=rx;nz=rz;const a=sphereField(p,nx,ny,nz,morph),b=sphereField(p,nx,ny,nz,morph+1);let mask=1;
   if(p.family===6){if(p.tidalEyeball){const dx=u*2-1,dy=v*2-1,z=Math.sqrt(Math.max(0,1-dx*dx-dy*dy)),mu=(dx*lx+dy*ly+z*.22)/Math.sqrt(1.0484);const cap=smooth(.25,.78,mu+.14*warp),rim=(1-smooth(.08,.40,Math.abs(mu-.1+.18*warp)))*.75;mask=Math.min(1,Math.max(cap,rim)*(.08+.92*smooth(-.18,.12,mu)));}else mask=.18+.82*smooth(.25,.88,Math.abs(v*2-1));}
   return smooth(.60-.28*p.coverage,.78-.28*p.coverage,a+(b-a)*phase)*p.coverage*mask*.58;
  }

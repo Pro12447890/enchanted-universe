@@ -7,7 +7,8 @@
   const eligible=order(seed,'size-order|',slots.filter(i=>color[i]!==6)),supers=Math.floor(count*.02+.5),giants=Math.floor(count*.09+.5);for(let i=0;i<eligible.length&&i<supers+giants;i++)size[eligible[i]]=i<supers?2:1;
   return color.map((group,i)=>{if(group===6)return unit(seed,'compact|'+i)<.64?'magnetar':'white_dwarf';if(size[i]===2)return group===0?'red_supergiant':group<=2?'yellow_supergiant':group<=4?'white_supergiant':'blue_supergiant';if(size[i]===1)return group===0?'red_giant':group<=2?'yellow_giant':group===3?'white_giant':'blue_giant';return group===0?(unit(seed,'orange|'+i)<.5?'red_dwarf':'orange_dwarf'):group===1?'yellow_dwarf':group===2?'white_yellow_dwarf':group===3?'white_star':group===4?'white_blue_dwarf':'blue_dwarf';});
  }
+ function distanceV2(index,jitter){const oldOuter=4+95*3.15+.8,max=(10+oldOuter)*1.15-10,rank=(index+.35+.30*jitter)/COUNT;return max*Math.sqrt(Math.max(.0001,Math.min(1,rank)));}
  function gas(seed,index,total,normalizedOrbit){const chance=normalizedOrbit<.66?.25:normalizedOrbit<=1.7?.40:.55,picked=unit(seed,'gas|'+index)<chance;if(total<=3)return picked;const indices=order(seed,'gas|',Array.from({length:total},(_,i)=>i));return picked&&indices.indexOf(index)<Math.floor(total*.70);}
  function distance(seed,index,jitter){const old=4+index*(95*3.15/126)+jitter*.8;return(10+old)*1.15-10;}
- const api={COUNT,unit,deck,gas,distance,planets:(seed,i)=>unit(seed,'planets|'+i)>=.10,farBrightness:k=>['red_dwarf','orange_dwarf'].includes(k)?.36:k==='yellow_dwarf'?.62:1};if(typeof window!=='undefined')window.EUGalaxyDistribution=api;if(typeof module!=='undefined')module.exports=api;
+ const api={COUNT,unit,deck,gas,distance,distanceV2,planets:(seed,i)=>unit(seed,'planets|'+i)>=.10,farBrightness:k=>['red_dwarf','orange_dwarf'].includes(k)?.72:k==='yellow_dwarf'?.84:1};if(typeof window!=='undefined')window.EUGalaxyDistribution=api;if(typeof module!=='undefined')module.exports=api;
 })();

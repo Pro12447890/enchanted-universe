@@ -24,6 +24,9 @@
   const DICT = {
     ru: {
       'brand.sub': 'предпросмотр сидов · карта космоса',
+      'origin.real': 'Реальный объект',
+      'origin.procedural': 'Процедурный (сгенерированный) объект',
+      'origin.realSystemProceduralBodies': 'Реальная система с процедурными телами',
       'seed.title': 'Сид мира: десятичный или 0x…',
       'generate': 'Сгенерировать',
       'random': 'Случайный сид',
@@ -305,6 +308,9 @@
     },
     en: {
       'brand.sub': 'seed preview · space map',
+      'origin.real': 'Real object',
+      'origin.procedural': 'Procedural (generated) object',
+      'origin.realSystemProceduralBodies': 'Real system with procedural bodies',
       'seed.title': 'World seed: decimal or 0x…',
       'generate': 'Generate',
       'random': 'Random seed',

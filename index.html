@@ -193,8 +193,8 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
   }
 </style>
 <link rel="stylesheet" href="assets/mobile-map.css?v=3">
-<link rel="stylesheet" href="assets/star-browser.css?v=2">
-<link rel="stylesheet" href="assets/gui-tones.css?v=2">
+<link rel="stylesheet" href="assets/star-browser.css?v=3">
+<link rel="stylesheet" href="assets/gui-tones.css?v=3">
 </head>
 <body>
 <canvas id="map"></canvas>
@@ -242,21 +242,24 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
 <script src="js/generation-pools.js?v=2"></script>
 <script src="js/generation-policy.js?v=2"></script>
 <script src="js/galaxy-distribution.js?v=2"></script>
-<script src="js/generator.js?v=42"></script>
+<script src="js/binary-policy.js?v=1"></script>
+<script src="js/planet-climate.js?v=2"></script>
+<script src="js/stellar-hierarchy.js?v=4"></script>
+<script src="js/generator.js?v=45"></script>
 <script src="js/orbits.js?v=5"></script>
 <script src="js/biome-materials.js?v=2"></script>
 <script src="js/surface-facts.js?v=2"></script>
 <script src="js/texture-bake-queue.js?v=2"></script>
 <script src="js/planet-materials.js?v=4"></script>
 <script src="js/object-index.js?v=3"></script>
-<script src="js/star-browser.js?v=3"></script>
+<script src="js/star-browser.js?v=4"></script>
 <script src="js/card-navigation.js?v=1"></script>
 <script src="js/planet-clouds.js?v=3"></script>
 <script src="js/thermal-emission.js?v=2"></script>
 <script src="js/city-lights.js?v=3"></script>
 <script src="js/binary-view.js?v=2"></script>
 <script src="js/black-hole-view.js?v=1"></script>
-<script src="js/planet-climate.js?v=1"></script>
+
 <script src="js/rings3d.js?v=2"></script>
 <script src="js/map-touch.js?v=2"></script>
 <script src="js/tools-panel.js?v=2"></script>
@@ -461,23 +464,14 @@ function systemJitter(i, s) {
 function systemPos(i, s) {
   // Импортированный каталог мира: единая галактическая compress-функция,
   // та же, что у чёрных дыр (positionLy из Java map units).
-  if (catalog && catalog.imported && s && s.positionLy) {
+  if (catalog && s && s.positionLy) {
     const w = EUOrbits.systemPosition(s);
     if (w) return w;
   }
-  if (i === 0) return { x: 0, y: 0 };
-  if (i <= 4) {
-    const dist = [12, 640, 26, 860][i-1];
-    const ang = -1.1 + (i-1) * 0.9;
-    const r = 55 + Math.sqrt(Math.max(1, dist)) * 18;
-    const j = systemJitter(i, s);
-    return { x: Math.cos(ang)*r + j.x, y: Math.sin(ang)*r + j.y };
-  }
-  const idx = i - 5;
-  const ang = idx * 2.399963229728653;
-  const r = 150 + Math.sqrt(Math.max(1, s.distanceLy)) * 48;
-  const j = systemJitter(i, s);
-  return { x: Math.cos(ang)*r + j.x, y: Math.sin(ang)*r + j.y };
+  if(['ClassicClimateV2','ClassicClimateV3'].includes(catalog?.generationModel)){const q=EUOrbits.javaSystemLy(catalog.worldSeed,i,Number(s.distanceLy)||0,true);return EUOrbits.galaxyWorld(q[0],q[2],true);}
+  if(i===0)return{x:0,y:0};
+  if(i<=4){const dist=[12,640,26,860][i-1],ang=-1.1+(i-1)*.9,r=55+Math.sqrt(Math.max(1,dist))*18,j=systemJitter(i,s);return{x:Math.cos(ang)*r+j.x,y:Math.sin(ang)*r+j.y};}
+  const idx=i-5,ang=idx*2.399963229728653,r=150+Math.sqrt(Math.max(1,s.distanceLy))*48,j=systemJitter(i,s);return{x:Math.cos(ang)*r+j.x,y:Math.sin(ang)*r+j.y};
 }
 function fitGalaxy() {
   let maxX = 1, maxY = 1;
@@ -497,8 +491,12 @@ function starRadiusUnits(s) {
 /* Позиция планеты: одна геометрия EUOrbits для отрисовки, попадания и слежения.
    Мёртвая ветка «NBC-3301» убрана: реальное имя NCS-3301, пара обрабатывается
    в js/orbits.js (одна игровая орбита .85, фазы строго ±π). */
+function hierarchyFrame(s,t=simTicks){if(s.generationModel!=='ClassicClimateV3'||!s.stellarHierarchy||s.id.endsWith('system_sol'))return null;return{h:s.stellarHierarchy,points:EUHierarchy.positions(s.stellarHierarchy,t,EUOrbits.isRealistic()),scale:EUHierarchy.scale(s.stellarHierarchy,s.planets)};}
+function componentWorld(index,s,id,t=simTicks){const center=systemPos(index,s),f=hierarchyFrame(s,t);if(!f)return center;const q=f.points.get(id)||{x:0,y:0,z:0};return{x:center.x+q.x*f.scale,y:center.y+(q.z*.86-q.y*.55)*f.scale};}
+function drawHierarchyCompanions(s,index,alpha,now,r){const f=hierarchyFrame(s);if(!f)return;for(const c of f.h.components){if(c.id==='A')continue;const q=componentWorld(index,s,c.id),x=screenX(q.x),y=screenY(q.y);if(x<-300||x>innerWidth+300||y<-300||y>innerHeight+300)continue;drawDetailedStar(c.star,x,y,Math.max(1.5,Math.min(240,c.radiusAu*f.scale*cam.z||r)),alpha,now);}}
+function planetHostWorld(sysIdx,system,p){if(EUOrbits.hierarchyOrbit(system,p))return componentWorld(sysIdx,system,p.orbitHost);const center=systemPos(sysIdx,system),pair=binaryWorld(system),host=p.orbitHost||((String(p.archetype||'').includes('circumbinary'))?'barycenter':'primary');if(!pair||host==='barycenter')return center;const part=host==='secondary'?pair.secondary:pair.primary;return{x:center.x+part.x,y:center.y+part.y};}
 function planetPos(sysIdx, system, p) {
-  const sp = String(p.archetype||'').includes('circumbinary') ? systemPos(sysIdx,system) : primaryWorld(sysIdx,system);
+  const sp=planetHostWorld(sysIdx,system,p);
   const local = EUOrbits.localPosition(system, p, simTicks);
   return { x: sp.x + local.x, y: sp.y + local.y };
 }
@@ -726,10 +724,10 @@ function binaryWorld(system,ticks=simTicks) {
   const state=EUBinary.at(system,ticks,EUOrbits.isRealistic());if(!state)return null;
   // One linear scale for both components; mass-weighted barycentre stays fixed.
   const maxAu=Math.max(state.separationAu,...system.planets.map(p=>Number(p.orbitAu)||0));
-  const scale=EUOrbits.AU_WORLD_MAX/Math.max(.01,maxAu);
+  const scale=(system.generationModel==='ClassicClimateV2'?EUOrbits.AU_WORLD_MAX*.52:EUOrbits.AU_WORLD_MAX)/Math.max(.01,maxAu);
   return {...state,scale,primary:{x:state.primary.x*scale,y:state.primary.y*scale},secondary:{x:state.secondary.x*scale,y:state.secondary.y*scale}};
 }
-function primaryWorld(index,system){const center=systemPos(index,system),pair=binaryWorld(system);return pair?{x:center.x+pair.primary.x,y:center.y+pair.primary.y}:center;}
+function primaryWorld(index,system){if(hierarchyFrame(system))return componentWorld(index,system,'A');const center=systemPos(index,system),pair=binaryWorld(system);return pair?{x:center.x+pair.primary.x,y:center.y+pair.primary.y}:center;}
 function companionPosition(system, sx, sy, r) {
   const pair=binaryWorld(system);if(!pair)return null;
   const dx=(pair.secondary.x-pair.primary.x)*cam.z,dy=(pair.secondary.y-pair.primary.y)*cam.z;
@@ -740,13 +738,10 @@ function drawBinaryOrbits(system,sx,sy,r,alpha){
   const cp=companionPosition(system,sx,sy,r);if(!cp)return;
   const pair=cp.pair,total=pair.m1+pair.m2;
   ctx.save();ctx.globalAlpha=alpha*.32;ctx.lineWidth=.85;
-  for(const [share,color] of [[pair.m2/total,'#e8c98d'],[pair.m1/total,'#9dceff']]){
+  for(const [share,color,sign] of [[pair.m2/total,'#e8c98d',-1],[pair.m1/total,'#9dceff',1]]){
     ctx.strokeStyle=color;ctx.beginPath();
-    for(let i=0;i<=96;i++){const angle=i/96*Math.PI*2;
-      const xx=cp.baryX+Math.cos(angle)*cp.orbit*share;
-      const yy=cp.baryY+Math.sin(angle)*cp.orbit*share*(Math.cos(pair.inclination)*.86-Math.sin(pair.inclination)*.55);
-      if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);
-    }ctx.stroke();
+    for(let i=0;i<=128;i++){const E=i/128*Math.PI*2,x=pair.separationAu*(Math.cos(E)-pair.eccentricity)*pair.scale*share*sign,z=pair.separationAu*Math.sqrt(1-pair.eccentricity*pair.eccentricity)*Math.sin(E)*pair.scale*share*sign,xx=cp.baryX+x*cam.z,yy=cp.baryY+z*cam.z*(Math.cos(pair.inclination)*.86-Math.sin(pair.inclination)*.55);if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}
+    ctx.stroke();
   }
   ctx.globalAlpha=alpha*.65;ctx.strokeStyle='#9acbb7';ctx.beginPath();ctx.moveTo(cp.baryX-3,cp.baryY);ctx.lineTo(cp.baryX+3,cp.baryY);ctx.moveTo(cp.baryX,cp.baryY-3);ctx.lineTo(cp.baryX,cp.baryY+3);ctx.stroke();ctx.restore();
 }
@@ -816,7 +811,7 @@ function drawGalaxy(alpha, now) {
     const farDim=EUGalaxyDistribution.farBrightness(s.star),farAlpha=alpha*(1-(1-farDim)*(1-smooth(2.5,7,cam.z)));
     drawDetailedStar(s.star,sx,sy,r,farAlpha,now);
     const companionFade = smooth(0.10, 0.35, cam.z);
-    if (s.companion && companionFade > 0.01) {
+    if(hierarchyFrame(s)){drawHierarchyCompanions(s,i,alpha*companionFade,now,r);}else if(s.companion&&companionFade>.01){
       const cp = companionPosition(s, sx, sy, r);
       const cd = starAppearance(s.companion.star);
       if (cp) {
@@ -1072,7 +1067,7 @@ function drawPlanets(alpha, now) {
       for (const p of s.planets) maxOrbit = Math.max(maxOrbit, p.orbitAu || 0.2);
       drawSmeshariaAura(starX, starY, Math.max(40, orbitUnits({ orbitAu: maxOrbit }) * cam.z * 1.25), alpha);
     }
-    if (s.companion) {
+    if(hierarchyFrame(s)){drawHierarchyCompanions(s,i,alpha*smooth(60,130,cam.z),now,6);}else if(s.companion){
       const nearFade = smooth(60, 130, cam.z);
       if (nearFade > 0.01) {
         const cp = companionPosition(s, starX, starY, Math.max(5, starRadiusUnits(s) * cam.z));
@@ -1109,8 +1104,9 @@ function drawPlanets(alpha, now) {
           ctx.lineWidth = 0.85 + 0.45 * sel;
           ctx.beginPath();
           for (let q = 0; q < orbitPath.length; q += 2) {
-            const xx = starX + orbitPath[q] * cam.z;
-            const yy = starY + orbitPath[q + 1] * cam.z;
+            const host=planetHostWorld(i,s,p),hx=screenX(host.x),hy=screenY(host.y);
+            const xx=hx+orbitPath[q]*cam.z;
+            const yy=hy+orbitPath[q+1]*cam.z;
             if (q === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
           }
           ctx.closePath(); ctx.stroke();
@@ -1220,7 +1216,7 @@ function planetSurface(p){return EUPlanetMaterials.model(p);}
 function buildSurfaceTexture(p,surf,base){return EUPlanetMaterials.bake(p,surf);}
 function drawRockySurface(x,y,r,p,surf,base){EUPlanetMaterials.draw(ctx,x,y,r,p,surf);}
 function landAt(surf,nx,ny,p){return EUPlanetMaterials.landAt(surf,nx,ny);}
-const MOON_RENDER_CACHE=new WeakMap();
+let MOON_RENDER_CACHE=new WeakMap();
 function moonBody(m,parent,system){
  let p=MOON_RENDER_CACHE.get(m);if(!p){
   p={...m,id:String(parent.id||parent.seed)+':moon:'+m.index,seed:String(m.seed??(String(parent.seed)+':moon:'+m.index)),
@@ -1334,7 +1330,9 @@ function planetRoll(p) {
   const rotation = EUOrbits.rotationOf(p);
   return rotation ? rotation.skyRollDeg * Math.PI / 180 : 0;
 }
+const SOLAR_SPRITES={};for(const [name,file] of Object.entries({'Меркурий':'mercury','Венера':'venus','Земля':'earth','Марс':'mars','Юпитер':'jupiter','Сатурн':'saturn','Уран':'uranus','Нептун':'neptune'})){const im=new Image();im.src='assets/solar/'+file+'.png';SOLAR_SPRITES[name]=im;}
 function drawPlanet(x, y, r, p, starX, starY) {
+  if(String(p.id||'').includes('_sol_')&&SOLAR_SPRITES[p.name]?.naturalWidth){ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(SOLAR_SPRITES[p.name],x-r,y-r,2*r,2*r);ctx.restore();return;}
   const roll = planetRoll(p), c = Math.cos(roll), sn = Math.sin(roll);
   const dx = (starX == null ? x + 1 : starX) - x, dy = (starY == null ? y : starY) - y;
   ctx.save(); ctx.translate(x,y); ctx.rotate(roll); ctx.translate(-x,-y);
@@ -1363,8 +1361,8 @@ function drawPlanetLocal(x, y, r, p, starX, starY) {
   }
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
 
-  if (gas) {
-    drawGasGiant(x, y, r, p, base);
+  if(gas){
+    ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.clip();drawGasGiant(x,y,r,p,base);
   } else {
     ctx.save();
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
@@ -1388,6 +1386,7 @@ function drawPlanetLocal(x, y, r, p, starX, starY) {
   EUThermal.draw(ctx,x,y,r,p);
   EUCities.draw(ctx,x,y,r,p,surf,lx,ly,performance.now()/1000);
   EUClouds.draw(ctx,x,y,r,p,performance.now()/1000,lx,ly);
+  if(gas)ctx.restore();
   if(orbitalSite(p)){
     ctx.save();ctx.strokeStyle=cityLevel(p)===2?'rgba(80,220,255,.45)':'rgba(255,214,120,.42)';ctx.lineWidth=Math.max(.7,r*.015);ctx.beginPath();ctx.ellipse(x,y,r*1.5,r*.5,0,0,Math.PI*2);ctx.stroke();ctx.restore();
   }
@@ -1468,7 +1467,7 @@ function drawFocusStar(now) {
       ctx.restore(); ctx.globalAlpha = 1;
     }
   }
-  if (best.system.companion) {
+  if(hierarchyFrame(best.system)){drawHierarchyCompanions(best.system,catalog.systems.indexOf(best.system),smooth(70,150,cam.z),now,r);}else if(best.system.companion){
     const cp = companionPosition(best.system, x, y, r);
     const cd = starAppearance(best.system.companion.star);
     const focusFade = smooth(70, 150, cam.z);
@@ -1587,11 +1586,15 @@ function focusSystem(i, system) {
   goal={x:sp.x,y:sp.y,z:Math.min(innerWidth,innerHeight)*.30/EUOrbits.AU_WORLD_MAX};
   showSystem(system);
 }
+function realSystem(system){const id=String(system?.id||'');return id.endsWith('system_sol')||(id.includes('system_demo_betelgeuse')||id.includes('system_demo_rigel'));}
+function realBody(body,system){return !!system&&String(system.id||'').endsWith('system_sol');}
+function originBadge(kind,obj,system){if(kind==='planet'&&isEarthPlanet(obj))return `<div class="object-origin real">${esc(EUI18N.current()==='ru'?'Реальный объект • Overworld - Верхний мир (обычный мир)':'Real object • Overworld - the regular world')}</div>`;let real=false,mixed=false;if(kind==='system'){real=realSystem(obj);mixed=real&&!String(obj.id||'').endsWith('system_sol');}else if(kind==='star'||kind==='companion')real=realSystem(system);else real=realBody(obj,system);const key=mixed?'origin.realSystemProceduralBodies':real?'origin.real':'origin.procedural';return `<div class="object-origin ${real?'real':'procedural'}">${esc(T(key))}</div>`;}
+
 function showSystem(system){
   const ru=EUI18N.current()==='ru',pair=EUBinary.at(system,simTicks,EUOrbits.isRealistic());
   info.style.display='flex';info.classList.remove('expanded');
-  info.innerHTML=`<h2>${esc(N(system.name))}</h2><div class="sub">${ru?'Звёздная система':'Star system'} · ${esc(system.formalName)}</div><table>
-    <tr><td>${ru?'Звёзд':'Stars'}</td><td>${system.companion?2:1}</td></tr>
+  info.innerHTML=`<h2>${esc(N(system.name))}</h2>${originBadge('system',system)}<div class="sub">${ru?'Звёздная система':'Star system'} · ${esc(system.formalName)}</div><table>
+    <tr><td>${ru?'Звёзд':'Stars'}</td><td>${system.stellarHierarchy?.components.length||(system.companion?2:1)}</td></tr>
     <tr><td>${T('info.planets')}</td><td>${system.planets.length}</td></tr>
     <tr><td>${T('info.moons')}</td><td>${system.planets.reduce((n,p)=>n+(p.moons||0),0)}</td></tr>
     <tr><td>${T('info.distance')}</td><td>${system.distanceLy.toFixed(1)} ${T('unit.ly')}</td></tr>
@@ -1660,6 +1663,7 @@ function showPlanet(p, system) {
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
     <h2>${esc(N(p.designation))}</h2>
+    ${originBadge('planet',p,system)}
     <div class="sub">${esc(N(p.name))} · ${esc(N(system.name))}</div>
     <table>
       <tr><td>${typeLabel}</td><td>${esc(EUGenerator.planetClass(p))}${cityLevel(p) === 2 ? ' · высокоразвитая' : cityLevel(p) === 1 ? ' · развитая' : ''}</td></tr>
@@ -1676,9 +1680,7 @@ function showPlanet(p, system) {
       <tr><td>${T('info.rings')}</td><td>${p.rings ? T('yes') : T('no')}</td></tr>
     </table>
     ${moonHtml}
-    <div class="sub">${T('info.biomes')}</div>
-    <div class="chips">${biomeChips}</div>
-    ${palette}
+    ${isEarthPlanet(p)?`<div class="sub">${EUI18N.current()==='ru'?'Ванильные биомы':'Vanilla biomes'}</div>`:`<div class="sub">${T('info.biomes')}</div><div class="chips">${biomeChips}</div>${palette}`}
     ${mystery ? '' : `<div class="sub">${T('info.traits')}</div><div class="spec">${traits}</div>`}
     <div class="sub">${T('info.seed')}</div>
     <div class="seed">${esc(p.seed)}</div>
@@ -1907,7 +1909,7 @@ function showMoon(m, p, system) {
  const body=moonBody(m,p,system),ru=EUI18N.current()==='ru',fmt=(v,d=2)=>v!=null&&Number.isFinite(Number(v))?Number(v).toLocaleString(EUI18N.locale(),{maximumFractionDigits:d}):'—';
  const row=(name,value)=>`<tr><td>${name}</td><td>${value}</td></tr>`,liquid=EUSurfaceFacts.fluid(body),liquidNames={water:['Вода','Water'],methane:['Метан','Methane'],ammonia:['Аммиак','Ammonia'],sulfur:['Жидкая сера','Liquid sulfur'],lava:['Лава','Lava']};
  info.style.display='flex';info.classList.remove('expanded');
- info.innerHTML=`<h2>${esc(N(m.name))}</h2><div class="sub">${T('info.moon')} · ${esc(N(p.designation))} · ${esc(N(system.name))}</div><table>
+ info.innerHTML=`<h2>${esc(N(m.name))}</h2>${originBadge('moon',m,system)}<div class="sub">${T('info.moon')} · ${esc(N(p.designation))} · ${esc(N(system.name))}</div><table>
  ${row(T('info.parent'),esc(N(p.designation)))}
  ${row(T('card.type'),esc(EUGenerator.planetClass(body)))}
  ${row(T('info.distance'),fmt(m.distanceKm,0)+' '+T('unit.km'))}
@@ -1937,6 +1939,7 @@ function showCompanion(system) {
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
     <h2>${esc(N(c.name))}</h2>
+    ${originBadge('companion',c,system)}
     <div class="sub">${esc(N(system.name))} · ${T('card.companionLow')}</div>
     <table>
       <tr><td>${T('info.class')}</td><td>${esc(starDisplayName(c.star))}</td></tr>
@@ -1955,6 +1958,7 @@ function showStar(system) {
   info.innerHTML = `
     ${system.smesharia ? `<div class="smeshariaBadge">${T('smesharia.badge')}</div>` : ''}
     <h2>${esc(N(system.name))}</h2>
+    ${originBadge('star',system,system)}
     <div class="sub">${esc(system.formalName)} · ${T('info.star')}</div>
     <table>
       <tr><td>${T('info.class')}</td><td>${esc(starDisplayName(system.star))}</td></tr>
@@ -2000,7 +2004,7 @@ function animate(now) {
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
   const mx = e.clientX - innerWidth / 2, my = e.clientY - innerHeight / 2;
-  const nz = Math.max(0.04, Math.min(60000, goal.z * Math.exp(-e.deltaY * 0.0016)));
+  const nz=Math.max(.04,Math.min(240000,goal.z*Math.exp(-e.deltaY*.0016)));
   // Точка мира под курсором запоминается ДО зума и удерживается под ним
   // каждый кадр. Иначе камера уезжала вправо-вниз, а вид «выпрямлялся»
   // к центру, вместо приближения строго к курсору.
@@ -2013,7 +2017,7 @@ canvas.addEventListener('wheel', e => {
 const mapTouch = EUMapTouch.attach(canvas, {
   getCamera: () => cam,
   setCamera: value => { cam = { ...value }; goal = { ...value }; zoomAnchor = null; },
-  minZoom: 0.04, maxZoom: 60000,
+  minZoom:.04,maxZoom:240000,
   onActivity: active => { dragging = active; canvas.classList.toggle('drag', active); },
   onGestureStart: type => {
     clearFollow(); zoomAnchor = null; goal = { ...cam };
@@ -2289,6 +2293,7 @@ function showBlackHole(entry) {
   const ru = EUI18N.current() === 'ru';
   info.innerHTML = `
     <h2>${esc(N(h.name)) || ((T('card.blackHole')) + (entry.index + 1))}</h2>
+    ${originBadge('hole',h,null)}
     <div class="sub">${T('card.galaxyObject')} · не система</div>
     <table>
       <tr><td>${T('card.coords')}</td><td>x ${h.xLy.toFixed(1)} · y ${h.yLy.toFixed(1)} · z ${h.zLy.toFixed(1)} ${T('unit.ly')}</td></tr>
@@ -2407,8 +2412,9 @@ document.getElementById('smeshariaVersion').addEventListener('change', () => {
     const seed = BigInt(catalog.worldSeed);
     catalog = EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
     selected = null; info.style.display = 'none'; results.innerHTML = ''; results.style.display = 'none';
-    selectedHole = null; blackHoleCacheFor = null; MOON_CACHE.clear();
-    follow = null; zoomAnchor = null; hoverBlock = null; hoverKey = ''; hoverMs = 0;
+    selectedHole=null;blackHoleCacheFor=null;MOON_CACHE.clear();MOON_RENDER_CACHE=new WeakMap();
+    follow=null;zoomAnchor=null;hoverBlock=null;hoverKey='';hoverMs=0;stars=makeStars(seed);nebulae=makeNebula(seed);
+    const fit=fitGalaxy();goal={x:0,y:0,z:fit};cam={x:0,y:0,z:fit};pointerX=pointerY=-1;
     const url = new URL(location.href);
     url.searchParams.set('seed', seed.toString());
     url.searchParams.set('smesh', showSmesharia ? '1' : '0');
@@ -2464,7 +2470,7 @@ addEventListener('click', e => { if (!e.target.closest('#searchWrap')) results.s
 const browserAdapter={
  catalog:()=>catalog,ticks:()=>simTicks,name:x=>N(x),biome:x=>EUI18N.biome(x),star:key=>starAppearance(key),starName:key=>starDisplayName(key),mass:key=>EUBinary.mass(key),
  moons:p=>moonSpecsCached(p),holes:()=>blackHoleList(),holeProfile:(h,seed)=>EUBlackHole.profile(h,seed),
- systemLy:(seed,index,d)=>EUOrbits.javaSystemLy(seed,index,d),binary:(s,t)=>EUBinary.at(s,t,EUOrbits.isRealistic()),planetAu:(s,p,t)=>EUOrbits.physicalPosition(s,p,t),moonAngle:(m,t)=>EUOrbits.moonAngle(m,t),
+ systemLy:(seed,index,d,s)=>EUOrbits.javaSystemLy(seed,index,d,['ClassicClimateV2','ClassicClimateV3'].includes(s?.generationModel)),binary:(s,t)=>EUBinary.at(s,t,EUOrbits.isRealistic()),planetAu:(s,p,t)=>EUOrbits.physicalPosition(s,p,t),moonAngle:(m,t)=>EUOrbits.moonAngle(m,t),
  referenceKey:db=>{
   if(selectedHole)return 'hole:'+selectedHole.hole.id;
   const ref=follow||selected;if(ref?.system){const si=catalog.systems.indexOf(ref.system),pi=ref.planet?ref.system.planets.indexOf(ref.planet):-1;
@@ -2484,7 +2490,7 @@ const browserAdapter={
   if(e.kind==='planet'){focusPlanet(e.si,e.system,e.planet);return;}
   selectedHole=null;
   if(e.kind==='companion'){selected={kind:'companion',system:e.system,index:e.si};setFollow(selected,'center');goal.z=Math.min(60000,Math.min(innerWidth,innerHeight)*.22/starRadiusUnits({star:e.system.companion.star}));showCompanion(e.system);return;}
-  if(e.kind==='moon'){selected={kind:'moon',system:e.system,planet:e.planet,moon:e.moon,index:e.si};const w=moonWorld(e.si,e.system,e.planet,e.moon),mr=planetRadiusUnits(e.planet)*e.moon.radiusKm/Math.max(500,6371*e.planet.diameterEarth)*1.4;goal={x:w.x,y:w.y,z:Math.min(60000,Math.min(innerWidth,innerHeight)*.2/Math.max(.0001,mr))};setFollow(selected,'center');showMoon(e.moon,e.planet,e.system);}
+  if(e.kind==='moon'){selected={kind:'moon',system:e.system,planet:e.planet,moon:e.moon,index:e.si};const w=moonWorld(e.si,e.system,e.planet,e.moon),mr=planetRadiusUnits(e.planet)*e.moon.radiusKm/Math.max(500,6371*e.planet.diameterEarth)*1.4;goal={x:w.x,y:w.y,z:Math.min(240000,Math.min(innerWidth,innerHeight)*.32/Math.max(.00002,mr))};setFollow(selected,'center');showMoon(e.moon,e.planet,e.system);}
  }
 };
 const starBrowser=EUStarBrowser.mount(browserAdapter);
@@ -2555,8 +2561,8 @@ window.EUSim = {
   path: (si, pi) => {
     const s = catalog && catalog.systems[si]; if (!s) return [];
     const p = s.planets[pi]; const arr = EUOrbits.orbitPath(s, p); if (!arr) return [];
-    const sp = systemPos(si, s); const out = [];
-    for (let q = 0; q < arr.length; q += 2) out.push({ sx: screenX(sp.x + arr[q]), sy: screenY(sp.y + arr[q + 1]) });
+    const sp=planetHostWorld(si,s,p),out=[];
+    for(let q=0;q<arr.length;q+=2)out.push({sx:screenX(sp.x+arr[q]),sy:screenY(sp.y+arr[q+1])});
     return out;
   },
   selected: () => selected,
@@ -2566,7 +2572,7 @@ window.EUSim = {
     return seen.get(catalog);
   }; })(),
   import: json => importCatalogJson(json),
-  zoom: z => { const v = Math.max(0.04, Math.min(60000, Number(z) || 1)); goal.z = v; cam.z = v; },
+  zoom:z=>{const v=Math.max(.04,Math.min(240000,Number(z)||1)); goal.z = v; cam.z = v; },
   moons: (si, pi) => { const sys = catalog && catalog.systems[si]; if (!sys || !sys.planets[pi]) return [];
     return EUGenerator.moonSpecs(sys.planets[pi]).map(m => ({ name: m.name, periodTicks: m.periodTicks,
       phase: m.phase, phaseOffset: m.phaseOffset, angle: EUOrbits.moonAngle(m, simTicks) })); },

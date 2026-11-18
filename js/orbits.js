@@ -186,7 +186,7 @@
     return {
       planet, index, meanRadiusAu: mean, gameRadiusAu: gameR, semiMajorAxisAu: a,
       e, iRad, nodeRad, argRad, m0, periodTicks: period, epochTicks: epoch, real, source,
-      imported: !!imported, dMax: AU_WORLD_MAX, path: null
+      imported:!!imported,physicsV2:['ClassicClimateV2','ClassicClimateV3'].includes(system.generationModel),dMax:AU_WORLD_MAX,path:null
     };
   }
 
@@ -267,14 +267,7 @@
   }
   /** Радиальная √-нормировка по системе — как orbitWorld в Java-карте.
       Монотонна, поэтому порядок и пересечения радиальных диапазонов сохраняются. */
-  function project(x, y, z, dMax) {
-    const px = x;
-    const py = y * MAP_Y - z * MAP_Z;
-    const d = Math.hypot(px, py);
-    if (d < 1e-9) return { x: 0, y: 0 };
-    const k = AU_WORLD_MAX * Math.sqrt(d / Math.max(1e-9, dMax)) / d;
-    return { x: px * k, y: py * k };
-  }
+  function project(x,y,z,dMax,linear){const px=x,py=y*MAP_Y-z*MAP_Z,d=Math.hypot(px,py);if(d<1e-9)return{x:0,y:0};const k=(linear?AU_WORLD_MAX*.52/Math.max(1e-9,dMax):AU_WORLD_MAX*Math.sqrt(d/Math.max(1e-9,dMax))/d);return{x:px*k,y:py*k};}
   function perifocal(el, E) {
     const cosE = Math.cos(E), sinE = Math.sin(E);
     return {
@@ -296,18 +289,21 @@
   }
 
   /** Положение планеты относительно звезды в мировых единицах карты. */
+  function hierarchyOrbit(system,planet){return system.generationModel==='ClassicClimateV3'&&system.stellarHierarchy&&planet.orbitData&&planet.orbitHost!=='primary';}
   function localPosition(system, planet, ticks) {
+    if(hierarchyOrbit(system,planet)){const h=system.stellarHierarchy,q=EUHierarchy.position(planet.orbitData,ticks,EUHierarchy.mass(h,planet.orbitHost),realisticMode),k=EUHierarchy.scale(h,system.planets);return{x:q.x*k,y:(q.z*MAP_Y-q.y*MAP_Z)*k};}
     const el = elementFor(system, planet);
     if (!el) return { x: 0, y: 0 };
     const M = el.m0 + TAU * ((ticks - el.epochTicks) / el.periodTicks);
     const E = eccentricAnomaly(M, el.e);
     const pf = perifocal(el, E);
     const ec = ecliptic(pf.x, pf.y, el);
-    return project(ec.x, ec.y, ec.z, el.dMax);
+    return project(ec.x,ec.y,ec.z,el.dMax,el.physicsV2);
   }
 
   /** Путь орбиты (замкнутая линия) в мировых единицах относительно звезды. */
   function orbitPath(system, planet) {
+    if(hierarchyOrbit(system,planet)){const k=EUHierarchy.scale(system.stellarHierarchy,system.planets),pts=new Float32Array(258);for(let i=0;i<=128;i++){const q=EUHierarchy.positionAtE(planet.orbitData,i*TAU/128);pts[i*2]=q.x*k;pts[i*2+1]=(q.z*MAP_Y-q.y*MAP_Z)*k;}return pts;}
     const el = elementFor(system, planet);
     if (!el) return null;
     if (el.path) return el.path;
@@ -317,7 +313,7 @@
       const E = (i / N) * TAU;
       const pf = perifocal(el, E);
       const ec = ecliptic(pf.x, pf.y, el);
-      const p = project(ec.x, ec.y, ec.z, el.dMax);
+      const p=project(ec.x,ec.y,ec.z,el.dMax,el.physicsV2);
       pts[i * 2] = p.x;
       pts[i * 2 + 1] = p.y;
     }
@@ -351,10 +347,10 @@
     return (Number((v >> BigInt(shift)) & 0xFFFFn) / 65535) - 0.5;
   }
   /** Java BlackHoleCatalog.systemPosition: [xMap, 0, zMap]. */
-  function javaSystemLy(worldSeed, index, distanceLy) {
-    const seed = BigInt.asIntN(64, BigInt(worldSeed));
-    const angle = index * 2.399963229728653;
-    const radius = 2600 + distanceLy * 260;
+  function javaSystemLy(worldSeed,index,distanceLy,physicsV2=false){
+    const seed=BigInt.asIntN(64,BigInt(worldSeed));if(physicsV2&&index===0&&Number(distanceLy)===0)return[0,0,0];
+    const angle=index*2.399963229728653;
+    const radius=(physicsV2?distanceLy:10+distanceLy)*260;
     const jx = javaJitter(seed, index, 0x9E3779B97F4A7C15n, 0xBF58476D1CE4E5B9n, 11);
     const jy = javaJitter(seed, index, 0xC2B2AE3D27D4EB4Fn, 0x94D049BB133111EBn, 13);
     return [
@@ -367,19 +363,12 @@
       (positionLy систем и xLy/zLy чёрных дыр) → мировые единицы карты.
       Система на distanceLy стоит на 150+√d·48; направление сохраняется.
       Так системы и дыры пространственно согласованы в ОДНОЙ шкале. */
-  function galaxyWorld(xLy, zLy) {
-    // √-сжатие галактики: внутренние системы не липнут к центру, внешние
-    // остаются в кадре; системы и чёрные дыры идут через одну функцию.
-    const r = Math.hypot(Number(xLy) || 0, Number(zLy) || 0);
-    const ang = Math.atan2(Number(zLy) || 0, Number(xLy) || 0);
-    const wr = 150 + Math.sqrt(Math.max(0, r)) * 48;
-    return { x: Math.cos(ang) * wr, y: Math.sin(ang) * wr * 0.58 };
-  }
+  function galaxyWorld(xLy,zLy,physicsV2=false){const x=Number(xLy)||0,z=Number(zLy)||0,r=Math.hypot(x,z),ang=Math.atan2(z,x),wr=physicsV2?r*2.5:150+Math.sqrt(Math.max(0,r))*48;return{x:Math.cos(ang)*wr,y:Math.sin(ang)*wr*.58};}
   /** Позиция системы: импорт — positionLy через общую compress, иначе null. */
   function systemPosition(system) {
     const pos = system && system.positionLy;
     if (!pos) return null;
-    return galaxyWorld(pos.x, pos.z);
+    return galaxyWorld(pos.x,pos.z,['ClassicClimateV2','ClassicClimateV3'].includes(system.generationModel));
   }
   /** Ближайшая к дыре система — расстояние в ly ДО map compression.
       Для импортированного мира берём systems[].positionLy (Java map units),
@@ -415,7 +404,7 @@
           spin:h.spin==null?undefined:Number(h.spin),accretion:h.accretion==null?undefined:Number(h.accretion),
           diskTemperatureK:Number(h.diskTemperatureK)||undefined,diskRgb:h.diskRgb||undefined,
           xLy, yLy, zLy, texture: h.texture || BH_TEXTURES[i % BH_TEXTURES.length],
-          world: galaxyWorld(xLy, zLy), real: true, worldSeed: String(catalog.worldSeed)
+          world:galaxyWorld(xLy,zLy,['ClassicClimateV2','ClassicClimateV3'].includes(catalog.generationModel)),real:true, worldSeed: String(catalog.worldSeed)
         });
       });
       return out;
@@ -428,7 +417,7 @@
     for (let i = 0; i < count; i++) {
       const key = ws + ':black-hole:' + i;
       const anchor = n <= 1 ? 0 : 1 + Math.floor(unit(key + ':anchor') * (n - 1));
-      const center = n ? javaSystemLy(seed, anchor, Number(systems[anchor].distanceLy) || 0) : [0, 0, 0];
+      const physicsV2=['ClassicClimateV2','ClassicClimateV3'].includes(catalog.generationModel),center=n?javaSystemLy(seed,anchor,Number(systems[anchor].distanceLy)||0,physicsV2):[0,0,0];
       const angle = unit(key + ':angle') * TAU;
       const distance = 8 + unit(key + ':distance') * 14;
       const xLy = center[0] + Math.cos(angle) * distance;
@@ -436,7 +425,7 @@
       const yLy = (unit(key + ':height') - 0.5) * 5;
       out.push({
         id: 'black_hole_' + i, name: null, xLy, yLy, zLy,
-        texture: BH_TEXTURES[i % BH_TEXTURES.length], world: galaxyWorld(xLy, zLy),
+        texture:BH_TEXTURES[i%BH_TEXTURES.length],world:galaxyWorld(xLy,zLy,physicsV2),
         real: false, worldSeed: ws
       });
     }
@@ -548,7 +537,7 @@
     if (!json || !Array.isArray(json.systems)) throw new Error('нет systems[]');
     const systems = json.systems.map((s, si) => {
       const planets = (s.planets || []).map((p, pi) => {
-        const od = p.orbit || null;
+        const od=p.orbit||p.orbitData||p.orbitalElements||null;
         const mean = Number(od && od.meanRadiusAu != null ? od.meanRadiusAu : (p.meanRadiusAu != null ? p.meanRadiusAu : p.orbitAu));
         const planet = {
           id: String(p.id || ('import_' + si + '_' + pi)),
@@ -568,7 +557,8 @@
           biomes: Array.isArray(p.biomes) ? p.biomes.map(String) : [],
           composition: Array.isArray(p.composition) ? p.composition.map(String) : [],
           archetype: String(p.archetype || ''),
-          aerosol: String(p.aerosol || 'none'),
+          aerosol:String(p.aerosol||'none'),
+          orbitHost:String(p.orbitHost||'primary'),
           seed: String(p.seed != null ? p.seed : '0'),
           systemIndex: si, index: pi
         };
@@ -608,18 +598,20 @@
         name: String(s.name || s.formalName || s.formal || ('SYS-' + si)),
         formalName: String(s.formalName || s.formal || s.name || ('SYS-' + si)),
         star: String(s.star || 'yellow_dwarf'),
-        massSolar: Number(s.massSolar)||undefined,
+        massSolar:Number(s.massSolar)||undefined,stellarHierarchy:s.stellarHierarchy||null,
         companion: s.companion ? {...s.companion} : s.companionStar ? {
           star:String(s.companionStar),name:String(s.companionName||''),orbitAu:Number(s.companionOrbitAu||s.companionOrbit)||1,
           massSolar:Number(s.companionMassSolar)||undefined
         } : null,
         distanceLy: Number(s.distanceLy != null ? s.distanceLy : s.distance) || 0,
         positionLy: pos ? {
-          x: Number(pos.x) || 0,
-          y: Number(pos.y) || 0,
-          z: Number(pos.z != null ? pos.z : pos.y) || 0
+          x:Number(pos.x??pos.xLy)||0,
+          y:Number(pos.y??pos.yLy)||0,
+          z:Number(pos.z??pos.zLy??pos.y)||0,
+          exclusionLy:Number(pos.exclusionLy)||0
         } : null,
-        smesharia: !!s.smesharia,
+        smesharia:!!s.smesharia,
+        generationModel:String(json.generationType||json.generationModel||'Classic'),
         planets
       };
     });
@@ -628,7 +620,8 @@
       dayTimeTicks: Number(json.dayTimeTicks) || 0,
       // Синтетические тики — это НЕ время мира: не выдаём их за синхронизацию.
       dayTimeTicksSynthetic: !!json.dayTimeTicksSynthetic,
-      sourceCatalog: json.sourceCatalog != null ? String(json.sourceCatalog) : '',
+      sourceCatalog:json.sourceCatalog!=null?String(json.sourceCatalog):'',
+      generationType:String(json.generationType||json.generationModel||'Classic'),generationModel:String(json.generationType||json.generationModel||'Classic'),
       systems,
       blackHoles: Array.isArray(json.blackHoles) ? json.blackHoles : [],
       imported: true
@@ -695,6 +688,7 @@
 
   /** Uncompressed orbital coordinates in AU: x/y in orbital plane, z out of plane. */
   function physicalPosition(system, planet, ticks) {
+    if(hierarchyOrbit(system,planet)){const q=EUHierarchy.position(planet.orbitData,ticks,EUHierarchy.mass(system.stellarHierarchy,planet.orbitHost),realisticMode);return{x:q.x,y:q.z,z:q.y};}
     const el=elementFor(system,planet);if(!el)return null;
     const E=eccentricAnomaly(el.m0+TAU*((ticks-el.epochTicks)/el.periodTicks),el.e);
     const pf=perifocal(el,E);return ecliptic(pf.x,pf.y,el);
@@ -704,7 +698,7 @@
     TAU, TICKS_PER_SECOND, RATE_1AU, E_CAP, AU_WORLD_MAX,
     fnv1a32, unit, seedPhase, clamp, periodTicksFor, rateFor,
     setRealistic, isRealistic, REAL_YEAR_TICKS, TICKS_PER_DAY, DAYS_PER_YEAR,
-    elementsFor, elementFor, localPosition, orbitPath, moonAngle, companionAngle,
+    elementsFor,elementFor,hierarchyOrbit,localPosition,orbitPath,moonAngle,companionAngle,
     blackHoles, galaxyWorld, systemPosition, nearestSystemLy, adaptServerCatalog,
     validateServerCatalog, rotationOf, physicalPosition, javaSystemLy,
     solarElements: SOLAR, solarRotation: SOLAR_ROTATION

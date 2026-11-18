@@ -4,3 +4,5 @@
 /* Grid items must shrink on phones instead of overflowing the modal. */
 .ob-control,.ob-filters,.ob-results,.ob-range{min-width:0}.ob-control select,.ob-control input{width:100%;min-width:0}.ob-control>span{overflow-wrap:anywhere}
 @media(max-width:700px){.ob-filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}}
+
+.ob-active-filters{display:flex;flex-wrap:wrap;gap:6px;max-height:105px;overflow:auto}.object-browser .ob-filter-chip{min-height:28px;padding:4px 9px;border-color:#618b71;background:#1c382a;color:#d0ecc0;font-size:11px}.ob-filter-chip:hover{background:#395336}

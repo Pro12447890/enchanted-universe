@@ -23,7 +23,7 @@
   for(const [si,s] of catalog.systems.entries()){
    const common={system:s,si,sm:!!s.smesharia,id:s.id};
    put({...common,key:'system:'+si,kind:'system',name:s.name,star:s.star,moons:s.planets.reduce((n,p)=>n+(p.moons||0),0),planets:s.planets.length});
-   for(const kind of ['star','companion']){
+   if(s.generationModel==='ClassicClimateV3'&&s.stellarHierarchy){for(const c of s.stellarHierarchy.components){const kind=c.id==='A'?'star':'companion',key=c.id==='A'?'star:'+si:c.id==='B'?'companion:'+si:'companion:'+si+':'+c.id;put({...common,key,kind,componentId:c.id,name:c.name,star:c.star,temperatureK:c.temperatureK,luminosity:c.luminosity,mass:c.mass});}}else for(const kind of ['star','companion']){
     if(kind==='companion'&&!s.companion)continue;const key=kind==='star'?s.star:s.companion.star,d=adapter.star(key);
     put({...common,key:kind+':'+si,kind,name:kind==='star'?s.name:s.companion.name,star:key,temperatureK:d.t,luminosity:d.lum,mass:kind==='star'?(s.massSolar||adapter.mass(key)):(s.companion.massSolar||adapter.mass(key))});
    }
@@ -43,16 +43,17 @@
  }
  function position(e,catalog,adapter,ticks){
   if(e.kind==='hole')return[e.hole.xLy,e.hole.yLy,e.hole.zLy];
-  const s=e.system,pos=s.positionLy;let origin=pos?[Number(pos.x),Number(pos.y||0),Number(pos.z)]:adapter.systemLy(catalog.worldSeed,e.si,s.distanceLy);
+  const s=e.system,pos=s.positionLy;let origin=pos?[Number(pos.x),Number(pos.y||0),Number(pos.z)]:adapter.systemLy(catalog.worldSeed,e.si,s.distanceLy,s);
   if(!origin.every(Number.isFinite))return null;
   const binary=adapter.binary(s,ticks),offset=(part)=>{
-   if(!binary)return[0,0,0];const share=part==='primary'?-binary.m2/(binary.m1+binary.m2):binary.m1/(binary.m1+binary.m2);
-   return[Math.cos(binary.angle)*binary.separationAu*share*AU_LY,Math.sin(binary.angle)*Math.sin(binary.inclination)*binary.separationAu*share*AU_LY,Math.sin(binary.angle)*Math.cos(binary.inclination)*binary.separationAu*share*AU_LY];
+   if(!binary)return[0,0,0];const point=part==='primary'?binary.primary:binary.secondary;
+   return[point.x*AU_LY,(point.z||0)*AU_LY,(point.y||0)*AU_LY];
   };
   if(e.kind==='system')return origin;
+   if(s.generationModel==='ClassicClimateV3'&&s.stellarHierarchy){const h=s.stellarHierarchy,points=EUHierarchy.positions(h,ticks,EUOrbits.isRealistic());if(e.kind==='star'||e.kind==='companion'){const v=points.get(e.componentId||(e.kind==='star'?'A':'B'));return add(origin,[v.x*AU_LY,v.y*AU_LY,v.z*AU_LY]);}if(EUOrbits.hierarchyOrbit(s,e.planet)){const v=points.get(e.planet.orbitHost);origin=add(origin,[v.x*AU_LY,v.y*AU_LY,v.z*AU_LY]);}}
   if(e.kind==='star')return add(origin,offset('primary'));
   if(e.kind==='companion')return add(origin,offset('secondary'));
-  if(!String(e.planet.archetype||'').includes('circumbinary'))origin=add(origin,offset('primary'));
+  const host=e.planet.orbitHost||((String(e.planet.archetype||'').includes('circumbinary'))?'barycenter':'primary');if(host!=='barycenter'&&!EUOrbits.hierarchyOrbit(s,e.planet))origin=add(origin,offset(host));
   const p=adapter.planetAu(s,e.planet,ticks);if(!p)return null;
   origin=add(origin,[p.x*AU_LY,p.z*AU_LY,p.y*AU_LY]);
   if(e.kind==='moon'){
@@ -66,11 +67,11 @@
   const ranges=filters.ranges||{},wanted=filters.biomes||[],gases=(filters.gases||'').split(/[ ,;]+/).map(x=>x.trim().toUpperCase()).filter(Boolean),q=text(filters.text).trim();
   const out=[];for(const e of entries){
    if(q&&!e.search.includes(q)&&!text(adapter.name?.(e.name)).includes(q)&&!e.biomes.some(b=>text(adapter.biome?.(b)).includes(q)))continue;
-   if(filters.kind&&e.kind!==filters.kind)continue;
-   if(filters.star&&e.star!==filters.star)continue;
-   if(filters.category&&e.category!==filters.category)continue;
-   if(filters.atmosphere&&e.atmosphere!==filters.atmosphere)continue;
-   if(filters.archetype&&e.archetype!==filters.archetype)continue;
+   if(filters.kind&&(Array.isArray(filters.kind)?!filters.kind.includes(e.kind):e.kind!==filters.kind))continue;
+   if(filters.star&&(Array.isArray(filters.star)?!filters.star.includes(e.star):e.star!==filters.star))continue;
+   if(filters.category&&(Array.isArray(filters.category)?!filters.category.includes(e.category):e.category!==filters.category))continue;
+   if(filters.atmosphere&&(Array.isArray(filters.atmosphere)?!filters.atmosphere.includes(e.atmosphere):e.atmosphere!==filters.atmosphere))continue;
+   if(filters.archetype&&(Array.isArray(filters.archetype)?!filters.archetype.includes(e.archetype):e.archetype!==filters.archetype))continue;
    let ok=true;for(const k of ['rings','land','habitable','life','sm'])if(filters[k]!==undefined&&filters[k]!==''&&e[k]!==filters[k])ok=false;if(!ok)continue;
    if(wanted.length&&!(filters.biomeMode==='all'?wanted.every(b=>e.biomes.includes(b)):wanted.some(b=>e.biomes.includes(b))))continue;
    if(gases.length&&!gases.every(g=>e.gases.includes(g)))continue;
