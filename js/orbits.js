@@ -404,7 +404,7 @@
           spin:h.spin==null?undefined:Number(h.spin),accretion:h.accretion==null?undefined:Number(h.accretion),
           diskTemperatureK:Number(h.diskTemperatureK)||undefined,diskRgb:h.diskRgb||undefined,
           xLy, yLy, zLy, texture: h.texture || BH_TEXTURES[i % BH_TEXTURES.length],
-          world:galaxyWorld(xLy,zLy,['ClassicClimateV2','ClassicClimateV3'].includes(catalog.generationModel)),real:true, worldSeed: String(catalog.worldSeed)
+          world:galaxyWorld(xLy,zLy,catalog.generationModel==='ClassicClimateV2'||(catalog.generationModel==='ClassicClimateV3'&&catalog.imported)),real:true, worldSeed: String(catalog.worldSeed)
         });
       });
       return out;
@@ -425,7 +425,7 @@
       const yLy = (unit(key + ':height') - 0.5) * 5;
       out.push({
         id: 'black_hole_' + i, name: null, xLy, yLy, zLy,
-        texture:BH_TEXTURES[i%BH_TEXTURES.length],world:galaxyWorld(xLy,zLy,physicsV2),
+        texture:BH_TEXTURES[i%BH_TEXTURES.length],world:galaxyWorld(xLy,zLy,catalog.generationModel==='ClassicClimateV2'||(catalog.generationModel==='ClassicClimateV3'&&catalog.imported)),
         real: false, worldSeed: ws
       });
     }

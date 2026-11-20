@@ -123,6 +123,12 @@
     .seedbar { padding: 10px; gap: 8px; }
     #seed { flex: 1 1 130px; }
   }
+  .card:nth-child(3n+1){background:linear-gradient(145deg,#11232bd9,#101625ed);border-color:#34555b;}
+  .card:nth-child(3n+2){background:linear-gradient(145deg,#211b33d9,#111a2aed);border-color:#51455f;}
+  .card:nth-child(3n){background:linear-gradient(145deg,#2b231bd9,#131e2aed);border-color:#5b5040;}
+  .card .note{color:#a1aec4;}
+  .chip,#random,.seedbar,.stat,.card{corner-shape:squircle;}
+  .chip{border-radius:14px;}
 </style>
 </head>
 <body>
@@ -184,9 +190,29 @@
       <p class="note" data-i18n="ch.nightNote">доля миров с биомом night_forest</p>
       <canvas id="nightCv" class="bars" role="img"></canvas>
     </section>
+    <section class="card chart-tone-mint">
+      <h2 data-i18n="ch.multiplicity">Звёзд в системе</h2>
+      <p class="note" data-i18n="ch.multiplicityNote">Число систем с 1–5 звёздами, включая фиксированные системы каталога.</p>
+      <canvas id="multiplicityCv" class="bars" role="img"></canvas>
+    </section>
+    <section class="card chart-tone-violet">
+      <h2 data-i18n="ch.moons">Спутники планет</h2>
+      <p class="note" data-i18n="ch.moonsNote">Планеты сгруппированы по числу сохранённых лун.</p>
+      <canvas id="moonsCv" class="bars" role="img"></canvas>
+    </section>
+    <section class="card chart-tone-amber">
+      <h2 data-i18n="ch.temperatures">Температуры поверхности</h2>
+      <p class="note" data-i18n="ch.temperaturesNote">Каменистые планеты; газовые и загадочные миры исключены. °C.</p>
+      <canvas id="temperatureCv" class="bars" role="img"></canvas>
+    </section>
+    <section class="card wide chart-tone-cyan">
+      <h2 data-i18n="ch.stellar">Классы звёзд</h2>
+      <p class="note" data-i18n="ch.stellarNote">Все звёздные компоненты каталога, включая компаньонов.</p>
+      <canvas id="stellarCv" class="bars" role="img"></canvas>
+    </section>
   </main>
 </div>
-<script src="js/i18n.js?v=49"></script>
+<script src="js/i18n.js?v=2294214ab4"></script>
 <script src="js/moon-facts.js?v=2"></script>
 <script src="js/generation-pools.js?v=2"></script>
 <script src="js/generation-policy.js?v=2"></script>
@@ -194,7 +220,7 @@
 <script src="js/binary-policy.js?v=1"></script>
 <script src="js/planet-climate.js?v=2"></script>
 <script src="js/stellar-hierarchy.js?v=4"></script>
-<script src="js/generator.js?v=45"></script>
-<script src="charts.js?v=1"></script>
+<script src="js/generator.js?v=0a9bbbf013"></script>
+<script src="charts.js?v=ccb151fd56"></script>
 </body>
 </html>

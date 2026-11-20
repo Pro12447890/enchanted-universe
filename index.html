@@ -7,9 +7,18 @@
 <script>
 // Один адрес и одна карта. Компактность определяет экран + основной тип ввода,
 // а не URL/название браузера. Та же проверка обновляется при resize и повороте.
-window.euCompactLayout = () => matchMedia('(max-width: 900px)').matches
-  || matchMedia('(max-width: 1200px) and (pointer: coarse)').matches;
+window.euCompactLayout = () => {
+  const scale=parseFloat(document.documentElement.style.getPropertyValue('--ui-scale'))||1;
+  return innerWidth/scale<=900 || matchMedia('(max-width: 900px)').matches
+    || matchMedia('(max-width: 1200px) and (pointer: coarse)').matches;
+};
 document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayout());
+try {
+  // Автопереход живёт только в памяти страницы; сохраняется исключительно ручной выбор.
+  const enabled=localStorage.getItem('eu_liquid_glass_mode')!=='classic';
+  document.documentElement.classList.toggle('liquid-glass',enabled);
+  document.documentElement.classList.toggle('glass-classic',!enabled);
+} catch (_) { document.documentElement.classList.add('liquid-glass'); }
 </script>
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
 <link rel="canonical" href="./">
@@ -195,6 +204,8 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
 <link rel="stylesheet" href="assets/mobile-map.css?v=3">
 <link rel="stylesheet" href="assets/star-browser.css?v=3">
 <link rel="stylesheet" href="assets/gui-tones.css?v=3">
+<link rel="stylesheet" href="assets/liquid-glass.css?v=d47fb604b9">
+<link rel="stylesheet" href="assets/ui-layout.css?v=d9a64c2e4f">
 </head>
 <body>
 <canvas id="map"></canvas>
@@ -215,6 +226,7 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
   <span id="seedLabel"></span>
   <button id="zones" data-i18n="zones">Зоны</button>
   <button id="rings3d" class="gold" data-i18n-title="rings3d.title" title="3D-кольца и тень планеты на кольце">3D</button>
+  <button id="glassMode" class="glass-mode" type="button" aria-pressed="true" title="Автоматически включаем жидкое стекло; при низком FPS упрощаем оформление на эту сессию.">Стекло · Авто</button>
   <label class="eutoggle" id="smeshariaWrap" title="Добавить системы Смешарии на карту">
     <input type="checkbox" id="smeshariaVersion">
     <span data-i18n="smesharia.version">Версия со Смешарией</span>
@@ -226,18 +238,18 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
   <button id="barToggle" class="barToggle" type="button" aria-expanded="true" data-i18n-title="bar.toggle" title="Показать/скрыть панель">▾</button>
 <div id="info"></div>
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-<div id="hint" data-i18n-html="hint"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
-<div id="loading" data-i18n="loading">Генерация каталога…</div>
-<div id="timeBar" class="timebar" data-i18n-title="time.title" title="Реалистичное время: локальные тики, не синхронизировано с миром">
-  <button id="orbitMode" class="timeMode" type="button" data-i18n-title="time.mode.title"><span data-i18n="time.mode.conditional">Условная</span></button>
-  <button id="timeBack" title="Медленнее">←</button>
-  <button id="timeSpeed" class="timeSpeed" data-i18n-title="time.speedTitle" title="Скорость времени · клик — ×1">×1</button>
-  <button id="timeFwd" title="Быстрее">→</button>
-  <span class="timeTag" data-i18n="time.ticks">лок. тики</span>
-  <input id="timeTicksInput" type="text" inputmode="decimal" spellcheck="false" aria-label="Локальные тики" data-i18n-title="time.ticksTitle" title="Локальные тики с начала эпохи. Не синхронизировано с миром: введи значение вручную или импортируй каталог.">
+<div id="loading" class="loading-screen" role="status" aria-live="polite">
+  <div class="loader-card">
+    <div class="loader-orbit" aria-hidden="true"><span></span><i></i><b></b></div>
+    <div class="loader-kicker">ENCHANTED UNIVERSE <span>·</span> SEED ATLAS</div>
+    <h1 data-i18n="loading.title">Собираем звёздную карту</h1>
+    <p id="loadingMessage" data-i18n="loading">Генерация каталога…</p>
+    <div class="loader-track" aria-hidden="true"><span></span></div>
+    <div class="loader-meta"><span data-i18n="loading.meta">системы · орбиты · биомы</span><span class="loader-pulse"></span></div>
+  </div>
 </div>
 
-<script src="js/i18n.js?v=49"></script>
+<script src="js/i18n.js?v=2294214ab4"></script>
 <script src="js/moon-facts.js?v=2"></script>
 <script src="js/generation-pools.js?v=2"></script>
 <script src="js/generation-policy.js?v=2"></script>
@@ -245,8 +257,8 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
 <script src="js/binary-policy.js?v=1"></script>
 <script src="js/planet-climate.js?v=2"></script>
 <script src="js/stellar-hierarchy.js?v=4"></script>
-<script src="js/generator.js?v=45"></script>
-<script src="js/orbits.js?v=5"></script>
+<script src="js/generator.js?v=0a9bbbf013"></script>
+<script src="js/orbits.js?v=89fcb7e226"></script>
 <script src="js/biome-materials.js?v=2"></script>
 <script src="js/surface-facts.js?v=2"></script>
 <script src="js/texture-bake-queue.js?v=2"></script>
@@ -263,7 +275,8 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
 <script src="js/rings3d.js?v=2"></script>
 <script src="js/map-touch.js?v=2"></script>
 <script src="js/tools-panel.js?v=2"></script>
-<script src="js/mobile-ui.js?v=6"></script>
+<script src="js/performance-mode.js?v=19d1e76770"></script>
+<script src="js/mobile-ui.js?v=6524c55ff6"></script>
 <div class="dock">
   <div class="zoomctl">
     <button id="zoomIn" title="Приблизить">+</button>
@@ -271,12 +284,25 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
     <button id="uiIn" class="ui" title="Увеличить интерфейс">A+</button>
     <button id="uiOut" class="ui" title="Уменьшить интерфейс">A−</button>
   </div>
+  <div id="desktopControls" class="desktop-controls">
+    <div class="footer-primary">
+<div id="timeBar" class="timebar" data-i18n-title="time.title" title="Реалистичное время: локальные тики, не синхронизировано с миром">
+  <button id="orbitMode" class="timeMode" type="button" data-i18n-title="time.mode.title"><span data-i18n="time.mode.conditional">Условная</span></button>
+  <button id="timeBack" title="Медленнее">←</button>
+  <button id="timeSpeed" class="timeSpeed" data-i18n-title="time.speedTitle" title="Скорость времени · клик — ×1">×1</button>
+  <button id="timeFwd" title="Быстрее">→</button>
+  <span class="timeTag" data-i18n="time.ticks">лок. тики</span>
+  <input id="timeTicksInput" type="text" inputmode="decimal" spellcheck="false" aria-label="Локальные тики" data-i18n-title="time.ticksTitle" title="Локальные тики с начала эпохи. Не синхронизировано с миром: введи значение вручную или импортируй каталог.">
+</div>
   <div class="avail">
     <span class="availLabel" data-i18n="avail">Доступно на:</span>
     <a class="tgk store store-soon" data-slot="minecraft-inside" href="#" aria-disabled="true" data-i18n="avail.mi" title="Скоро…">Minecraft Inside</a>
     <a class="tgk store" data-slot="curseforge" href="https://www.curseforge.com/minecraft/mc-mods/enchanted-universe/preview" target="_blank" rel="noopener noreferrer" data-i18n="avail.cf">CurseForge</a>
     <a class="tgk store" data-slot="modrinth" href="https://modrinth.com/project/enchanted-universe" target="_blank" rel="noopener noreferrer" data-i18n="avail.mr">Modrinth</a>
   </div>
+    </div>
+    <div class="footer-secondary">
+<div id="hint" data-i18n-html="hint"><b>Колесо</b> — масштаб · <b>перетаскивание</b> — панорама · <b>клик</b> — звезда, система, планета · <b>Esc</b> — назад</div>
   <div class="dockrow">
     <button class="tgk" id="starBrowserOpen" data-i18n="browser.open">Браузер звёзд</button>
     <a class="tgk" id="modver" href="https://github.com/Pro12447890/enchanted-universe/releases" target="_blank" rel="noopener noreferrer"
@@ -288,6 +314,8 @@ document.documentElement.classList.toggle('mobile-map-ui', window.euCompactLayou
        data-i18n-title="charts.title" title="Живая статистика генератора по текущему сиду"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="3.4" height="9" rx="1"/><rect x="10.3" y="6" width="3.4" height="14" rx="1"/><rect x="16.6" y="14" width="3.4" height="6" rx="1"/></svg><span data-i18n="charts">Диаграммы</span></a>
     <a class="tgk" id="tgk" href="https://t.me/smesharia_mod" target="_blank" rel="noopener noreferrer"
        data-i18n-title="tgk.title" title="Телеграм-канал мода"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.91 3.79 20.3 20.84c-.25 1.21-.98 1.5-2 .94l-5.5-4.07-2.66 2.57c-.3.3-.55.56-1.1.56-.72 0-.6-.27-.84-.95L6.3 13.7l-5.45-1.7c-1.18-.35-1.19-1.16.26-1.75l21.26-8.2c.97-.43 1.9.24 1.54 1.74z"/></svg><span data-i18n="tgk">ТГК мода</span></a>
+  </div>
+    </div>
   </div>
 </div>
 <script>
@@ -382,6 +410,7 @@ function randomSeed() { const a = new BigInt64Array(1); crypto.getRandomValues(a
    на экране и плавно растворяется — так же, как при смене сида. */
 function runTransition(work) {
   if (transitioning) return false;
+  const initialLoad=!catalog,loading=document.getElementById('loading'),loadStarted=performance.now();
   if (catalog && canvas.width && canvas.height) {
     try {
       const snap = document.createElement('canvas');
@@ -390,22 +419,16 @@ function runTransition(work) {
       transitionSnapshot = snap;
     } catch (e) { transitionSnapshot = null; }
   }
-  transitioning = true;
-  transitionStart = 0;
-  document.getElementById('loading').classList.add('hidden');
+  transitioning = true;transitionStart = 0;
+  if(initialLoad){loading.classList.remove('hidden','is-ready');loading.classList.add('is-active');}
+  else loading.classList.add('is-ready');
   document.getElementById('apply').disabled = true;
   document.getElementById('random').disabled = true;
   seedInput.disabled = true;
   setTimeout(() => {
-    work();
-    transitionStart = performance.now();
-    setTimeout(() => {
-      transitioning = false;
-      transitionSnapshot = null;
-      document.getElementById('apply').disabled = false;
-      document.getElementById('random').disabled = false;
-      seedInput.disabled = false;
-    }, 500);
+    work();transitionStart = performance.now();
+    const finish=()=>{transitioning=false;transitionSnapshot=null;document.getElementById('apply').disabled=false;document.getElementById('random').disabled=false;seedInput.disabled=false;if(initialLoad){loading.classList.remove('is-active');loading.classList.add('is-ready');}};
+    setTimeout(finish,initialLoad?Math.max(500,900-(performance.now()-loadStarted)):500);
   }, 15);
   return true;
 }
@@ -461,14 +484,20 @@ function systemJitter(i, s) {
   return { x: (((h >>> 0) % 2000) / 1000 - 1) * scale,
            y: ((((h >>> 11) >>> 0) % 2000) / 1000 - 1) * scale };
 }
+function legacyGalaxyPosition(i,s){
+  if(i===0)return{x:0,y:0};
+  if(i<=4){const dist=[12,640,26,860][i-1],ang=-1.1+(i-1)*.9,r=55+Math.sqrt(Math.max(1,dist))*18,j=systemJitter(i,s);return{x:Math.cos(ang)*r+j.x,y:Math.sin(ang)*r+j.y};}
+  const idx=i-5,ang=idx*2.399963229728653,r=150+Math.sqrt(Math.max(1,s.distanceLy))*48,j=systemJitter(i,s);
+  return{x:Math.cos(ang)*r+j.x,y:Math.sin(ang)*r+j.y};
+}
 function systemPos(i, s) {
-  // Импортированный каталог мира: единая галактическая compress-функция,
-  // та же, что у чёрных дыр (positionLy из Java map units).
-  if (catalog && s && s.positionLy) {
+  if(catalog&&!catalog.imported&&catalog.generationModel==='ClassicClimateV3')return legacyGalaxyPosition(i,s);
+  // Imported catalogs preserve saved physical coordinates.
+  if (catalog && catalog.imported && s && s.positionLy) {
     const w = EUOrbits.systemPosition(s);
     if (w) return w;
   }
-  if(['ClassicClimateV2','ClassicClimateV3'].includes(catalog?.generationModel)){const q=EUOrbits.javaSystemLy(catalog.worldSeed,i,Number(s.distanceLy)||0,true);return EUOrbits.galaxyWorld(q[0],q[2],true);}
+  if(['ClassicClimateV2'].includes(catalog?.generationModel)){const q=EUOrbits.javaSystemLy(catalog.worldSeed,i,Number(s.distanceLy)||0,true);return EUOrbits.galaxyWorld(q[0],q[2],true);}
   if(i===0)return{x:0,y:0};
   if(i<=4){const dist=[12,640,26,860][i-1],ang=-1.1+(i-1)*.9,r=55+Math.sqrt(Math.max(1,dist))*18,j=systemJitter(i,s);return{x:Math.cos(ang)*r+j.x,y:Math.sin(ang)*r+j.y};}
   const idx=i-5,ang=idx*2.399963229728653,r=150+Math.sqrt(Math.max(1,s.distanceLy))*48,j=systemJitter(i,s);return{x:Math.cos(ang)*r+j.x,y:Math.sin(ang)*r+j.y};
@@ -2039,6 +2068,7 @@ let uiScale = 1, mobileTextScale = 1;
 function setUiScale(v) {
   uiScale = Math.max(0.75, Math.min(1.5, v));
   document.documentElement.style.setProperty('--ui-scale', uiScale);
+  window.dispatchEvent(new Event('eu-ui-scale'));
   try { localStorage.setItem('eu_ui_scale', String(uiScale)); } catch (e) {}
 }
 function setMobileTextScale(v) {
@@ -2159,9 +2189,11 @@ let lastInfoLayout = 0;
 function updateDesktopInfo() {
   const dockEl = document.querySelector('.dock');
   const dockTop = dockEl ? dockEl.getBoundingClientRect().top : innerHeight - 14;
-  const infoTop = info.getBoundingClientRect().top;
-  const room = Math.max(190, Math.round(dockTop - (infoTop > 0 ? infoTop : 64) - 10));
-  info.style.setProperty('--eu-info-max', room + 'px');
+  const scale=uiScale||1;
+  const top=document.querySelector('.bar').getBoundingClientRect().bottom+10;
+  info.style.setProperty('--desktop-info-top', (top/scale)+'px');
+  const room=Math.max(64,Math.floor((dockTop-top-12)/scale));
+  info.style.setProperty('--eu-info-max', room+'px');
 }
 function updateInfoSheet() {
   updateInfoBar();
@@ -2172,6 +2204,7 @@ function adaptLayout() {
   updateInfoSheet();
 }
 addEventListener('resize', adaptLayout);
+addEventListener('eu-ui-scale', adaptLayout);
 for(const query of ['(max-width: 900px)','(max-width: 1200px) and (pointer: coarse)']) {
   const media = matchMedia(query);
   if(media.addEventListener)media.addEventListener('change',adaptLayout);else media.addListener(adaptLayout);

@@ -30,7 +30,7 @@
     const movedNodes=[...new Set([
       ...original.filter(e=>e!==brand), menuButton, timeBar,
       document.getElementById('uiIn'),document.getElementById('uiOut'),
-      ...[...dock.children].filter(e=>!e.classList.contains('zoomctl'))
+      ...dock.querySelectorAll('.avail, .dockrow')
     ])];
     const slots=movedNodes.map(element=>{
       const original=document.createComment('responsive original slot');
@@ -50,13 +50,13 @@
     const searchSection=section('mobile.search'); searchSection.firstChild.htmlFor='search'; searchSection.append(document.getElementById('searchWrap'));
     const browserShortcut=button('mobileStarBrowser','browser.open');browserShortcut.onclick=()=>document.getElementById('starBrowserOpen').click();searchSection.append(browserShortcut);
     const settings=section('mobile.settings'), settingsGrid=node('div','mobileSettings');
-    settingsGrid.append(document.getElementById('zones'),document.getElementById('rings3d'),document.getElementById('langBtn'),document.getElementById('smeshariaWrap'));
+    settingsGrid.append(document.getElementById('zones'),document.getElementById('rings3d'),document.getElementById('glassMode'),document.getElementById('langBtn'),document.getElementById('smeshariaWrap'));
     settings.append(settingsGrid);
     const textControls=node('div','mobileActions'); textControls.append(document.getElementById('uiOut'),document.getElementById('uiIn')); settings.append(textControls);
     const timeSection=section('mobile.time'); timeSection.append(timeBar);
     const more=node('details','mobileMore'); more.append(translated('summary','', 'mobile.more'));
     const links=node('div','mobileLinkGrid');
-    for(const e of [...dock.children]) if(!e.classList.contains('zoomctl'))links.append(e);
+    for(const e of dock.querySelectorAll('.avail, .dockrow'))links.append(e);
     more.append(links); controls.append(more);
     // Неключевые элементы шапки сохраняются в компактном режиме и возвращаются на ПК.
     const leftovers=node('div','hidden'); original.forEach(e=>{if(e!==brand&&e.parentNode===bar)leftovers.append(e);}); controls.append(leftovers);

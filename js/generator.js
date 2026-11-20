@@ -488,7 +488,7 @@ function generateCatalog(worldSeed, options = {}) {
   for (let i = 0; i < systemCount; i++) {
     const systemSeed = mix(worldSeed, i);
     const r = new MinecraftRandom(systemSeed);
-    const jitter=r.nextDouble(),distance=physics?NEW_GALAXY.distanceV2(i,jitter):climate?NEW_GALAXY.distance(worldSeed,i,jitter):4+i*3.15+jitter*.8;
+    const jitter=r.nextDouble(),distance=hierarchical?NEW_GALAXY.distance(worldSeed,i,jitter):physics?NEW_GALAXY.distanceV2(i,jitter):climate?NEW_GALAXY.distance(worldSeed,i,jitter):4+i*3.15+jitter*.8;
     const rolled=pickStar(r),star=climate?starDeck[i]:rolled;
     // Порядок как в Java SpaceGenerator.generate(): компаньон тянется ДО имён,
     // а его орбита — уже после планет. Иначе имена систем и планеты в системах

@@ -287,7 +287,18 @@
     super_puff: ['сверхрыхлый гигант', 'super-puff giant'],
     helium_giant: ['гелиевый гигант', 'helium giant'],
     brown_dwarf: ['коричневый карлик', 'brown dwarf'],
-    gas_dwarf: ['газовый карлик', 'gas dwarf']
+    gas_dwarf: ['газовый карлик', 'gas dwarf'],
+    super_earth: ['суперземля', 'super-Earth'],
+    mini_neptune: ['мини-нептун', 'mini-Neptune'],
+    magnetic: ['магнитный мир', 'magnetic world'],
+    radioactive: ['радиоактивный мир', 'radioactive world'],
+    moon_rocky: ['каменистая луна', 'rocky moon'],
+    moon_titan: ['луна типа Титана', 'Titan-like moon'],
+    moon_volcanic: ['вулканическая луна', 'volcanic moon'],
+    evaporating: ['испаряющийся мир', 'evaporating world'],
+    forbidden: ['запретный мир', 'forbidden world'],
+    mystery: ['загадочный мир', 'mystery world'],
+    comet: ['комета', 'comet']
   };
   function archName(id) {
     const entry = ARCH_NAME[id];
@@ -328,10 +339,19 @@
 
   function buildStats(catalog) {
     const sky = new Map(), cats = new Map(), atms = new Map(), arch = new Map(), night = new Map();
+    const multiplicity=new Map(),stars=new Map(),temperatures=new Map(),moons=new Map();
+    let measuredPlanets=0,stellarCount=0;
     let planets = 0, nightTotal = 0;
     const bump = (map, key) => map.set(key, (map.get(key) || 0) + 1);
     for (const sys of catalog.systems) {
+      const components=sys.stellarHierarchy?.components||[{star:sys.star},...(sys.companion?[{star:sys.companion.star}]:[])];
+      bump(multiplicity,String(components.length));
+      for(const star of components){bump(stars,star.star);stellarCount++;}
       for (const p of sys.planets) {
+        const n=Number(p.moons)||0;bump(moons,n===0?'0':n===1?'1':n<=4?'2-4':n<=9?'5-9':'10+');
+        if(p.category!=='gas_giant'&&p.archetype!=='mystery'&&Number.isFinite(p.temperatureC)){
+          const t=p.temperatureC;bump(temperatures,t< -100?'lt100':t<0?'minus':t<=50?'mild':t<=200?'hot':'veryhot');measuredPlanets++;
+        }
         planets++;
         bump(sky, bucketOfSky(p));
         bump(cats, p.category || 'distant');
@@ -344,7 +364,7 @@
         night.set(cat, row);
       }
     }
-    return { planets, systems: catalog.systems.length, nightTotal, sky, cats, atms, arch, night };
+    return { planets, systems: catalog.systems.length, nightTotal, sky, cats, atms, arch, night, multiplicity, stars, temperatures, moons, measuredPlanets, stellarCount };
   }
 
   /* ─────────────────────────── движок диаграмм ─────────────────────────── */
@@ -451,8 +471,10 @@
     const fit = fitCanvas(ch.canvas, null);
     const ctx = fit.ctx, w = fit.w, h = fit.h;
     const cx = w / 2, cy = h / 2;
-    const r = Math.max(22, Math.min(w, h) / 2 - 8);
-    const lw = Math.max(12, Math.round(r * 0.30));
+    // Обводка центрирована на пути: резервируем половину её толщины внутри canvas.
+    const half=Math.min(w,h)/2;
+    const lw=Math.max(10,Math.round(half*.27));
+    const r=Math.max(1,half-7-lw/2);
     ctx.clearRect(0, 0, w, h);
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -467,7 +489,7 @@
       const sweep = (v / total) * Math.PI * 2;
       const gap = sweep > 0.12 ? 0.035 : 0.008;
       ctx.beginPath();
-      ctx.strokeStyle = ch.colors[k] || '#5fe6ff';
+      ctx.strokeStyle = colorGradient(ctx,ch.colors[k]||'#5fe6ff',cx-r,cy-r,cx+r,cy+r);
       ctx.lineWidth = lw;
       ctx.lineCap = 'butt';
       ctx.arc(cx, cy, r, ang + gap, Math.max(ang + gap + 0.002, ang + sweep - gap));
@@ -505,7 +527,7 @@
         ch.legendRows.set(k, row);
       }
       const v = Math.max(0, ch.cur[k] || 0);
-      row.sw.style.background = ch.colors[k] || '#5fe6ff';
+      const color=ch.colors[k]||'#5fe6ff';row.sw.style.background=`linear-gradient(135deg,${tint(color,.22)},${color} 55%,${tint(color,-.15)})`;
       row.nm.textContent = ch.labels[k] || k;
       row.nm.title = ch.labels[k] || k;
       const pct = total > 0 ? Math.round((v / total) * 100) : 0;
@@ -513,6 +535,14 @@
       row.li.style.opacity = v > 0 ? '1' : '.42';
     }
   }
+
+  // Лёгкая модуляция исходного цвета: категории не меняют идентичность.
+  function tint(color,amount){
+    let rgb;if(color.startsWith('#')){const h=color.slice(1);rgb=h.length===3?[...h].map(c=>parseInt(c+c,16)):[0,2,4].map(i=>parseInt(h.slice(i,i+2),16));}
+    else rgb=(color.match(/[\d.]+/g)||[95,230,255]).slice(0,3).map(Number);
+    return 'rgb('+rgb.map(v=>Math.round(amount>=0?v+(255-v)*amount:v*(1+amount))).join(',')+')';
+  }
+  function colorGradient(ctx,color,x0,y0,x1,y1){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,tint(color,.20));g.addColorStop(.52,color);g.addColorStop(1,tint(color,-.16));return g;}
 
   function roundRect(ctx, x, y, w, h, r) {
     const rr = Math.min(r, h / 2, w / 2);
@@ -575,7 +605,7 @@
 
       const frac = clamp(v / denom, 0, 1);
       if (frac > 0.001) {
-        ctx.fillStyle = ch.colors[k] || '#5fe6ff';
+        ctx.fillStyle = colorGradient(ctx,ch.colors[k]||'#5fe6ff',x0,by,x1,by+barH);
         roundRect(ctx, x0, by, Math.max(4, (x1 - x0) * frac), barH, 4);
         ctx.fill();
       }
@@ -594,6 +624,11 @@
   const chartAtm = makeChart('donut', document.getElementById('atmCv'), { legendEl: document.getElementById('atmLegend') });
   const chartArch = makeChart('bars', document.getElementById('archCv'), { rowH: 26, valueW: 92, scale: 'max' });
   const chartNight = makeChart('bars', document.getElementById('nightCv'), { rowH: 28, valueW: 104, scale: 'hundred' });
+
+  const chartMultiplicity=makeChart('bars',document.getElementById('multiplicityCv'),{rowH:32});
+  const chartStars=makeChart('bars',document.getElementById('stellarCv'),{rowH:28});
+  const chartTemp=makeChart('bars',document.getElementById('temperatureCv'),{rowH:32});
+  const chartMoons=makeChart('bars',document.getElementById('moonsCv'),{rowH:32});
 
   function rankColor(i, n) {
     const t = n <= 1 ? 0 : i / (n - 1);
@@ -665,6 +700,14 @@
       return m.n + ' / ' + m.total + ' · ' + T('ch.pct', { p: Math.round(v) });
     };
     setData(chartNight, nightRows, animate);
+
+    setData(chartMultiplicity,['1','2','3','4','5'].map((k,i)=>({key:k,label:T('ch.starCount.'+k),color:['#89d7d6','#b3a3e7','#e4b67b','#e79fba','#8ebce8'][i],value:st.multiplicity.get(k)||0})),animate);
+    const starRows=[...st.stars.entries()].sort((a,b)=>b[1]-a[1]);
+    setData(chartStars,starRows.map(([k,value],i)=>({key:k,label:T('star.'+k),color:rankColor(i,starRows.length),value})),animate);
+    setData(chartTemp,['lt100','minus','mild','hot','veryhot'].map((k,i)=>({key:k,label:T('ch.temp.'+k),color:['#94b7ed','#8fd5e9','#8ed1ae','#e1c189','#e49c87'][i],value:st.temperatures.get(k)||0})),animate);
+    setData(chartMoons,['0','1','2-4','5-9','10+'].map((k,i)=>({key:k,label:T('ch.moons.'+k),color:['#87b4ca','#9cbadd','#b7a5de','#d5a9cb','#ddc38c'][i],value:st.moons.get(k)||0})),animate);
+    for(const [ch,key] of [[chartMultiplicity,'ch.multiplicity'],[chartStars,'ch.stellar'],[chartTemp,'ch.temperatures'],[chartMoons,'ch.moons']])
+      ch.canvas.setAttribute('aria-label',T(key)+'. '+ch.keys.map(k=>ch.labels[k]+': '+ch.to[k]).join('; '));
 
     // Локализованные подписи для скринридеров.
     const label = (id, text) => {
@@ -769,7 +812,7 @@
       for (const [k, v] of st.cats) cats[k] = v;
       for (const [k, v] of st.atms) atms[k] = v;
       return { seed: state.seed.toString(), planets: st.planets, systems: st.systems,
-        nightTotal: st.nightTotal, sky: sky, cats: cats, atms: atms, arch: top, night: night };
+        nightTotal: st.nightTotal, sky: sky, cats: cats, atms: atms, arch: top, night: night, multiplicity:Object.fromEntries(st.multiplicity),stars:Object.fromEntries(st.stars),temperatures:Object.fromEntries(st.temperatures),moons:Object.fromEntries(st.moons),measuredPlanets:st.measuredPlanets,stellarCount:st.stellarCount };
     },
     setSeed: (value) => {
       const s = parseSeed(String(value));
