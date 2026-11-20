@@ -186,7 +186,8 @@
     return {
       planet, index, meanRadiusAu: mean, gameRadiusAu: gameR, semiMajorAxisAu: a,
       e, iRad, nodeRad, argRad, m0, periodTicks: period, epochTicks: epoch, real, source,
-      imported:!!imported,physicsV2:['ClassicClimateV2','ClassicClimateV3'].includes(system.generationModel),dMax:AU_WORLD_MAX,path:null
+      // Solar сохраняет прежнее отображение: метка модели каталога не меняет масштаб её карты.
+      imported:!!imported,physicsV2:!isSolar(system)&&['ClassicClimateV2','ClassicClimateV3'].includes(system.generationModel),dMax:AU_WORLD_MAX,path:null
     };
   }
 
