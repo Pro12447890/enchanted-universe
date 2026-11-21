@@ -14,23 +14,26 @@ html:not(.mobile-map-ui) .dock #hint { position:static;zoom:1;flex:1 1 230px;max
 html:not(.mobile-map-ui) #info { top:var(--desktop-info-top,64px); }
 .mobile-map-ui #desktopControls { display:none; }
 
-/* Основные кнопки — сквирклы. Обычный radius остаётся безопасным фолбэком. */
-html .bar > button,html .bar > label.eutoggle,
-html .dockrow > :is(button,a),html .avail,html .timebar,
-html .timebar > button,html .zoomctl > button,
+/* Сквирклы остаются у крупных оболочек и плиток; radius — безопасный фолбэк. */
+html .avail,html .timebar,html .tool-tile { border-radius:14px;corner-shape:squircle; }
+/* Небольшие кнопки и переключатели — обычные круглые углы, без изменения раскладки. */
+html .bar > button,html label.eutoggle,html .tgk,
+html .dockrow > :is(button,a),html .timebar > button,
+html .zoomctl > button,html.mobile-map-ui .zoomctl > button,
 html .mobileHeaderActions > button,html .mobileNav > button,
-html .mobileControls button,html .object-browser button,
-html .tools-dialog [data-close],html .tool-tile,html .modal .langRow button {
-  border-radius:14px;corner-shape:squircle;
+html .mobileControls button:not(.tool-tile),html .object-browser button,
+html .tools-dialog [data-close],html #info .sheetClose,html #info .sheetDetails,
+html .ob-close,html .sheetClose,html .object-link,html .modal .langRow button {
+  border-radius:10px;corner-shape:round;
 }
-html .zoomctl > button,html .mobileHeaderActions > button,
-html .tools-dialog [data-close],html .ob-close,html .sheetClose { border-radius:34%;corner-shape:squircle; }
-html .dockrow :is(#crafts,#planets,#charts) svg { border-radius:35%;corner-shape:squircle; }
+html .chip,html .chips > button,html .chips > span,html .chips span.biome,
+html .object-browser .ob-filter-chip,html.mobile-map-ui #info .sheetFacts span,
+html .dockrow :is(#crafts,#planets,#charts) svg { border-radius:8px;corner-shape:round; }
 html .tool-symbol { width:43px;height:43px;display:grid;place-items:center;flex:none;font-size:27px;border:1px solid #b9d5e32a;background:#b9d5e30a;border-radius:35%;corner-shape:squircle; }
 html .tools-dialog .tool-tile:nth-child(2) .tool-symbol { background:#b3a0ed12;border-color:#c8b4ff30; }
 html .tools-dialog .tool-tile:nth-child(3) .tool-symbol { background:#eac48a12;border-color:#f0d29a30; }
-html .glass-mode { border-radius:14px!important;corner-shape:squircle; }
-html .timebar > button { border-radius:11px;corner-shape:squircle; }
+html .glass-mode { border-radius:10px!important;corner-shape:round; }
+html .timebar > button,html .mobileControls .timebar > button { border-radius:11px;corner-shape:round; }
 html .dockrow > :is(button,a):focus-visible,
 html .zoomctl > button:focus-visible,html .timebar > button:focus-visible { outline:2px solid #a8e3f6;outline-offset:3px; }
 @media(max-width:1100px) { html:not(.mobile-map-ui) .dock #hint { flex-basis:100%;max-width:none; } }

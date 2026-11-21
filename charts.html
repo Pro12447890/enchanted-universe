@@ -14,6 +14,13 @@
 <link rel="icon" href="favicon-32.png" sizes="32x32">
 <link rel="apple-touch-icon" href="favicon-180.png">
 <title data-i18n-doc="ch.doc">Диаграммы генератора — Enchanted Universe</title>
+<script>
+try {
+  const enabled=localStorage.getItem('eu_liquid_glass_mode')!=='classic';
+  document.documentElement.classList.toggle('liquid-glass',enabled);
+  document.documentElement.classList.toggle('glass-classic',!enabled);
+} catch (_) { document.documentElement.classList.add('liquid-glass'); }
+</script>
 <style>
   :root {
     color-scheme: dark;
@@ -23,7 +30,7 @@
     --dim: #8b97b8;
     --text: #dfe7ff;
     --line: #2a3550;
-    --panel: rgba(10, 14, 24, .86);
+    --panel: rgba(10, 14, 24, .78);
     --bg: #04060c;
   }
   * { box-sizing: border-box; }
@@ -45,8 +52,9 @@
   /* ── шапка ─────────────────────────────────────────────────────────────── */
   .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px;
          flex-wrap: wrap; padding: 10px 0 clamp(8px, 1.2vw, 12px);
-         background: linear-gradient(rgba(4, 6, 12, .96), rgba(4, 6, 12, 0));
-         backdrop-filter: blur(8px); }
+         background: linear-gradient(115deg, rgba(30, 82, 102, .18), rgba(78, 43, 110, .12));
+         border-bottom: 1px solid rgba(187, 225, 246, .07);
+         -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); }
   .brand { font-weight: 700; letter-spacing: .08em; color: var(--gold); font-size: 15px; line-height: 1.1; }
   .brand small { display: block; font-weight: 400; letter-spacing: 0; color: var(--dim);
                  font-size: 11px; margin-top: 3px; }
@@ -123,20 +131,27 @@
     .seedbar { padding: 10px; gap: 8px; }
     #seed { flex: 1 1 130px; }
   }
-  .card:nth-child(3n+1){background:linear-gradient(145deg,#11232bd9,#101625ed);border-color:#34555b;}
-  .card:nth-child(3n+2){background:linear-gradient(145deg,#211b33d9,#111a2aed);border-color:#51455f;}
-  .card:nth-child(3n){background:linear-gradient(145deg,#2b231bd9,#131e2aed);border-color:#5b5040;}
+  .card:nth-child(3n+1){background:linear-gradient(145deg,#11232bc2,#101625c7);border-color:#34555b;}
+  .card:nth-child(3n+2){background:linear-gradient(145deg,#211b33c2,#111a2ac7);border-color:#51455f;}
+  .card:nth-child(3n){background:linear-gradient(145deg,#2b231bc2,#131e2ac7);border-color:#5b5040;}
   .card .note{color:#a1aec4;}
-  .chip,#random,.seedbar,.stat,.card{corner-shape:squircle;}
+  /* Squircle только крупным оболочкам; кнопки и поле имеют обычную дугу. */
+  .seedbar,.stat,.card{corner-shape:squircle;}
+  .chip,#random,#seed{corner-shape:round;}
   .chip{border-radius:14px;}
+  /* Один лёгкий blur на оболочку, без прозрачности текста и чисел. */
+  .liquid-glass .charts-page :is(.seedbar,.stat,.card){-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);}
+  .liquid-glass .charts-page .seedbar :is(#seed,#random){-webkit-backdrop-filter:none;backdrop-filter:none;}
 </style>
+<link rel="stylesheet" href="assets/liquid-glass.css?v=7449c53388">
 </head>
-<body>
+<body class="charts-page">
 <div class="wrap">
   <header class="top">
     <div class="brand">ENCHANTED UNIVERSE<small data-i18n="ch.sub">живая статистика генератора по текущему сиду</small></div>
     <div class="grow"></div>
     <a class="chip" id="back" href="index.html" data-i18n="ch.back">← Назад на карту</a>
+    <button class="chip glass-mode" id="glassMode" type="button" aria-pressed="true">Стекло · Авто</button>
     <button class="chip" id="langBtn" type="button" aria-label="Язык">RU</button>
   </header>
 
@@ -212,7 +227,8 @@
     </section>
   </main>
 </div>
-<script src="js/i18n.js?v=2294214ab4"></script>
+<script src="js/i18n.js?v=c700ba4515"></script>
+<script src="js/performance-mode.js?v=19d1e76770"></script>
 <script src="js/moon-facts.js?v=2"></script>
 <script src="js/generation-pools.js?v=2"></script>
 <script src="js/generation-policy.js?v=2"></script>
@@ -220,7 +236,7 @@
 <script src="js/binary-policy.js?v=1"></script>
 <script src="js/planet-climate.js?v=2"></script>
 <script src="js/stellar-hierarchy.js?v=4"></script>
-<script src="js/generator.js?v=0a9bbbf013"></script>
-<script src="charts.js?v=ccb151fd56"></script>
+<script src="js/generator.js?v=23c6e2f03d"></script>
+<script src="charts.js?v=bde32113dd"></script>
 </body>
 </html>

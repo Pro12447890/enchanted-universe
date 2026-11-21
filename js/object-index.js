@@ -57,9 +57,20 @@
   const p=adapter.planetAu(s,e.planet,ticks);if(!p)return null;
   origin=add(origin,[p.x*AU_LY,p.z*AU_LY,p.y*AU_LY]);
   if(e.kind==='moon'){
-   const m=e.moon,a=adapter.moonAngle(m,ticks),tilt=(m.tiltDeg||0)*Math.PI/180,yaw=(m.yawDeg||0)*Math.PI/180,r=m.distanceKm*KM_LY;
-   const x=Math.cos(a)*r,z=Math.sin(a)*Math.cos(tilt)*r;
-   origin=add(origin,[x*Math.cos(yaw)-z*Math.sin(yaw),Math.sin(a)*Math.sin(tilt)*r,x*Math.sin(yaw)+z*Math.cos(yaw)]);
+   const m=e.moon,parent=e.planet,tilt=(m.tiltDeg||0)*Math.PI/180,yaw=(m.yawDeg||0)*Math.PI/180,r=m.distanceKm*KM_LY;
+   let period=Math.max(1,Number(m.periodTicks)||1);
+   // Только скрытая 3D: точный период OrbitMode.moonPeriod, без округления экранных орбит.
+   if(EUOrbits.isRealistic()){
+    const parentRadius=parent.diameterEarth>0?6371*parent.diameterEarth:parent.category==='gas_giant'?71492:6371;
+    const G=6.674e-11,g=Math.max(.05,parent.gravity??1)*9.80665,radius=Math.max(2e5,Math.max(1,parentRadius)*1000);
+    const mass=Math.max(1e21,g*radius*radius/G),distance=Math.max(1e6,m.distanceKm*1000);
+    const seconds=2*Math.PI*Math.sqrt(Math.pow(distance,3)/(G*mass));
+    period=Math.max(60,seconds/86400*24000);
+   }
+   // Общий Y-up кадр каталога: SiblingSkyMath.orbitPos уже не требует перестановки осей.
+   const a=2*Math.PI*(ticks/period+(Number(m.phaseOffset??m.phase)||0));
+   const x=Math.cos(a)*r,y=Math.sin(a)*Math.cos(tilt)*r,z=Math.sin(a)*Math.sin(tilt)*r;
+   origin=add(origin,[x*Math.cos(yaw)-z*Math.sin(yaw),y,x*Math.sin(yaw)+z*Math.cos(yaw)]);
   }
   return origin;
  }

@@ -527,7 +527,7 @@
         ch.legendRows.set(k, row);
       }
       const v = Math.max(0, ch.cur[k] || 0);
-      const color=ch.colors[k]||'#5fe6ff';row.sw.style.background=`linear-gradient(135deg,${tint(color,.22)},${color} 55%,${tint(color,-.15)})`;
+      const color=ch.colors[k]||'#5fe6ff';row.sw.style.background=`linear-gradient(135deg,${tint(color,.46)},${color} 55%,${tint(color,-.40)})`;
       row.nm.textContent = ch.labels[k] || k;
       row.nm.title = ch.labels[k] || k;
       const pct = total > 0 ? Math.round((v / total) * 100) : 0;
@@ -536,13 +536,13 @@
     }
   }
 
-  // Лёгкая модуляция исходного цвета: категории не меняют идентичность.
+  // Выразительный градиент исходного цвета: категории сохраняют идентичность.
   function tint(color,amount){
     let rgb;if(color.startsWith('#')){const h=color.slice(1);rgb=h.length===3?[...h].map(c=>parseInt(c+c,16)):[0,2,4].map(i=>parseInt(h.slice(i,i+2),16));}
     else rgb=(color.match(/[\d.]+/g)||[95,230,255]).slice(0,3).map(Number);
     return 'rgb('+rgb.map(v=>Math.round(amount>=0?v+(255-v)*amount:v*(1+amount))).join(',')+')';
   }
-  function colorGradient(ctx,color,x0,y0,x1,y1){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,tint(color,.20));g.addColorStop(.52,color);g.addColorStop(1,tint(color,-.16));return g;}
+  function colorGradient(ctx,color,x0,y0,x1,y1){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,tint(color,.46));g.addColorStop(.52,color);g.addColorStop(1,tint(color,-.40));return g;}
 
   function roundRect(ctx, x, y, w, h, r) {
     const rr = Math.min(r, h / 2, w / 2);
@@ -605,8 +605,9 @@
 
       const frac = clamp(v / denom, 0, 1);
       if (frac > 0.001) {
-        ctx.fillStyle = colorGradient(ctx,ch.colors[k]||'#5fe6ff',x0,by,x1,by+barH);
-        roundRect(ctx, x0, by, Math.max(4, (x1 - x0) * frac), barH, 4);
+        const fillW = Math.max(4, (x1 - x0) * frac);
+        ctx.fillStyle = colorGradient(ctx,ch.colors[k]||'#5fe6ff',x0,by,x0+fillW,by+barH);
+        roundRect(ctx, x0, by, fillW, barH, 4);
         ctx.fill();
       }
 
