@@ -845,6 +845,7 @@
   'plains': ['Равнины', 'Plains'],
   'red_regolithbasin': ['Красный реголитовый бассейн', 'Red regolith basin'],
   'regolith_river': ['Реголитовая река', 'Regolith River'],
+  'regolith_sea': ['Реголитовое море', 'Regolith sea'],
   'regolithbasin': ['Реголитовый бассейн', 'Regolith basin'],
   'river': ['Река', 'River'],
   'savanna': ['Саванна', 'Savanna'],

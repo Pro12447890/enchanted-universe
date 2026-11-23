@@ -7,7 +7,7 @@
  // одном блоке smooth_regolith (средняя текстура 132), «Кратерный» и «Каменный» — на своих,
  // но разница 132/138/143 на карте не видна. Из-за этого список биомов читался как «куча
  // одинаковых бассейнов, а часть почему-то цветная». Разводим серые оттенком по названию.
- const TINT={'enchanted_universe:regolithbasin':[130,130,131],'enchanted_universe:light_regolithbasin':[166,161,150],'enchanted_universe:cratered_regolithbasin':[118,120,130],'enchanted_universe:stone_regolith':[142,147,158],'enchanted_universe:pale_beige_regolithbasin':[223,209,182]};
+ const TINT={'enchanted_universe:regolithbasin':[130,130,131],'enchanted_universe:light_regolithbasin':[166,161,150],'enchanted_universe:cratered_regolithbasin':[118,120,130],'enchanted_universe:stone_regolith':[142,147,158],'enchanted_universe:pale_beige_regolithbasin':[223,209,182],'enchanted_universe:regolith_sea':[58,58,59]};
  function material(id){const k=key(id),db=globalThis.EUBiomeMaterials?.biomes||{},base=db[k]||{color:[125,120,112],canopy:[102,121,82],water:[63,118,228],vegetation:false,wet:/ocean|river/.test(k),ice:/iced|ice_spikes|frozen|snow/.test(k),block:null},tint=TINT[k];return tint?{...base,color:tint}:base;}
  function life(p){
   if(!p||p.mystery||(p.category||p.type)==='gas_giant')return false;
