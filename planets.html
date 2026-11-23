@@ -779,11 +779,27 @@ function drawCloudOverlay(c2, size, cloudiness, composition, seed, family, pixel
       }
     }
   } else if (family === "fronts") {
+    // Фронты: сплошные полосы с рваными краями и перспективой у лимба.
+    // Раньше здесь были ровные синусоидальные штрихи — они выбивались из стиля.
     for (let y = 0; y < cells; y++) {
       for (let x = 0; x < cells; x++) {
-        const band = Math.sin((y / cells * 7 + Math.sin(x / cells * 3 + rnd(y) * 3) * .55) * Math.PI);
-        const t = Math.abs(band);
-        if (t > 1 - cloudiness * .9) cell(x, y, alpha * (1 - Math.abs(t - .55)));
+        const dx = (x + .5 - cx) / rc, dy = (y + .5 - cy) / rc;
+        const rr = Math.hypot(dx, dy);
+        if (rr >= 1) continue;
+        // Сферические координаты: у края долгота сжата, полосы короче и гуще.
+        const lat = dy;
+        const lon = dx / Math.max(.22, Math.sqrt(1 - rr * rr));
+        const warp = (fbm(lon * .9 + 3.1, lat * 1.6 + 7.4, seed ^ 0x77C1) - .5) * .85
+                   + (fbm(lon * 2.3 + 11, lat * 3.1 + 2, seed ^ 0x1A2B) - .5) * .30;
+        const band = Math.sin((lat * 4.2 + warp) * Math.PI);
+        const edge = Math.abs(band);
+        const thr = .58 - cloudiness * .30;
+        if (edge < thr) continue;
+        // Толщина полосы гуляет вдоль долготы, у лимба облака плотнее.
+        const thick = .55 + .45 * fbm(lon * 1.4 + 5, lat * .6 + 9, seed ^ 0x3C4D);
+        const a = alpha * thick * (0.45 + 0.55 * (edge - thr) / Math.max(.02, 1 - thr))
+                * (0.55 + 0.45 * Math.sqrt(1 - rr * rr));
+        if (a > 0.02) cell(x, y, a);
       }
     }
   } else if (family === "cumulus") {
