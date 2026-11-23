@@ -135,6 +135,7 @@
   </main>
 </div>
 <script src="js/i18n.js"></script>
+<script src="js/thermal-emission.js?v=3"></script>
 <script src="js/aurora.js?v=1"></script>
 <script>
 "use strict";
@@ -407,14 +408,9 @@ function render(size, seed, tempC, kind, tiltDeg) {
         // цвет пояса гуляет вдоль полосы
         col = adjust(col, (fbm(gu * 2.2 + 3, gv * 2.2 + 7, seed ^ 0xAB12) - 0.5) * 30);
 
-        // раскалённые пояса
-        let heatLit = false;
-        if (P.heatG > 0.01 && wave > 0.55) {
-          const bg = P.heatG * clamp((wave - 0.55) / 0.45, 0, 1);
-          const kk = (0.30 + 0.70 * bg) * (0.55 + 0.45 * bg);
-          col = addc(col, P.heatRgb, kk);
-          heatLit = true;
-        }
+        // раскалённые пояса, затем основа: см. heatGas
+        col = heatGas(col, tempC, t, gu, gv, seed);
+        const heatLit = heatStages(tempC, "gas").strength > 0.01;
         // облака и ветер
         col = clouds(col, gu, gv, seed);
         let light = Math.max(0.30, 0.95 - Math.sqrt(dx * dx + dy * dy) / radius * 0.45
@@ -439,6 +435,7 @@ function render(size, seed, tempC, kind, tiltDeg) {
           if (Math.abs(dy) > edge) col = lerp(col, [234, 246, 255], 0.75);
         }
         col = clouds(col, nx, ny, seed, false);
+        col = heatRocky(col, tempC, nx, ny, seed);
         const dist = Math.sqrt(dx * dx + dy * dy) / radius;
         let light = Math.max(0.30, 0.95 - dist * 0.45 - Math.max(0, dx / radius) * 0.22);
         light *= relief(nx, ny, seed, false);
@@ -477,14 +474,92 @@ function clouds(col, hu, hv, seed, gas = true) {
   return col;
 }
 
+/* Ступени нагрева. У каменистых сначала краснеет кора, затем появляются жёлтые
+   трещины, потом оранжевый и жёлтый накал. У газовых сначала краснеют полосы,
+   основа подтягивается позже. Пороги — под диапазон слайдера −220…2600 °C;
+   цвет свечения берётся по закону Планка через EUThermal (как в моде). */
+function heatStages(tempC, kind) {
+  const t = Number(tempC) || 0;
+  if (kind === "gas") {
+    return {
+      bands: clamp((t - 300) / 350, 0, 1),
+      base: clamp((t - 650) / 350, 0, 1),
+      strength: clamp((t - 900) / 700, 0, 1)
+    };
+  }
+  return {
+    red: clamp((t - 250) / 350, 0, 1),
+    cracks: clamp((t - 600) / 350, 0, 1),
+    strength: clamp((t - 900) / 650, 0, 1)
+  };
+}
+
+function thermalGlow(tempC) {
+  if (!window.EUThermal) return { color: [255, 150, 60], strength: 0 };
+  const v = window.EUThermal.visible(tempC);
+  return { color: v.color.map(c => c * 255), strength: v.strength };
+}
+
+/* Каменная планета: покраснение коры, жёлтые трещины, затем накал. */
+function heatRocky(col, tempC, nx, ny, seed) {
+  const H = heatStages(tempC, "rocky");
+  if (H.red <= 0 && H.cracks <= 0 && H.strength <= 0) return col;
+  let out = col;
+  if (H.red > 0) out = lerp(out, [150, 44, 30], 0.55 * H.red);
+  if (H.cracks > 0) {
+    // Прожилки: узкая полоса там, где шум близок к нулю. Ширину ведём от
+    // разрешения, чтобы на 512 трещины были тонкими, а на 128 — читаемыми.
+    const cn = Math.abs(fbm(nx * 11 + 7, ny * 11 + 3, seed ^ 0x7A11) - 0.5)
+      + Math.abs(fbm(nx * 27 + 2, ny * 27 + 9, seed ^ 0x5C33) - 0.5) * 0.45;
+    const width = 0.075;
+    const vein = clamp(1 - cn / width, 0, 1);
+    if (vein > 0) {
+      const hot = heatColor(0.45 + 0.35 * H.strength);
+      out = lerp(out, hot, Math.pow(vein, 0.6) * (0.55 + 0.45 * H.cracks) * H.cracks);
+    }
+  }
+  if (H.strength > 0) {
+    const glow = thermalGlow(tempC);
+    out = addc(out, glow.color, 0.75 * H.strength * Math.max(0.35, glow.strength));
+  }
+  return out;
+}
+
+/* Газовая планета: сперва краснеют полосы, основа — позже. */
+function heatGas(col, tempC, band, gu, gv, seed) {
+  const H = heatStages(tempC, "gas");
+  if (H.bands <= 0 && H.base <= 0 && H.strength <= 0) return col;
+  let out = col;
+  if (H.bands > 0) {
+    const bandness = Math.abs(band - 0.5) * 2;
+    const jitter = 0.75 + 0.5 * fbm(gu * 6 + 4, gv * 6 + 1, seed ^ 0x3311);
+    out = lerp(out, [146, 42, 24], clamp(0.55 * H.bands * (0.35 + 0.65 * bandness) * jitter, 0, 1));
+  }
+  if (H.base > 0) out = lerp(out, [176, 66, 28], 0.45 * H.base);
+  if (H.strength > 0) {
+    const glow = thermalGlow(tempC);
+    out = addc(out, glow.color, 0.70 * H.strength * Math.max(0.35, glow.strength));
+  }
+  return out;
+}
 /* --- атмосфера -------------------------------------------------------------- */
 function rgba3(c, a) {
   return "rgba(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + ","
        + clamp(a, 0, 1).toFixed(3) + ")";
 }
 
-/* Цвет ореола от температуры: холодные — голубой, тёплые — оранжевый. */
-function atmosphereColor(tempC,composition='') {
+/* Цвет ореола от температуры: холодные — голубой, тёплые — оранжевый,
+   у раскалённых ореол становится собственным свечением планеты. */
+function atmosphereColor(tempC, composition = '', kind = 'rocky') {
+  const hot = heatStages(tempC, kind);
+  if (hot.strength > 0.02) {
+    const glow = thermalGlow(tempC);
+    return lerp(atmosphereColorBase(tempC, composition), glow.color, Math.min(0.85, hot.strength));
+  }
+  return atmosphereColorBase(tempC, composition);
+}
+
+function atmosphereColorBase(tempC,composition='') {
   const c=String(composition).toUpperCase();
   if(/SO2|H2S|S2/.test(c))return[236,214,72];
   if(/CH4|C2H6|HCN/.test(c))return[78,181,206];
@@ -494,11 +569,33 @@ function atmosphereColor(tempC,composition='') {
   return t<.5?lerp(cold,mid,t*2):lerp(mid,warm,(t-.5)*2);
 }
 
-function drawAtmosphere(bctx, size, atm, tempC, composition, cloudiness) {
+/* Собственное свечение вокруг диска: у раскалённых планет спрайт всегда яркий,
+   с жёлтым ободком, даже если атмосферы нет. */
+function drawThermalGlow(bctx, size, tempC, kind) {
+  const H = heatStages(tempC, kind);
+  if (H.strength <= 0.01) return;
+  const glow = thermalGlow(tempC);
+  const R = planetRadius(size), c = size / 2;
+  const outer = R * (1.04 + 0.32 * H.strength);
+  const a = 0.60 * H.strength * Math.max(0.4, glow.strength);
+  const g = bctx.createRadialGradient(c, c, R * 0.90, c, c, outer);
+  g.addColorStop(0, rgba3(glow.color, a));
+  g.addColorStop(0.42, rgba3(glow.color, a * 0.42));
+  g.addColorStop(1, rgba3(glow.color, 0));
+  bctx.save();
+  bctx.globalCompositeOperation = "lighter";
+  bctx.fillStyle = g;
+  bctx.beginPath();
+  bctx.arc(c, c, outer, 0, Math.PI * 2);
+  bctx.fill();
+  bctx.restore();
+}
+
+function drawAtmosphere(bctx, size, atm, tempC, composition, cloudiness, kind) {
   const s = ATM_HALO[atm] || 0;
   if (!s) return;
   const R = planetRadius(size), c = size / 2;
-  const col = atmosphereColor(tempC,composition);
+  const col = atmosphereColor(tempC, composition, kind || 'rocky');
   const outer = R * (1.02 + 0.13 * s);
   const g = bctx.createRadialGradient(c, c, R * 0.86, c, c, outer);
   g.addColorStop(0, rgba3(col, 0.62 * s));
@@ -557,11 +654,15 @@ function drawCloudOverlay(c2, size, cloudiness, composition, seed, family, pixel
   // Сколько деталей даёт разрешение: крупнее текстура — мельче структура.
   const density = cells / 64;
   if (family === "wisps") {
+    // Дымка: рваные полосы, а не сплошные скан-линии по всему диску.
     for (let y = 0; y < cells; y++) {
       const ph = rnd(y) * 6.283;
       for (let x = 0; x < cells; x++) {
-        const wave = Math.sin(x / cells * 9 + ph) * .5 + .5;
-        if (wave > .55 - cloudiness * .3) cell(x, y, alpha * .45 * wave);
+        const patch = fbm(x / cells * 3.1 + 11, y / cells * 5.7 + 4, seed ^ 0x5157);
+        if (patch < 0.46) continue;
+        const wave = Math.sin(x / cells * 6.5 + ph) * .5 + .5;
+        const a = alpha * .55 * (patch - 0.46) / 0.54 * (0.35 + 0.65 * wave);
+        if (a > 0.02) cell(x, y, a);
       }
     }
   } else if (family === "fronts") {
@@ -927,7 +1028,8 @@ function draw() {
   planetCv.getContext("2d").putImageData(
     render(c.size, c.seed, c.tempC, c.kind, c.tilt), 0, 0);
   baseCtx.clearRect(0, 0, c.size, c.size);
-  drawAtmosphere(baseCtx, c.size, c.atm, c.tempC, c.composition, c.clouds);
+  drawAtmosphere(baseCtx, c.size, c.atm, c.tempC, c.composition, c.clouds, c.kind);
+  drawThermalGlow(baseCtx, c.size, c.tempC, c.kind);
   baseCtx.drawImage(planetCv, 0, 0);
   const family = cloudFamilyFor(c);
   drawCloudOverlay(baseCtx, c.size, c.clouds, c.composition, c.seed, family, textureInfo(c.kind, c.size).pixel);
