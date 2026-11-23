@@ -98,7 +98,7 @@
 /* Три независимые орбиты: каждая — своя плоскость, свой период и своё направление.
    Луны идут по эллипсам этих же орбит, скорость всё время меняется (пружинный ход). */
 .loader-orbit { position:relative;width:90px;height:90px;margin:0 auto 30px; }
-.lo-frame { position:absolute;inset:0;border:1px solid #a1e6ff44;border-radius:50%;box-shadow:inset 0 0 30px #6f9ce01a;animation:eu-lo-frame 7.4s ease-in-out infinite; }
+.lo-frame { position:absolute;inset:0;border:1px solid #a1e6ff44;border-radius:50%;box-shadow:inset 0 0 30px #6f9ce01a;animation:eu-lo-frame 6.6s ease-in-out infinite; }
 .lo-plane { position:absolute;inset:0;animation-timing-function:linear;animation-iteration-count:infinite; }
 .lo-plane-a { animation-name:eu-lo-sway-a;animation-duration:7.4s;animation-timing-function:ease-in-out;animation-delay:-2.1s; }
 .lo-plane-b { animation-name:eu-lo-sway-b;animation-duration:9.8s;animation-timing-function:ease-in-out;animation-delay:-5.3s; }
@@ -120,7 +120,6 @@
 .loader-meta { display:flex;align-items:center;justify-content:center;gap:9px;color:#99b0c6;font-size:10px;letter-spacing:.08em;text-transform:uppercase; }
 .loader-pulse { width:5px;height:5px;border-radius:50%;background:#a2ebd3;animation:eu-loader-pulse 1.2s ease-in-out infinite; }
 @keyframes eu-lo-plane-cw { to { transform:rotate(360deg); } }
-@keyframes eu-lo-plane-ccw { to { transform:rotate(-360deg); } }
 /* Плоскости эллипсов не крутятся целиком, а качаются — каждая в своём ритме и со своей
    амплитудой, поэтому дуги никогда не склеиваются в одну вращающуюся фигуру. */
 @keyframes eu-lo-sway-a { 0%,100% { transform:rotate(-32deg); } 50% { transform:rotate(-4deg); } }
