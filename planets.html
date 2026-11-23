@@ -112,6 +112,16 @@
       <label><span data-i18n="p.composition">Состав атмосферы</span><input id="composition" type="text" value="N2,O2,AR,H2O" placeholder="N2,O2,CO2,H2O"></label>
       <label><span data-i18n="p.habitable">Обитаемость</span><input id="habitable" type="checkbox"></label>
       <label><span data-i18n="p.clouds">Облачность</span><span class="row"><input id="clouds" type="range" min="0" max="1" value="0.36" step="0.02" style="width:96px"><b id="cloudsv">36%</b></span></label>
+      <label><span data-i18n="p.cloudtype">Тип облаков</span> <select id="cloudtype">
+          <option value="auto" data-i18n="p.cloud.auto">авто (по модели)</option>
+          <option value="none" data-i18n="p.cloud.none">нет</option>
+          <option value="wisps" data-i18n="p.cloud.wisps">дымка</option>
+          <option value="cumulus" data-i18n="p.cloud.cumulus">кучевые</option>
+          <option value="fronts" data-i18n="p.cloud.fronts">фронты</option>
+          <option value="cyclone" data-i18n="p.cloud.cyclone">циклоны</option>
+          <option value="overcast" data-i18n="p.cloud.overcast">сплошные</option>
+          <option value="eyeball" data-i18n="p.cloud.eyeball">полярный глаз</option>
+        </select></label>
       <label><span data-i18n="p.field">Магнитное поле</span>
         <span class="row"><input id="field" type="range" min="0" max="5" value="0.5" step="0.05" style="width:96px">
           <b id="fieldv">0,50 Гс</b></span></label>
@@ -125,6 +135,7 @@
   </main>
 </div>
 <script src="js/i18n.js"></script>
+<script src="js/aurora.js?v=1"></script>
 <script>
 "use strict";
 const T = (k, v) => EUI18N.t(k, v);
@@ -301,7 +312,16 @@ function rockyParams(seed, tempC, size) {
 function pixelSizeFor(kind, size) {
   const sel = document.getElementById("pix").value;
   if (sel !== "auto") return parseInt(sel, 10);
-  return kind === "gas" ? Math.max(1, Math.round(size / 256)) : Math.max(2, Math.round(size / 32));
+  // Раньше у каменных планет шаг был size/32: 128, 256 и 512 давали одну и ту же
+  // сетку из 32 клеток, и «размер» ничего не менял. Теперь шаг общий: size/256,
+  // то есть 256 — честный пиксель, 512 — блок 2 px для скачивания крупнее.
+  return Math.max(1, Math.round(size / 256));
+}
+
+function textureInfo(kind, size) {
+  const pixel = pixelSizeFor(kind, size);
+  const cells = Math.max(1, Math.round(size / pixel));
+  return { pixel: pixel, cells: cells, text: cells + " × " + cells + " · блок " + pixel + " px" };
 }
 
 function render(size, seed, tempC, kind, tiltDeg) {
@@ -498,98 +518,293 @@ function drawAtmosphere(bctx, size, atm, tempC, composition, cloudiness) {
 
 }
 
-function drawCloudOverlay(c2,size,cloudiness,composition,seed) {
-  if(!(cloudiness>0))return;const R=planetRadius(size),c=size/2;
-  c2.save();c2.beginPath();c2.arc(c,c,R,0,Math.PI*2);c2.clip();c2.globalAlpha=.08+.34*cloudiness;
-  c2.strokeStyle=rgba3(/CH4|NH3/i.test(composition)?[196,224,238]:[244,248,255],1);c2.lineWidth=Math.max(1,size*.012);
-  for(let k=0;k<7;k++){const yy=c-R*.64+k*R*.215+(h01(seed,k+90)-.5)*R*.12;c2.beginPath();for(let q=0;q<=24;q++){const xx=c-R+2*R*q/24,y=yy+Math.sin(q*.68+k+h01(seed,k)*2)*R*(.025+.025*cloudiness);if(q===0)c2.moveTo(xx,y);else c2.lineTo(xx,y);}c2.stroke();}
+/* Облака: семейства те же, что в моде (PlanetCloudMath: WISPS, CUMULUS, FRONTS,
+   CYCLONE, BROKEN_OVERCAST, POLAR_EYEBALL). Рисуем в сетке размером с пиксель
+   текстуры, поэтому разрешение планеты действительно меняет структуру облаков. */
+function autoCloudFamily(p) {
+  const t = p.tempC, d = ATM_DENSITY[p.atm] || 0, giant = p.kind === "gas";
+  const comp = String(p.composition || "").toUpperCase();
+  const sulfur = /SO2|H2S/.test(comp), mineral = /(^|[,;])\s*(FE|SI|SIO|SIO2)/.test(comp);
+  if (d <= 0) return "none";
+  if (d < .4 || mineral || (t > 80 && !sulfur)) return "wisps";
+  if (t < -35 && !giant) return "eyeball";
+  if (sulfur || (d >= .75 && t < 30)) return "overcast";
+  if (giant || t <= 5 || d >= .70) return "fronts";
+  return "cumulus";
+}
+
+function cloudFamilyFor(p) {
+  return p.cloudType && p.cloudType !== "auto" ? p.cloudType : autoCloudFamily(p);
+}
+
+function drawCloudOverlay(c2, size, cloudiness, composition, seed, family, pixel) {
+  if (!(cloudiness > 0) || !family || family === "none") return;
+  const R = planetRadius(size), step = Math.max(1, Math.round(pixel || 1));
+  const cells = Math.max(16, Math.round(size / step));
+  const off = document.createElement("canvas");
+  off.width = off.height = cells;
+  const o = off.getContext("2d");
+  const cx = cells / 2, cy = cells / 2, rc = cells / 2 * (R / (size / 2));
+  const tint = /CH4|NH3/i.test(String(composition || "")) ? "196,224,238" : "244,248,255";
+  const alpha = 0.10 + 0.55 * cloudiness;
+  const rnd = k => h01(seed, k + 300);
+  const cell = (x, y, a) => {
+    const dx = x + .5 - cx, dy = y + .5 - cy;
+    if (dx * dx + dy * dy > rc * rc) return;
+    o.fillStyle = "rgba(" + tint + "," + a.toFixed(3) + ")";
+    o.fillRect(x, y, 1, 1);
+  };
+  // Сколько деталей даёт разрешение: крупнее текстура — мельче структура.
+  const density = cells / 64;
+  if (family === "wisps") {
+    for (let y = 0; y < cells; y++) {
+      const ph = rnd(y) * 6.283;
+      for (let x = 0; x < cells; x++) {
+        const wave = Math.sin(x / cells * 9 + ph) * .5 + .5;
+        if (wave > .55 - cloudiness * .3) cell(x, y, alpha * .45 * wave);
+      }
+    }
+  } else if (family === "fronts") {
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        const band = Math.sin((y / cells * 7 + Math.sin(x / cells * 3 + rnd(y) * 3) * .55) * Math.PI);
+        const t = Math.abs(band);
+        if (t > 1 - cloudiness * .9) cell(x, y, alpha * (1 - Math.abs(t - .55)));
+      }
+    }
+  } else if (family === "cumulus") {
+    const blobs = Math.round(20 * density * cloudiness + 5);
+    for (let k = 0; k < blobs; k++) {
+      // Центры тянем к поясам, а у лимба сжимаем по горизонтали: диск круглый.
+      const v = (rnd(k * 7 + 2) * 2 - 1) * .82;
+      const u = (rnd(k * 7 + 1) * 2 - 1) * .82 * Math.sqrt(Math.max(0, 1 - v * v));
+      const z = Math.sqrt(Math.max(.04, 1 - u * u - v * v));
+      const bx = cx + u * rc, by = cy + v * rc;
+      const rr = (1.1 + rnd(k * 7 + 3) * 2.4) * (.7 + .6 * cloudiness);
+      const rx = rr * (.35 + .65 * z);
+      for (let y = Math.floor(by - rr); y <= by + rr; y++) {
+        for (let x = Math.floor(bx - rx); x <= bx + rx; x++) {
+          const dx = (x + .5 - bx) / Math.max(.3, rx), dy = (y + .5 - by) / rr;
+          if (dx * dx + dy * dy <= 1) cell(x, y, alpha * (0.45 + 0.55 * rnd(x * 31 + y)));
+        }
+      }
+    }
+  } else if (family === "cyclone") {
+    const arms = 3, turns = 2.4;
+    for (let k = 0; k < arms; k++) {
+      for (let s = 0; s < cells * 2.2; s++) {
+        const f = s / (cells * 2.2);
+        const ang = k * 6.283 / arms + f * turns * 6.283;
+        const rr = rc * (0.15 + f * 0.85);
+        const x = Math.round(cx + Math.cos(ang) * rr), y = Math.round(cy + Math.sin(ang) * rr * 0.92);
+        cell(x, y, alpha * (0.85 - 0.5 * f));
+        if (cloudiness > .5) cell(x + 1, y, alpha * .35);
+      }
+    }
+  } else if (family === "overcast") {
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        const n = Math.sin(x / cells * 6.1 + rnd(y) * 5) * Math.cos(y / cells * 4.7 + rnd(x) * 5);
+        if (n > -0.92 + (1 - cloudiness)) cell(x, y, alpha * (0.35 + 0.55 * (n * .5 + .5)));
+      }
+    }
+  } else if (family === "eyeball") {
+    // Полярный глаз: сплошная шапка у подзвёздной точки, к краю редеет.
+    for (let y = 0; y < cells; y++) {
+      for (let x = 0; x < cells; x++) {
+        const dx = x + .5 - cx, dy = y + .5 - cy, rr = Math.hypot(dx, dy) / rc;
+        if (rr > .98) continue;
+        const cap = 1 - rr;
+        if (cap > .25 - cloudiness * .2) cell(x, y, alpha * Math.min(1, cap * 1.6));
+      }
+    }
+  }
+  c2.save();
+  c2.beginPath();
+  c2.arc(size / 2, size / 2, R, 0, Math.PI * 2);
+  c2.clip();
+  c2.imageSmoothingEnabled = false;
+  c2.drawImage(off, 0, 0, size, size);
   c2.restore();
 }
 
-/* --- полярное сияние: модель яркости как в моде ------------------------------ */
-function auroraModel(kind, gauss, atm) {
+/* --- полярное сияние и магнитное поле: модель мода ------------------------- */
+/* Плотность атмосферы и видимость ночью — те же таблицы, что в Java
+   (PlanetAtmosphere.density и AuroraPowerMath.nightVisibility). */
+const ATM_DENSITY = { none: 0, minimal: .15, thin: .35, moderate: .55, medium: .75, thick: .90 };
+
+function auroraModel(kind, gauss, atm, p) {
+  const A = window.EUAurora;
   const r = kind === "gas" ? 11.2 : 1;          // радиус в радиусах Земли
   const b = Math.max(0, gauss) / 0.5;           // B / 0.5 Гс
   const W = r * r * Math.pow(b, 2 / 3);         // a = 1 а.е.
   let I = W / (r * r);                          // поверхностная яркость
   if (kind === "gas") I *= 0.35;
-  const vis = ATM_VIS[atm] || 0;
-  const screen = 0.12 * I / (1 + I);
-  const alpha = clamp(screen * vis / 0.12, 0, 1);
-  const level = alpha <= 0.004 ? "none"
-    : alpha < 0.18 ? "weak"
-    : alpha < 0.52 ? "mid" : "bright";
-  return { r: r, W: W, I: I, vis: vis, screen: screen, alpha: alpha, level: level };
+  const density = ATM_DENSITY[atm] || 0;
+  const vis = A.nightVisibility(atm);
+  const seed = (p && p.seed) || 1;
+  // Звезда на этой странице не выбирается, поэтому берём солнечный прокси.
+  const source = A.stellarProxy("yellow_dwarf", 1, 5800);
+  const distance = kind === "gas" ? 5.2 : 1;
+  const env = A.sample({ radiusEarth: r, gauss: gauss, atmosphereDensity: density, night: vis, gas: kind === "gas" },
+    source, distance, null, NaN);
+  const pal = A.palette({
+    composition: p && p.composition, category: kind === "gas" ? "gas_giant" : "habitable",
+    planetSeed: seed, worldSeed: seed, density: density
+  });
+  const alpha = env.visibleEmission;
+  const level = alpha <= 0.004 ? "none" : alpha < 0.045 ? "weak" : alpha < 0.11 ? "mid" : "bright";
+  return { r: r, W: W, I: I, vis: vis, screen: alpha, alpha: alpha, level: level, env: env, palette: pal };
 }
 
-/* Два мягких овала у магнитных полюсов; фаза медленно перетекает. */
+/* Ось диполя вращается вместе с планетой: азимут = сидовый сдвиг + фаза. */
+function dipoleFrame(p, phase) {
+  const A = window.EUAurora;
+  const tilt = (p.magtilt || 0) * Math.PI / 180;
+  const azimuth = h01((p.seed || 1), 41) * Math.PI * 2 + (phase || 0);
+  const axis = A.magneticAxis(0, 1, 0, tilt, azimuth);
+  const basis = A.basis(axis);
+  return { axis: axis, u: basis[0], v: basis[1] };
+}
+
+/* Точка в системе планеты: r·(cosλ·m + sinλ·ось), m — направление меридиана. */
+function fieldPoint(radius, latRad, m, axis) {
+  const cl = Math.cos(latRad), sl = Math.sin(latRad), rr = radius;
+  return [
+    rr * (cl * m[0] + sl * axis[0]),
+    rr * (cl * m[1] + sl * axis[1]),
+    rr * (cl * m[2] + sl * axis[2])
+  ];
+}
+
+function rgbaHex(hex, a) {
+  return "rgba(" + ((hex >>> 16) & 255) + "," + ((hex >>> 8) & 255) + "," + (hex & 255) + "," + a.toFixed(3) + ")";
+}
+
+/* Овал сияния в 3D: широта из модели, три слоя палитры по высоте завесы.
+   Раньше здесь были два плоских овала — теперь проекция настоящего кольца. */
 function drawAurora(c2, size, p, model, phase) {
-  if (!p || p.field <= 0.02 || model.alpha <= 0.004) return;
+  if (!p || p.field <= 0.02 || !model || model.alpha <= 0.004) return;
+  const A = window.EUAurora;
   const R = planetRadius(size), cx = size / 2, cy = size / 2;
-  const a = p.magtilt * Math.PI / 180;
-  const ux = Math.sin(a), uy = -Math.cos(a);
-  const dist = R * 0.76;
-  const peak = 0.8 * Math.pow(model.alpha, 0.9);
+  const frame = dipoleFrame(p, phase);
+  const axis = frame.axis, u = frame.u, v = frame.v;
+  const env = model.env, pal = model.palette;
+  const lat = env.ovalLatitudeDeg * Math.PI / 180;
+  const peak = clamp(model.alpha / A.VISIBLE_CAP, 0, 1);
+  if (peak <= 0) return;
+  const N = 120, shell = env.shell, curtain = env.curtainHeight;
   c2.save();
   c2.globalCompositeOperation = "lighter";
-  for (const sgn of [-1, 1]) {
-    const px = cx + ux * dist * sgn, py = cy + uy * dist * sgn;
-    c2.save();
-    c2.translate(px, py);
-    c2.rotate(a);
-    const sx = R * 0.36 * (1 + 0.04 * Math.sin(phase));
-    const sy = R * 0.12 * (1 + 0.10 * Math.sin(phase + 1.3));
-    c2.scale(sx, sy);
-    const ring = c2.createRadialGradient(0, 0, 0, 0, 0, 1);
-    ring.addColorStop(0, "rgba(0,0,0,0)");
-    ring.addColorStop(0.40, "rgba(0,0,0,0)");
-    ring.addColorStop(0.56, rgba3(AUR_GREEN, peak * 0.34));
-    ring.addColorStop(0.72, rgba3(AUR_GREEN, peak * 0.82));
-    ring.addColorStop(0.86, rgba3(AUR_BLUE, peak * 0.26));
-    ring.addColorStop(1, "rgba(0,0,0,0)");
-    c2.fillStyle = ring;
-    c2.beginPath();
-    c2.arc(0, 0, 1, 0, Math.PI * 2);
-    c2.fill();
-    // два сгустка, ползущие по овалу в противофазе
-    for (let k = 0; k < 2; k++) {
-      const th = phase + k * Math.PI + (sgn > 0 ? 0.9 : 0);
-      const bx = Math.cos(th) * 0.70, by = Math.sin(th) * 0.70;
-      const blob = c2.createRadialGradient(bx, by, 0, bx, by, 0.30);
-      blob.addColorStop(0, rgba3(AUR_HOT, peak * 0.55));
-      blob.addColorStop(0.55, rgba3(AUR_GREEN, peak * 0.22));
-      blob.addColorStop(1, "rgba(0,0,0,0)");
-      c2.fillStyle = blob;
-      c2.beginPath();
-      c2.arc(bx, by, 0.30, 0, Math.PI * 2);
-      c2.fill();
+  c2.lineCap = "round";
+  c2.lineJoin = "round";
+  // Полосы идут по высоте завесы: ядро у овала, средний слой и верх — цвета палитры.
+  const bands = [
+    { alt: 0.14, off: 0.000, width: 0.030, alpha: 0.75 },
+    { alt: 0.52, off: 0.022, width: 0.022, alpha: 0.42 },
+    { alt: 0.90, off: 0.048, width: 0.015, alpha: 0.22 }
+  ];
+  for (const side of [1, -1]) {
+    for (let b = bands.length - 1; b >= 0; b--) {
+      const band = bands[b];
+      const colour = A.colorAt(pal, band.alt, phase);
+      const alpha = peak * band.alpha * 0.55;
+      if (alpha < 0.012) continue;
+      const radius = 1 + shell + band.off * (1 + curtain * 4);
+      // Мягкое расширение, затем ядро: получается завеса, а не нитка.
+      for (const pass of [{ w: band.width * 2.4, a: alpha * 0.26 }, { w: band.width, a: alpha }]) {
+        c2.strokeStyle = rgbaHex(colour, Math.min(1, pass.a));
+        c2.lineWidth = Math.max(1.5, R * pass.w * (1 + curtain * 2));
+        c2.beginPath();
+        let started = false;
+        for (let i = 0; i <= N; i++) {
+          const ph = i / N * Math.PI * 2;
+          const m = [u[0] * Math.cos(ph) + v[0] * Math.sin(ph),
+                     u[1] * Math.cos(ph) + v[1] * Math.sin(ph),
+                     u[2] * Math.cos(ph) + v[2] * Math.sin(ph)];
+          const q = fieldPoint(radius, side * lat, m, axis);
+          if (q[2] <= 0) { started = false; continue; }
+          const sx = cx + q[0] * R, sy = cy - q[1] * R;
+          if (!started) { c2.moveTo(sx, sy); started = true; } else c2.lineTo(sx, sy);
+        }
+        c2.stroke();
+      }
     }
-    c2.restore();
+  }
+  // Занавеси: короткие лучи наружу, ярче у полюса.
+  const rays = 84;
+  for (let i = 0; i < rays; i++) {
+    const ph = i / rays * Math.PI * 2;
+    const m = [u[0] * Math.cos(ph) + v[0] * Math.sin(ph),
+               u[1] * Math.cos(ph) + v[1] * Math.sin(ph),
+               u[2] * Math.cos(ph) + v[2] * Math.sin(ph)];
+    const fold = env.curtainFold * (0.45 + 0.55 * Math.abs(Math.sin(ph * 3 + phase * 2 + i)));
+    for (const side of [1, -1]) {
+      const inner = fieldPoint(1 + shell, side * lat, m, axis);
+      const outer = fieldPoint(1 + shell + curtain * fold, side * lat, m, axis);
+      if (inner[2] <= 0 && outer[2] <= 0) continue;
+      const a = peak * 0.16 * (0.4 + 0.6 * fold);
+      if (a < 0.01) continue;
+      c2.strokeStyle = rgbaHex(A.colorAt(pal, 0.72, ph * 3 + phase), a);
+      c2.lineWidth = Math.max(1, R * 0.006);
+      c2.beginPath();
+      c2.moveTo(cx + inner[0] * R, cy - inner[1] * R);
+      c2.lineTo(cx + outer[0] * R, cy - outer[1] * R);
+      c2.stroke();
+    }
   }
   c2.restore();
 }
 
-/* Петли диполя: вложенные овалы от полюса к полюсу, наклон — свой. */
-function drawFieldLines(c2, size, p) {
+/* Силовые линии диполя r = L·cos²λ в 3D: наклон, глубина и цвет из модели. */
+function drawFieldLines(c2, size, p, phase) {
   if (!p || p.field <= 0.02) return;
-  const R = planetRadius(size), c = size / 2;
-  const a = p.magtilt * Math.PI / 180;
-  const loops = clamp(4 + Math.round(Math.log1p(p.field) * 2.2), 4, 11);
+  const A = window.EUAurora;
+  const R = planetRadius(size), cx = size / 2, cy = size / 2;
+  const frame = dipoleFrame(p, phase || 0);
+  const axis = frame.axis, u = frame.u, v = frame.v;
+  const pal = (p.palette || null) || A.palette({
+    composition: p.composition, category: p.kind === "gas" ? "gas_giant" : "habitable",
+    planetSeed: p.seed || 1, worldSeed: p.seed || 1, density: ATM_DENSITY[p.atm] || 0
+  });
+  const shells = clamp(3 + Math.round(Math.log1p(p.field) * 1.6), 3, 8);
   c2.save();
-  // Линии не должны проходить по диску: они выходят из-за планеты, как и в игре.
+  c2.globalCompositeOperation = "lighter";
+  c2.lineWidth = Math.max(1, size / 360);
+  // Линии не проходят по диску — так поле читается как магнитосфера вокруг планеты.
   c2.beginPath();
   c2.rect(0, 0, size, size);
-  c2.arc(c, c, R * 0.99, 0, Math.PI * 2);
+  c2.arc(cx, cy, R * 0.995, 0, Math.PI * 2);
   c2.clip("evenodd");
-  c2.translate(c, c);
-  c2.rotate(a);
-  c2.lineWidth = Math.max(1, size / 320);
-  for (let i = 0; i < loops; i++) {
-    const t = loops === 1 ? 0 : i / (loops - 1);
-    c2.strokeStyle = "rgba(150, 200, 255, " + (0.22 - 0.10 * t).toFixed(3) + ")";
-    c2.beginPath();
-    c2.ellipse(0, 0, R * (0.48 + (0.62+0.05*p.field) * t), R * (0.92+0.20*t), 0, 0, Math.PI * 2);
-    c2.stroke();
+  for (let m = 0; m < 6; m++) {
+    const ph = m / 6 * Math.PI * 2 + phase * 0.35;
+    const mdir = [u[0] * Math.cos(ph) + v[0] * Math.sin(ph),
+                  u[1] * Math.cos(ph) + v[1] * Math.sin(ph),
+                  u[2] * Math.cos(ph) + v[2] * Math.sin(ph)];
+    for (let s = 0; s < shells; s++) {
+      const L = 1.30 + s * (1.9 / Math.max(1, shells - 1));
+      const lat0 = Math.acos(Math.sqrt(1 / L));
+      const colour = A.colorAt(pal, 0.5 - 0.35 * (s / Math.max(1, shells - 1)), ph);
+      const segments = [];
+      let run = [];
+      for (let k = 0; k <= 48; k++) {
+        const lam = -lat0 + 2 * lat0 * k / 48;
+        const q = fieldPoint(L * Math.cos(lam) * Math.cos(lam), lam, mdir, axis);
+        const onScreen = q[2] > 0 || (q[0] * q[0] + q[1] * q[1]) > 1;
+        if (!onScreen) { if (run.length) { segments.push(run); run = []; } continue; }
+        run.push([cx + q[0] * R, cy - q[1] * R, q[2]]);
+      }
+      if (run.length) segments.push(run);
+      for (const seg of segments) {
+        if (seg.length < 2) continue;
+        const depth = clamp(seg.reduce((acc, pt) => acc + pt[2], 0) / seg.length * 0.5 + 0.5, 0, 1);
+        c2.strokeStyle = rgbaHex(colour, 0.05 + 0.20 * depth * (1 - s / (shells + 1)));
+        c2.beginPath();
+        c2.moveTo(seg[0][0], seg[0][1]);
+        for (let i = 1; i < seg.length; i++) c2.lineTo(seg[i][0], seg[i][1]);
+        c2.stroke();
+      }
+    }
   }
   c2.restore();
 }
@@ -607,7 +822,8 @@ function current() {
     magtilt: parseFloat(document.getElementById("magtilt").value),
     composition: document.getElementById("composition").value,
     habitable: document.getElementById("habitable").checked,
-    clouds: parseFloat(document.getElementById("clouds").value)
+    clouds: parseFloat(document.getElementById("clouds").value),
+    cloudType: document.getElementById("cloudtype").value
   };
 }
 
@@ -651,13 +867,15 @@ function updateInfo(c, model) {
   const auroraInfo = T('p.info.aurora', {
     atm: T('atm.' + c.atm),
     atmVis: fmtNum((ATM_HALO[c.atm] || 0) * 100),
-    ovals: visible ? 2 : 0,
+    lat: fmtNum(model.env ? model.env.ovalLatitudeDeg : 0),
     b: fmt2(c.field),
     tilt: fmtNum(c.magtilt),
     level: c.field > 0.02 ? T('p.aur.' + model.level) : T('p.aur.none'),
     vis: fmtNum(visible ? model.vis : 0, 3)
   });
-  document.getElementById("info").textContent = base + "\n" + auroraInfo + "\n" + (c.habitable?"✓ ":"○ ") + T('p.hab.independent') + " · " + c.composition;
+  const tex = textureInfo(c.kind, c.size);
+  const texInfo = T('p.texture') + ': ' + tex.text;
+  document.getElementById("info").textContent = base + "\n" + texInfo + "\n" + auroraInfo + "\n" + (c.habitable?"✓ ":"○ ") + T('p.hab.independent') + " · " + c.composition;
 }
 
 /* --- отрисовка: статичная база (ореол + планета), поверх — живое сияние ---- */
@@ -668,7 +886,7 @@ function paint(now) {
   ctx.clearRect(0, 0, size, size);
   ctx.drawImage(baseCv, 0, 0);
   drawAurora(ctx, size, params, aurora, phase);
-  drawFieldLines(ctx, size, params);
+  drawFieldLines(ctx, size, params, phase);
 }
 
 function stopAnimation() {
@@ -699,7 +917,7 @@ if (reduceMotion.addEventListener) {
 
 function draw() {
   const c = current();
-  const model = auroraModel(c.kind, c.field, c.atm);
+  const model = auroraModel(c.kind, c.field, c.atm, c);
   cv.width = c.size;
   cv.height = c.size;
   baseCv.width = c.size;
@@ -711,7 +929,8 @@ function draw() {
   baseCtx.clearRect(0, 0, c.size, c.size);
   drawAtmosphere(baseCtx, c.size, c.atm, c.tempC, c.composition, c.clouds);
   baseCtx.drawImage(planetCv, 0, 0);
-  drawCloudOverlay(baseCtx,c.size,c.clouds,c.composition,c.seed);
+  const family = cloudFamilyFor(c);
+  drawCloudOverlay(baseCtx, c.size, c.clouds, c.composition, c.seed, family, textureInfo(c.kind, c.size).pixel);
   params = c;
   aurora = model;
   updateControls(c);
@@ -719,7 +938,7 @@ function draw() {
   startAnimation();
 }
 
-["seed", "temp", "size", "pix", "type", "tilt", "atm", "field", "magtilt", "composition", "habitable", "clouds"].forEach((id) =>
+["seed", "temp", "size", "pix", "type", "tilt", "atm", "field", "magtilt", "composition", "habitable", "clouds", "cloudtype"].forEach((id) =>
   document.getElementById(id).addEventListener("input", () => {
     draw();
   }));

@@ -321,6 +321,16 @@
       'p.temp': 'Температура, °C',
       'p.size': 'Размер',
       'p.pixel': 'Пиксель',
+  'p.texture': 'Текстура',
+  'p.cloudtype': 'Тип облаков',
+  'p.cloud.auto': 'авто (по модели)',
+  'p.cloud.none': 'нет',
+  'p.cloud.wisps': 'дымка',
+  'p.cloud.cumulus': 'кучевые',
+  'p.cloud.fronts': 'фронты',
+  'p.cloud.cyclone': 'циклоны',
+  'p.cloud.overcast': 'сплошные',
+  'p.cloud.eyeball': 'полярный глаз',
       'p.auto': 'авто',
       'p.tilt': 'Наклон полос',
       'p.save': 'Скачать PNG',
@@ -340,7 +350,7 @@
       'p.aur.weak': 'слабое',
       'p.aur.mid': 'среднее',
       'p.aur.bright': 'яркое',
-      'p.info.aurora': 'атмосфера: {atm} · видимость {atmVis} % · овалов: {ovals}\nполе: {b} Гс · наклон оси: {tilt}° · сияние: {level} · видимость {vis}'
+      'p.info.aurora': 'атмосфера: {atm} · видимость {atmVis} % · широта овала {lat}°\nполе: {b} Гс · наклон оси: {tilt}° · сияние: {level} · видимость {vis}'
     },
     en: {
       "ch.multiplicity": "Stars per system",
@@ -641,6 +651,16 @@
       'p.temp': 'Temperature, °C',
       'p.size': 'Size',
       'p.pixel': 'Pixel',
+  'p.texture': 'Texture',
+  'p.cloudtype': 'Cloud type',
+  'p.cloud.auto': 'auto (model)',
+  'p.cloud.none': 'none',
+  'p.cloud.wisps': 'wisps',
+  'p.cloud.cumulus': 'cumulus',
+  'p.cloud.fronts': 'fronts',
+  'p.cloud.cyclone': 'cyclones',
+  'p.cloud.overcast': 'overcast',
+  'p.cloud.eyeball': 'polar eyeball',
       'p.auto': 'auto',
       'p.tilt': 'Band tilt',
       'p.save': 'Download PNG',
@@ -660,7 +680,7 @@
       'p.aur.weak': 'weak',
       'p.aur.mid': 'medium',
       'p.aur.bright': 'bright',
-      'p.info.aurora': 'atmosphere: {atm} · visibility {atmVis}% · ovals: {ovals}\nfield: {b} G · axial tilt: {tilt}° · aurora: {level} · visibility {vis}'
+      'p.info.aurora': 'atmosphere: {atm} · visibility {atmVis}% · oval latitude {lat}°\nfield: {b} G · axial tilt: {tilt}° · aurora: {level} · visibility {vis}'
     }
   };
 
