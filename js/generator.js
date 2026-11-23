@@ -478,7 +478,12 @@ function companionFor(r, formal, star) {
   return { star: comp, name: formal + ' B', orbitAu: 0, kind };
 }
 
-function generateCatalog(worldSeed, options = {}) {
+/* Каталог собирается асинхронно только ради прогресса: между системами можно
+   отдать кадр и показать, сколько уже готово. Порядок вызовов RNG не меняется —
+   await стоит после тела итерации, когда все броски уже сделаны. Без onProgress
+   функция отрабатывает как раньше, в одну очередь. */
+async function generateCatalog(worldSeed, options = {}) {
+  const report=typeof options.onProgress==='function'?options.onProgress:null;
   const generationModel=options.generationModel||'ClassicClimateV3',climate=generationModel!=='Classic',physics=['ClassicClimateV2','ClassicClimateV3'].includes(generationModel),hierarchical=generationModel==='ClassicClimateV3';
   worldSeed = BigInt.asIntN(64, BigInt(worldSeed));
   const systems=[solarSystem(worldSeed),...demos(worldSeed)];
@@ -490,6 +495,7 @@ function generateCatalog(worldSeed, options = {}) {
   if(betel){betel.companion={star:hierarchical?'white_blue_dwarf':'white_dwarf',name:'Сиварха',orbitAu:hierarchical?8.8:4,kind:'giant_white_dwarf',real:true};if(hierarchical){betel.stellarHierarchy=EUHierarchy.betelgeuse();betel.distanceLy=548;const previous=new Map;for(let pi=0;pi<betel.planets.length;pi++){const body=betel.planets[pi],a=EUHierarchy.choose(betel.stellarHierarchy,body.seed,pi,betel.planets.length,previous);EUHierarchy.adjust(body,a,betel.stellarHierarchy,moonSpecs);}}else if(physics){const e=EUBinaryPolicy.eccentricity('enchanted_universe:system_demo_betelgeuse'),m1=EUBinaryPolicy.mass('red_supergiant'),m2=EUBinaryPolicy.mass('white_dwarf'),sMax=EUBinaryPolicy.safeS(4,e,m1,m2),pMin=EUBinaryPolicy.safeP(4,e,m1,m2),inner=betel.planets[0],outer=betel.planets[1];inner.orbitAu=Math.min(inner.orbitAu,sMax*.9);inner.orbitHost='primary';inner.generationModel='ClassicClimateV2';outer.orbitAu=Math.max(outer.orbitAu,pMin);outer.orbitHost='barycenter';outer.generationModel='ClassicClimateV2';for(const body of [inner,outer]){const effective=EUBinaryPolicy.effectiveLuminosity(body.orbitHost,body.orbitAu,4,Math.fround(STAR.red_supergiant),Math.fround(STAR.white_dwarf));body.biomes=NEW_POLICY.biomes(body.seed,body.category,body.atmosphere,body.orbitAu,effective,body.biomes);body.moons=NEW_POLICY.moons(body.seed,body.moons,body.category==='gas_giant',body.orbitAu,effective);body.customMoons=moonSpecs({...body,customMoons:null});}}}
   if (options && options.smesharia) systems.push(...smeshariaSystems(worldSeed));
   const systemCount=climate?NEW_GALAXY.COUNT:96,starDeck=climate?NEW_GALAXY.deck(worldSeed,systemCount):[];
+  if(report)await report(.05);
   for (let i = 0; i < systemCount; i++) {
     const systemSeed = mix(worldSeed, i);
     const r = new MinecraftRandom(systemSeed);
@@ -512,6 +518,7 @@ function generateCatalog(worldSeed, options = {}) {
       const l1=Math.fround(STAR[star]),l2=Math.fround(STAR[companion.star]),effective=EUBinaryPolicy.effectiveLuminosity(host,orbit,companion.orbitAu,l1,l2);body.orbitAu=orbit;body.orbitHost=host;body.generationModel='ClassicClimateV2';body.hostLuminosity=effective;body.biomes=NEW_POLICY.biomes(body.seed,body.category,body.atmosphere,orbit,effective,body.biomes);body.moons=NEW_POLICY.moons(body.seed,body.moons,body.category==='gas_giant',orbit,effective);body.customMoons=moonSpecs({...body,customMoons:null});planets.push(body);previousOrbit=Math.max(previousOrbit,orbit);}
     }else{for(let pi=0;pi<planetCount;pi++){const body=createPlanet(r,i,pi,formal,star,worldSeed,previousOrbit,climate,planetCount,systemSeed);body.orbitHost='primary';body.generationModel=generationModel;planets.push(body);previousOrbit=body.orbitAu;}if(companion)companion.orbitAu=1.5+r.nextDouble()*4.5;}
     if(hierarchical&&stellarHierarchy){const b=stellarHierarchy.components.find(c=>c.id==='B');companion=b?{star:b.star,name:formal+' B',orbitAu:stellarHierarchy.orbits[0]?.semiMajorAu||0,kind:'hierarchy'}:null;}systems.push({name,formalName:formal,star,companion,distanceLy:distance,planets,systemIndex:i,seed:String(systemSeed),id:'enchanted_universe:system_'+i,generationModel,stellarHierarchy});
+    if(report)await report(.05+.9*(i+1)/systemCount);
   }
   // Магнитары в Java StarSystem получают префикс PSR- (нормализация старых имён).
   // Добавляем его и в веб-каталог, чтобы названия совпадали с игрой.
@@ -524,6 +531,7 @@ function generateCatalog(worldSeed, options = {}) {
   if(hierarchical)for(const system of systems){if(system.id.endsWith('system_sol'))continue;for(const p of system.planets){const hab=p.category==='habitable'||(['moderate','medium'].includes(p.atmosphere)&&oxygenFraction(p.composition)>=.10);if(hab||EUHierarchy.isAquariaV3(p.archetype,p.biomes))p.biomes=EUHierarchy.classicBiomes(p.seed,'habitable',p.atmosphere,p.archetype,p.biomes);p.customMoons=moonSpecs(p).map(m=>{const hab=m.category==='habitable'||(['moderate','medium'].includes(m.atmosphere)&&oxygenFraction(m.composition)>=.10);if(!hab&&!EUHierarchy.isAquariaV3(m.archetype,m.biomes))return m;const seed=BigInt.asIntN(64,BigInt(p.seed)^(0x9e3779b97f4a7c15n*BigInt(m.index+1))).toString();return{...m,biomes:EUHierarchy.classicBiomes(seed,'habitable',m.atmosphere,m.archetype,m.biomes)};});}}
   appendMysteryPlanet(systems,worldSeed,physics);
   if(hierarchical)EUHierarchy.place(worldSeed,systems);
+  if(report)await report(1);
   return { worldSeed: worldSeed.toString(), generationType:generationModel,generationModel,systems };
 }
 

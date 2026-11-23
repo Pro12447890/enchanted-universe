@@ -114,9 +114,21 @@
 .lo-star { position:absolute;left:50%;top:50%;width:18px;height:18px;translate:-50% -50%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#9be7ff 35%,#4c82ad 80%);box-shadow:0 0 24px #73d8ff99;animation:eu-lo-star 3.6s ease-in-out infinite; }
 .loader-kicker { font-size:10px;letter-spacing:.22em;color:#a6ccdf; }.loader-kicker span { padding:0 4px;color:#cfe4ff; }
 .loader-card h1 { margin:12px 0 7px;font-size:clamp(22px,5vw,29px);font-weight:600;letter-spacing:.01em;color:#e9f1ff; }
-.loader-card p { margin:0;color:#b1c3d6;font-size:13px; }
-.loader-track { height:3px;margin:27px 0 15px;overflow:hidden;border-radius:99px;background:#cee5f91c; }
-.loader-track span { display:block;width:35%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#87e5e9,#a9cdff,#f1d096);animation:eu-loader-progress 1.5s ease-in-out infinite alternate; }
+.loader-card p { margin:0;color:#c3d7ea;font-size:13px; }
+/* Подпись загрузки: по тексту неспешно идёт голубовато-белый блик с мягким блумом. */
+#loadingMessage { color:#dbe9f8; }
+@supports ((background-clip:text) or (-webkit-background-clip:text)) {
+  #loadingMessage { background-image:linear-gradient(100deg,#7fa8cc 0%,#cfe4fb 13%,#7aa4ff 27%,#ffffff 42%,#a4ccff 58%,#f0f7ff 72%,#7fa8cc 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:eu-lo-message 3.6s ease-in-out infinite; }
+}
+/* Полоска: тики каждые 5 % загораются по мере прохождения, заливка с бегущим
+   бликом, светящейся головкой и мягким свечением вокруг. */
+.loader-track { --p:0;position:relative;height:4px;margin:24px 0 7px;border-radius:99px;background:#cee5f917;box-shadow:inset 0 1px 2px #00000059,0 0 0 1px #cfe2ff0d; }
+.loader-track::before { content:"";position:absolute;inset:0;z-index:2;border-radius:inherit;background:repeating-linear-gradient(90deg,#cfe2ff1f 0 1px,transparent 1px 5%);pointer-events:none; }
+.loader-track::after { content:"";position:absolute;inset:0;z-index:3;border-radius:inherit;background:repeating-linear-gradient(90deg,#eaf8ffa6 0 1px,transparent 1px 5%);clip-path:inset(0 calc((1 - var(--p)) * 100%) 0 0);pointer-events:none;transition:clip-path .05s linear; }
+.loader-track span { position:absolute;left:0;top:0;display:block;height:100%;width:calc(var(--p) * 100%);border-radius:inherit;background:linear-gradient(90deg,#6fd8e0,#8fc2ff 45%,#f0cd93);box-shadow:0 0 14px #7fb8ff59,0 0 4px #cfe6ff73;overflow:hidden; }
+.loader-track span::before { content:"";position:absolute;right:-2px;top:50%;width:36px;height:13px;transform:translateY(-50%);background:radial-gradient(closest-side,#f4fbff,#9fd4ff5c,transparent);filter:blur(1px); }
+.loader-track span::after { content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,#ffffffa8 45%,transparent);transform:translateX(-120%);animation:eu-lo-scan 1.9s cubic-bezier(.45,.05,.55,.95) infinite; }
+.loader-percent { margin:0 0 11px;color:#8fc6ff;font-size:10px;font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:.12em;text-shadow:0 0 10px #6fb0ff5c; }
 .loader-meta { display:flex;align-items:center;justify-content:center;gap:9px;color:#99b0c6;font-size:10px;letter-spacing:.08em;text-transform:uppercase; }
 .loader-pulse { width:5px;height:5px;border-radius:50%;background:#a2ebd3;animation:eu-loader-pulse 1.2s ease-in-out infinite; }
 @keyframes eu-lo-plane-cw { to { transform:rotate(360deg); } }
@@ -162,7 +174,8 @@
   92% { offset-distance:97%;animation-timing-function:cubic-bezier(.4,0,.72,.7); }
   100% { offset-distance:100%; }
 }
-@keyframes eu-loader-progress { from { transform:translateX(-5%); } to { transform:translateX(190%); } }
+@keyframes eu-lo-message { 0% { background-position:0% 50%;filter:drop-shadow(0 0 7px #6fa8ff42); } 50% { background-position:100% 50%;filter:drop-shadow(0 0 16px #93c9ff8a); } 100% { background-position:0% 50%;filter:drop-shadow(0 0 7px #6fa8ff42); } }
+@keyframes eu-lo-scan { to { transform:translateX(120%); } }
 @keyframes eu-loader-pulse { 50% { opacity:.3; } }
 @media (prefers-reduced-motion:reduce) { #loading *,#loading *::before,#loading *::after { animation:none!important; }#loading.loading-screen { transition:none; } }
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) { .liquid-glass :is(#info,.mobileControls,.object-browser,.tools-dialog,.modal .card) { background-color:#101929; } }

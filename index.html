@@ -204,7 +204,7 @@ try {
 <link rel="stylesheet" href="assets/mobile-map.css?v=3">
 <link rel="stylesheet" href="assets/star-browser.css?v=3">
 <link rel="stylesheet" href="assets/gui-tones.css?v=3">
-<link rel="stylesheet" href="assets/liquid-glass.css?v=e6e65c20f5">
+<link rel="stylesheet" href="assets/liquid-glass.css?v=0c86e99c89">
 <link rel="stylesheet" href="assets/ui-layout.css?v=d65a76c514">
 </head>
 <body>
@@ -250,7 +250,8 @@ try {
     <div class="loader-kicker">ENCHANTED UNIVERSE <span>·</span> SEED ATLAS</div>
     <h1 data-i18n="loading.title">Собираем звёздную карту</h1>
     <p id="loadingMessage" data-i18n="loading">Генерация каталога…</p>
-    <div class="loader-track" aria-hidden="true"><span></span></div>
+    <div class="loader-track" id="loadingTrack" aria-hidden="true"><span id="loadingBar"></span></div>
+    <div class="loader-percent" id="loadingPercent" aria-live="off">0.00 %</div>
     <div class="loader-meta"><span data-i18n="loading.meta">системы · орбиты · биомы</span><span class="loader-pulse"></span></div>
   </div>
 </div>
@@ -263,7 +264,7 @@ try {
 <script src="js/binary-policy.js?v=1"></script>
 <script src="js/planet-climate.js?v=3"></script>
 <script src="js/stellar-hierarchy.js?v=4"></script>
-<script src="js/generator.js?v=a2a1a62f6d"></script>
+<script src="js/generator.js?v=e1f1869e52"></script>
 <script src="js/orbits.js?v=82f437652a"></script>
 <script src="js/biome-materials.js?v=2"></script>
 <script src="js/surface-facts.js?v=2"></script>
@@ -495,6 +496,28 @@ function parseSeed(text) {
 }
 function randomSeed() { const a = new BigInt64Array(1); crypto.getRandomValues(a); return a[0]; }
 
+/* Живые проценты загрузки. Генератор отдаёт настоящую долю работы — сколько
+   систем каталога уже уложено; здесь она сглаживается, чтобы сотые доли шли
+   ровно, и пишется в полоску и подпись под ней. */
+const LoadProgress = (() => {
+  const track = document.getElementById('loadingTrack'), out = document.getElementById('loadingPercent');
+  let target = 0, shown = 0, raf = 0;
+  const draw = () => {
+    raf = 0;
+    const diff = target - shown;
+    if (diff > 0) shown += Math.max(diff * 0.18, 0.0004);
+    if (shown > target) shown = target;
+    if (out) out.textContent = (shown * 100).toFixed(2) + ' %';
+    if (track) track.style.setProperty('--p', String(shown));
+    if (shown < target) raf = requestAnimationFrame(draw);
+  };
+  return {
+    reset() { target = 0; shown = 0; if (raf) cancelAnimationFrame(raf); raf = 0; draw(); },
+    set(value) { value = Math.max(0, Math.min(1, value || 0)); if (value > target) target = value; if (!raf) raf = requestAnimationFrame(draw); },
+    finish() { target = 1; shown = 1; if (raf) cancelAnimationFrame(raf); raf = 0; draw(); }
+  };
+})();
+
 /* Любая перестройка каталога идёт через этот переход: последний кадр остаётся
    на экране и плавно растворяется — так же, как при смене сида. */
 function runTransition(work) {
@@ -509,22 +532,46 @@ function runTransition(work) {
     } catch (e) { transitionSnapshot = null; }
   }
   transitioning = true;transitionStart = 0;
-  if(initialLoad){loading.classList.remove('hidden','is-ready');loading.classList.add('is-active');}
+  if(initialLoad){loading.classList.remove('hidden','is-ready');loading.classList.add('is-active');LoadProgress.reset();}
   else loading.classList.add('is-ready');
   document.getElementById('apply').disabled = true;
   document.getElementById('random').disabled = true;
   seedInput.disabled = true;
+  /* Отчёт о прогрессе: каждый третий готовый мир отдаём браузеру кадр, иначе
+     все 132 системы уложатся за 40 мс и число просто мигнёт. Смена сида уже
+     идёт поверх карты, поэтому там отчёт не нужен — грузимся наотмашь. */
+  let report = null;
+  if (initialLoad) {
+    let lastYield = 0, ticks = 0;
+    report = async (fraction) => {
+      /* Каталог — это 97 % работы: последние проценты отдаём первому кадру карты,
+         иначе полоска честно кричала бы «100 %», пока экран ещё рисуется. */
+      LoadProgress.set(fraction * 0.97);
+      ticks++;
+      const now = performance.now();
+      if (ticks % 3 || now - lastYield < 11 || now - loadStarted > 760) return;
+      lastYield = now;
+      await new Promise(requestAnimationFrame);
+    };
+  }
+  const settle = () => {
+    transitionStart = performance.now();
+    const finish=()=>{transitioning=false;transitionSnapshot=null;document.getElementById('apply').disabled=false;document.getElementById('random').disabled=false;seedInput.disabled=false;if(initialLoad){LoadProgress.finish();loading.classList.remove('is-active');loading.classList.add('is-ready');}};
+    setTimeout(finish,initialLoad?Math.max(240,900-(performance.now()-loadStarted)):500);
+  };
   setTimeout(() => {
-    work();transitionStart = performance.now();
-    const finish=()=>{transitioning=false;transitionSnapshot=null;document.getElementById('apply').disabled=false;document.getElementById('random').disabled=false;seedInput.disabled=false;if(initialLoad){loading.classList.remove('is-active');loading.classList.add('is-ready');}};
-    setTimeout(finish,initialLoad?Math.max(500,900-(performance.now()-loadStarted)):500);
+    const failed = (error) => { console.error('каталог не собрался', error); if (initialLoad) LoadProgress.finish(); settle(); };
+    let result;
+    try { result = work(report); } catch (error) { failed(error); return; }
+    if (result && typeof result.then === 'function') result.then(settle, failed);
+    else settle();
   }, 15);
   return true;
 }
 
 function generate(seed) {
-  runTransition(() => {
-    catalog = EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
+  runTransition(async (report) => {
+    catalog = await EUGenerator.generateCatalog(seed, report ? { smesharia: showSmesharia, onProgress: report } : { smesharia: showSmesharia });
     // Новый мир — новая эпоха: локальные тики с нуля, кэши геометрии сброшены.
     simTicks = 0; paintTicks(true);
     selectedHole = null; blackHoleCacheFor = null; MOON_CACHE.clear();
@@ -2553,10 +2600,10 @@ document.getElementById('smeshariaVersion').addEventListener('change', () => {
   const want = box.checked;
   if (transitioning) { box.checked = showSmesharia; return; } // переход не рвём
   document.getElementById('smeshariaWrap').classList.toggle('on', want);
-  runTransition(() => {
+  runTransition(async () => {
     showSmesharia = want;
     const seed = BigInt(catalog.worldSeed);
-    catalog = EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
+    catalog = await EUGenerator.generateCatalog(seed, { smesharia: showSmesharia });
     selected = null; info.style.display = 'none'; results.innerHTML = ''; results.style.display = 'none';
     selectedHole=null;blackHoleCacheFor=null;MOON_CACHE.clear();MOON_RENDER_CACHE=new WeakMap();
     follow=null;zoomAnchor=null;hoverBlock=null;hoverKey='';hoverMs=0;stars=makeStars(seed);nebulae=makeNebula(seed);
