@@ -92,8 +92,8 @@
           <input id="temp" type="range" min="-220" max="2600" value="-60" step="10" style="width:104px">
           <b id="tempv">-60</b>
         </span></label>
-      <label><span data-i18n="p.size">Диаметр, px</span> <select id="size">
-        <option>128</option><option selected>256</option><option>512</option>
+      <label><span data-i18n="p.size">Диаметр диска, px</span> <select id="size">
+        <option value="36">36 · мелкое тело</option><option value="64">64 · луна/мелкий диск</option><option value="128">128 · каменная</option><option value="256" selected>256 · газовый гигант</option><option value="512">512 · крупный диск</option>
       </select></label>
       <label><span data-i18n="p.pixel">Пиксель</span> <select id="pix">
         <option value="auto" selected data-i18n="p.auto">авто</option>
@@ -323,16 +323,28 @@ function pixelSizeFor(kind, size) {
   return Math.max(1, Math.round(size / 256));
 }
 
-// Истинные размеры текстуры в моде: PlanetIconGenerator.SIZE = 128 для каменных,
-// SIZE_GAS = 256 для газовых, 512 — только небесный вариант. Сайт может рисовать
-// диск любого диаметра, но детализация не может быть выше исходной текстуры.
-function trueTextureSize(kind) { return kind === "gas" ? 256 : 128; }
+// Истинные размеры текстур в моде, не подогнанные под генератор:
+//   каменная планета  PlanetIconGenerator.SIZE = 128
+//   газовый гигант    PlanetIconGenerator.SIZE_GAS = 256
+//   луна/мелкий диск  MapPixelSizing.MOON_STEPS = 8/16/24/36/48, SoftDiscTexture = 64
+//   небо              SIZE_SKY = 512
+// Генератор обязан уметь 36 и 64, а не требовать от мода 128.
+const TRUE_SIZES = { gas: [256, 512], rocky: [36, 64, 128] };
+function trueTextureSize(kind, discPx) {
+  const list = TRUE_SIZES[kind === "gas" ? "gas" : "rocky"];
+  const d = Number(discPx) || 0;
+  let best = list[0];
+  for (const s of list) if (s <= d) best = s;
+  return best;
+}
 function textureInfo(kind, discPx) {
-  const trueSize = trueTextureSize(kind);
+  const trueSize = trueTextureSize(kind, discPx);
   const pixel = Math.max(1, Math.round(discPx / trueSize));
+  const native = Math.abs(pixel - 1) < 1e-9;
   return {
-    pixel: pixel, cells: trueSize, disc: discPx, trueSize: trueSize,
-    text: trueSize + " × " + trueSize + " (истинная) · диск " + discPx + " px · блок " + pixel + " px"
+    pixel: pixel, cells: trueSize, disc: discPx, trueSize: trueSize, native: native,
+    text: "диск " + discPx + " px · текстура мода " + trueSize + " px"
+      + (native ? " · 1:1" : " · апскейл ×" + pixel)
   };
 }
 
