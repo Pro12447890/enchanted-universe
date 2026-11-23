@@ -474,23 +474,34 @@ function clouds(col, hu, hv, seed, gas = true) {
   return col;
 }
 
-/* Ступени нагрева. У каменистых сначала краснеет кора, затем появляются жёлтые
-   трещины, потом оранжевый и жёлтый накал. У газовых сначала краснеют полосы,
-   основа подтягивается позже. Пороги — под диапазон слайдера −220…2600 °C;
-   цвет свечения берётся по закону Планка через EUThermal (как в моде). */
+/* Нагрев по спецификации «термофизика планет» (см. docs): пороги в кельвинах.
+   Точка Дрейпера 798 K — с неё твёрдое тело заметно светится. Каменные:
+   750–1000 вишнёвая кора с первыми трещинами, 1000–1350 бурая кора + яркие
+   жёлто-оранжевые разломы, 1350–1850 оранжевый накал, 1850–2400 жёлтый.
+   Газовые: пояса греются вдвое глубже зон и вспыхивают первыми; основа
+   уходит в магенту из-за провала зелёного в крыле Na I D (650–1000 K). */
+function sstep(a, b, x) {
+  const t = clamp((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 function heatStages(tempC, kind) {
-  const t = Number(tempC) || 0;
+  const Tk = (Number(tempC) || 0) + 273.15;
   if (kind === "gas") {
     return {
-      bands: clamp((t - 300) / 350, 0, 1),
-      base: clamp((t - 650) / 350, 0, 1),
-      strength: clamp((t - 900) / 700, 0, 1)
+      magenta: sstep(650, 1000, Tk),
+      belts: sstep(500, 850, Tk),
+      base: sstep(1050, 1450, Tk),
+      strength: sstep(1200, 2400, Tk)
     };
   }
   return {
-    red: clamp((t - 250) / 350, 0, 1),
-    cracks: clamp((t - 600) / 350, 0, 1),
-    strength: clamp((t - 900) / 650, 0, 1)
+    red: sstep(750, 1000, Tk),
+    deep: sstep(1000, 1350, Tk),
+    cracks: Math.pow(clamp((Tk - 780) / (1450 - 780), 0, 1), 1.8),
+    orange: sstep(1350, 1850, Tk),
+    yellow: sstep(1850, 2400, Tk),
+    strength: sstep(1350, 2400, Tk)
   };
 }
 
@@ -500,45 +511,61 @@ function thermalGlow(tempC) {
   return { color: v.color.map(c => c * 255), strength: v.strength };
 }
 
-/* Каменная планета: покраснение коры, жёлтые трещины, затем накал. */
+/* Маска трещин 0…1: узкие жилы там, где шум близок к нулю. */
+function crackMask(nx, ny, seed) {
+  const cn = Math.abs(fbm(nx * 11 + 7, ny * 11 + 3, seed ^ 0x7A11) - 0.5)
+    + Math.abs(fbm(nx * 27 + 2, ny * 27 + 9, seed ^ 0x5C33) - 0.5) * 0.45;
+  return clamp(1 - cn / 0.075, 0, 1);
+}
+
+/* Каменная планета: кора краснеет, трещины светятся ярче коры. */
 function heatRocky(col, tempC, nx, ny, seed) {
   const H = heatStages(tempC, "rocky");
   if (H.red <= 0 && H.cracks <= 0 && H.strength <= 0) return col;
+  const Tk = (Number(tempC) || 0) + 273.15;
   let out = col;
-  if (H.red > 0) out = lerp(out, [150, 44, 30], 0.55 * H.red);
-  if (H.cracks > 0) {
-    // Прожилки: узкая полоса там, где шум близок к нулю. Ширину ведём от
-    // разрешения, чтобы на 512 трещины были тонкими, а на 128 — читаемыми.
-    const cn = Math.abs(fbm(nx * 11 + 7, ny * 11 + 3, seed ^ 0x7A11) - 0.5)
-      + Math.abs(fbm(nx * 27 + 2, ny * 27 + 9, seed ^ 0x5C33) - 0.5) * 0.45;
-    const width = 0.075;
-    const vein = clamp(1 - cn / width, 0, 1);
+  if (H.red > 0) out = lerp(out, [59, 5, 2], 0.55 * H.red);        // #3B0502
+  if (H.deep > 0) out = lerp(out, [138, 20, 4], 0.60 * H.deep);     // #8A1404
+  if (H.cracks > 0.002) {
+    const vein = crackMask(nx, ny, seed);
     if (vein > 0) {
-      const hot = heatColor(0.45 + 0.35 * H.strength);
-      out = lerp(out, hot, Math.pow(vein, 0.6) * (0.55 + 0.45 * H.cracks) * H.cracks);
+      // В жилах обнажена магма: T = max(Tпов, Tсолидус + 250 K).
+      const crackT = Math.max(Tk, 1250 + 250) - 273.15;
+      const emit = thermalGlow(crackT);
+      out = lerp(out, emit.color, clamp(Math.pow(vein, 0.6) * H.cracks * 1.6, 0, 0.95));
     }
   }
   if (H.strength > 0) {
     const glow = thermalGlow(tempC);
-    out = addc(out, glow.color, 0.75 * H.strength * Math.max(0.35, glow.strength));
+    const w = Math.max(H.orange * 0.75, H.yellow);
+    out = addc(out, glow.color, 0.85 * w * Math.max(0.35, glow.strength));
   }
   return out;
 }
 
-/* Газовая планета: сперва краснеют полосы, основа — позже. */
+/* Газовая планета: пояса вспыхивают первыми, основа уходит в магенту, потом
+   подтягивается к оранжевому и жёлтому. */
 function heatGas(col, tempC, band, gu, gv, seed) {
   const H = heatStages(tempC, "gas");
-  if (H.bands <= 0 && H.base <= 0 && H.strength <= 0) return col;
+  if (H.magenta <= 0.001 && H.belts <= 0.001) return col;
+  const Tk = (Number(tempC) || 0) + 273.15;
   let out = col;
-  if (H.bands > 0) {
-    const bandness = Math.abs(band - 0.5) * 2;
-    const jitter = 0.75 + 0.5 * fbm(gu * 6 + 4, gv * 6 + 1, seed ^ 0x3311);
-    out = lerp(out, [146, 42, 24], clamp(0.55 * H.bands * (0.35 + 0.65 * bandness) * jitter, 0, 1));
+  if (H.magenta > 0.001) {
+    // Крыло Na I D выбивает зелёный: R растёт, G падает, B остаётся → маджента.
+    const k = 0.85 * H.magenta;
+    out = [clamp(out[0] + 70 * H.magenta, 0, 255), out[1] * (1 - k), clamp(out[2] * (1 + 0.10 * H.magenta), 0, 255)];
   }
+  // Пояса (тёмные полосы) лежат глубже зон: T ≈ 2·T_eff.
+  const mBelt = clamp(1 - band / 0.5, 0, 1);
+  const beltJitter = 0.75 + 0.5 * fbm(gu * 6 + 4, gv * 6 + 1, seed ^ 0x3311);
+  const Tlocal = Tk * (1 + 1.0 * mBelt * beltJitter);
+  const emit = thermalGlow(Tlocal - 273.15);
+  const strength = emit.strength * (0.35 + 0.65 * mBelt) * Math.max(0.25, H.belts);
+  if (strength > 0.01) out = addc(out, emit.color, 0.85 * strength);
   if (H.base > 0) out = lerp(out, [176, 66, 28], 0.45 * H.base);
   if (H.strength > 0) {
     const glow = thermalGlow(tempC);
-    out = addc(out, glow.color, 0.70 * H.strength * Math.max(0.35, glow.strength));
+    out = addc(out, glow.color, 0.75 * H.strength * Math.max(0.35, glow.strength));
   }
   return out;
 }
