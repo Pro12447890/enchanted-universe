@@ -151,8 +151,8 @@ const ctx = cv.getContext("2d");
 
 /* Атмосфера и магнитное поле: та же модель, что в моде.
    Сияние считается для планеты на 1 а.е. у звезды G2 (a = 1). */
-const ATM_VIS = { none: 0, minimal: 0.012, thin: 0.08, moderate: 1, medium: 0.5, thick: 0.18 };
-const ATM_HALO = { none: 0, minimal: 0.10, thin: 0.34, moderate: 0.62, medium: 0.80, thick: 1 };
+// Видимость овала считается в js/aurora.js (EUAurora.nightVisibility); дубль удалён.
+// Ореол считается по атмосферной модели (atmosphereModel); вторая таблица удалена.
 const AURORA_MS = 14000;
 const AUR_GREEN = [120, 245, 185], AUR_BLUE = [130, 165, 255], AUR_HOT = [190, 255, 220];
 const reduceMotion = window.matchMedia
@@ -439,7 +439,21 @@ function render(size, seed, tempC, kind, tiltDeg) {
         const dist = Math.sqrt(dx * dx + dy * dy) / radius;
         let light = Math.max(0.30, 0.95 - dist * 0.45 - Math.max(0, dx / radius) * 0.22);
         light *= relief(nx, ny, seed, false);
+        // Раскалённая кора светит сама: затемнение терминатора к ней не применяем,
+        // иначе на правом лимбе горячая планета уходила в 0.30 яркости.
+        if (HOT_ROCKY(tempC)) light = 1;
         col = shade(col, light);
+      }
+
+      // Атмосфера по воздушной массе: у лимба луч проходит в десятки раз
+      // больший путь, поэтому край яркий и цветной, а центр почти чист.
+      if (ATM.tau > 0) {
+        const rr = Math.sqrt(dx * dx + dy * dy) / radius;
+        const mu = Math.sqrt(Math.max(2e-3, 1 - rr * rr));
+        // У горизонта путь растёт быстрее плоской модели: (1/mu)^1.35.
+        const airmass = Math.min(40, Math.pow(1 / mu, 1.35));
+        const veil = 1 - Math.exp(-ATM.tau * airmass);
+        col = lerp(col, ATM.rgb, clamp(veil * ATM.gain, 0, 0.92));
       }
 
       const r = clamp(col[0] | 0, 0, 255), g = clamp(col[1] | 0, 0, 255), b = clamp(col[2] | 0, 0, 255);
@@ -489,9 +503,10 @@ function heatStages(tempC, kind) {
   const Tk = (Number(tempC) || 0) + 273.15;
   if (kind === "gas") {
     return {
-      magenta: sstep(650, 1000, Tk),
       belts: sstep(500, 850, Tk),
       base: sstep(1050, 1450, Tk),
+      orange: sstep(1450, 2000, Tk),
+      yellow: sstep(2000, 2600, Tk),
       strength: sstep(1200, 2400, Tk)
     };
   }
@@ -503,6 +518,12 @@ function heatStages(tempC, kind) {
     yellow: sstep(1850, 2400, Tk),
     strength: sstep(1350, 2400, Tk)
   };
+}
+
+/* Кора уже пламенеет: затемнение терминатора к ней не применяем. */
+function HOT_ROCKY(tempC) {
+  const H = heatStages(tempC, "rocky");
+  return H.orange > 0.01 || H.yellow > 0.01;
 }
 
 function thermalGlow(tempC) {
@@ -518,14 +539,18 @@ function crackMask(nx, ny, seed) {
   return clamp(1 - cn / 0.075, 0, 1);
 }
 
-/* Каменная планета: кора краснеет, трещины светятся ярче коры. */
+/* Каменная планета: кора краснеет, трещины светятся ярче коры.
+   Важно: краснение НЕ затемняет. Раньше здесь был переход в #3B0502/#8A1404,
+   и при 800–1350 K планета гасла почти в чёрный, хотя по Планку её свечение
+   ещё ничтожно. Владелец требует «горячие всегда яркие», поэтому кора уходит
+   в насыщенное красное, а накал задаётся аддитивно, с видимой планкой. */
 function heatRocky(col, tempC, nx, ny, seed) {
   const H = heatStages(tempC, "rocky");
-  if (H.red <= 0 && H.cracks <= 0 && H.strength <= 0) return col;
+  if (H.red <= 0 && H.cracks <= 0 && H.orange <= 0 && H.yellow <= 0) return col;
   const Tk = (Number(tempC) || 0) + 273.15;
   let out = col;
-  if (H.red > 0) out = lerp(out, [59, 5, 2], 0.55 * H.red);        // #3B0502
-  if (H.deep > 0) out = lerp(out, [138, 20, 4], 0.60 * H.deep);     // #8A1404
+  if (H.red > 0) out = lerp(out, [172, 52, 28], 0.50 * H.red);       // тёмно-вишнёвая, но живая
+  if (H.deep > 0) out = lerp(out, [206, 86, 32], 0.42 * H.deep);     // буро-красная
   if (H.cracks > 0.002) {
     const vein = crackMask(nx, ny, seed);
     if (vein > 0) {
@@ -535,26 +560,30 @@ function heatRocky(col, tempC, nx, ny, seed) {
       out = lerp(out, emit.color, clamp(Math.pow(vein, 0.6) * H.cracks * 1.6, 0, 0.95));
     }
   }
-  if (H.strength > 0) {
+  if (H.orange > 0) {
     const glow = thermalGlow(tempC);
-    const w = Math.max(H.orange * 0.75, H.yellow);
-    out = addc(out, glow.color, 0.85 * w * Math.max(0.35, glow.strength));
+    const w = Math.max(glow.strength * 0.85, 0.38 * H.orange);        // планка видимости
+    out = addc(out, glow.color, w);
+  }
+  if (H.yellow > 0) {
+    // Отдельная золотисто-жёлтая стадия: Планк при 1850–2400 K ещё оранжевый,
+    // поэтому жёлтый подмешиваем явно, иначе двух стадий просто нет.
+    out = lerp(out, [255, 232, 150], 0.50 * H.yellow);
+    const glow = thermalGlow(tempC);
+    out = addc(out, [255, 226, 140], 0.30 * H.yellow);
   }
   return out;
 }
 
-/* Газовая планета: пояса вспыхивают первыми, основа уходит в магенту, потом
-   подтягивается к оранжевому и жёлтому. */
+/* Газовая планета: пояса вспыхивают первыми, основа подтягивается позже.
+   Никакого сдвига в магенту — владелец отверг его как плохой дизайн. */
 function heatGas(col, tempC, band, gu, gv, seed) {
   const H = heatStages(tempC, "gas");
-  if (H.magenta <= 0.001 && H.belts <= 0.001) return col;
+  if (H.belts <= 0.001 && H.base <= 0.001) return col;
   const Tk = (Number(tempC) || 0) + 273.15;
   let out = col;
-  if (H.magenta > 0.001) {
-    // Крыло Na I D выбивает зелёный: R растёт, G падает, B остаётся → маджента.
-    const k = 0.85 * H.magenta;
-    out = [clamp(out[0] + 70 * H.magenta, 0, 255), out[1] * (1 - k), clamp(out[2] * (1 + 0.10 * H.magenta), 0, 255)];
-  }
+  // Никакого сдвига в магенту: владелец сказал, что это выглядит как авария
+  // дизайна. Цвет атмосферы теперь даёт настоящий лимб (атмосферная масса).
   // Пояса (тёмные полосы) лежат глубже зон: T ≈ 2·T_eff.
   const mBelt = clamp(1 - band / 0.5, 0, 1);
   const beltJitter = 0.75 + 0.5 * fbm(gu * 6 + 4, gv * 6 + 1, seed ^ 0x3311);
@@ -618,24 +647,56 @@ function drawThermalGlow(bctx, size, tempC, kind) {
   bctx.restore();
 }
 
+/* Атмосфера как реальный лимб, а не сдвиг цвета.
+   Количество газа на луче зрения растёт как воздушная масса 1/cosθ: в центре
+   диска луч идёт вертикально и атмосфера почти не видна, у края — сквозь
+   десятки толщ, поэтому лимб яркий и цветной. Так это и выглядит на снимках
+   Земли. Цвет даёт рэлеевское рассеяние по составу, яркость и толщина — по
+   классу плотности. */
+function atmosphereModel(atm, tempC, composition) {
+  // Плотность — ОДНА таблица на страницу, ровно как ATM_DENSITY (Java .15/.35/.55/.75/.90):
+  // раньше лимб и сияние считали разную толщу газа.
+  const density = ATM_DENSITY[atm] || 0;
+  if (!density) return { tau: 0, rgb: [0, 0, 0], gain: 0, halo: 0, density: 0 };
+  const c = String(composition || '').toUpperCase();
+  // Состав разбираем на формулы: подстрока «O2» есть и внутри «CO2», из-за чего
+  // марсианская углекислая атмосфера раньше красилась в земной синий.
+  const toks = new Set(c.split(/[^A-Z0-9]+/).filter(Boolean));
+  const has = (...names) => names.some(n => toks.has(n));
+  let rgb = [96, 150, 236];                        // N2/O2 — синий, как у Земли
+  if (has('SO2', 'H2S')) rgb = [235, 212, 96];     // серная кислота — жёлтая
+  else if (has('CH4', 'C2H6', 'HCN')) rgb = [88, 200, 216];
+  else if (has('CO2') && !has('O2')) rgb = [208, 180, 142];   // пыльная взвесь
+  else if (has('H2', 'HE') && !has('O2')) rgb = [176, 196, 226];
+  // Мощность: плотность и нагрев. Тонкая атмосфера даёт узкую кромку,
+  // плотная — широкую и яркую, вплоть до «съеденного» края диска.
+  const gain = clamp(0.75 + 0.40 * clamp((tempC + 80) / 420, 0, 1), 0, 1.15);
+  return { tau: density * 0.16, rgb: rgb, gain: gain, halo: density, density: density };
+}
+
+let ATM = { tau: 0, rgb: [0, 0, 0], gain: 0, halo: 0, density: 0 };
+let ATM_TEMP = 0;
+
 function drawAtmosphere(bctx, size, atm, tempC, composition, cloudiness, kind) {
-  const s = ATM_HALO[atm] || 0;
+  const m = atmosphereModel(atm, tempC, composition);
+  const s = m.halo;
   if (!s) return;
   const R = planetRadius(size), c = size / 2;
-  const col = atmosphereColor(tempC, composition, kind || 'rocky');
-  const outer = R * (1.02 + 0.13 * s);
-  const g = bctx.createRadialGradient(c, c, R * 0.86, c, c, outer);
-  g.addColorStop(0, rgba3(col, 0.62 * s));
-  g.addColorStop(0.28, rgba3(col, 0.34 * s));
-  g.addColorStop(0.64, rgba3(col, 0.11 * s));
+  const col = m.rgb;
+  // Ореол за диском: чем мощнее атмосфера, тем дальше он уходит от края.
+  const outer = R * (1.02 + 0.16 * s);
+  const g = bctx.createRadialGradient(c, c, R * 0.95, c, c, outer);
+  g.addColorStop(0, rgba3(col, 0.55 * s));
+  g.addColorStop(0.30, rgba3(col, 0.28 * s));
+  g.addColorStop(0.66, rgba3(col, 0.09 * s));
   g.addColorStop(1, rgba3(col, 0));
   bctx.fillStyle = g;
   bctx.beginPath();
   bctx.arc(c, c, outer, 0, Math.PI * 2);
   bctx.fill();
-  // тонкая кайма у лимба — «плёнка» атмосферы
-  bctx.strokeStyle = rgba3(col, 0.30 * s);
-  bctx.lineWidth = Math.max(1, size / 320);
+  // Тонкая кайма по самому лимбу — то, что видно на снимке Земли.
+  bctx.strokeStyle = rgba3(col, 0.34 * s);
+  bctx.lineWidth = Math.max(1, size / 320 * (1 + 1.5 * s));
   bctx.beginPath();
   bctx.arc(c, c, R + 0.5, 0, Math.PI * 2);
   bctx.stroke();
@@ -994,7 +1055,7 @@ function updateInfo(c, model) {
   const visible = c.field > 0.02 && model.alpha > 0.004;
   const auroraInfo = T('p.info.aurora', {
     atm: T('atm.' + c.atm),
-    atmVis: fmtNum((ATM_HALO[c.atm] || 0) * 100),
+    atmVis: fmtNum((ATM.density || 0) * 100),
     lat: fmtNum(model.env ? model.env.ovalLatitudeDeg : 0),
     b: fmt2(c.field),
     tilt: fmtNum(c.magtilt),
@@ -1045,6 +1106,9 @@ if (reduceMotion.addEventListener) {
 
 function draw() {
   const c = current();
+  // Атмосферу считаем ДО render(): иначе цвет лимба отстаёт на кадр.
+  ATM = atmosphereModel(c.atm, c.tempC, c.composition);
+  ATM_TEMP = c.tempC;
   const model = auroraModel(c.kind, c.field, c.atm, c);
   cv.width = c.size;
   cv.height = c.size;

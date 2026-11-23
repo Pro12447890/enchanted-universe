@@ -127,6 +127,11 @@
       'cat.cold_habitable': 'холодная обитаемая',
       'cat.distant': 'дальняя',
       'cat.gas_giant': 'газовый гигант',
+      // Виды тел по массе (EUBodyClass.classify). Подписи — как в kindLabel().
+      'kind.planet': 'Планета',
+      'kind.gas_giant': 'Газовый гигант',
+      'kind.substellar': 'Коричневый карлик',
+      'kind.star': 'Звезда',
       'atm.none': 'нет',
       'atm.minimal': 'минимальная',
       'atm.thin': 'тонкая',
@@ -457,6 +462,11 @@
       'cat.cold_habitable': 'cold habitable',
       'cat.distant': 'distant',
       'cat.gas_giant': 'gas giant',
+      // Виды тел по массе (EUBodyClass.classify). Подписи — как в kindLabel().
+      'kind.planet': 'Planet',
+      'kind.gas_giant': 'Gas giant',
+      'kind.substellar': 'Brown dwarf',
+      'kind.star': 'Star',
       'atm.none': 'none',
       'atm.minimal': 'minimal',
       'atm.thin': 'thin',

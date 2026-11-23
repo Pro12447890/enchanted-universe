@@ -4,15 +4,19 @@
   const info=document.getElementById('info');let source=null,index=null,queued=false;
   function db(){const cat=adapter.catalog();if(source!==cat){source=cat;index=EUObjectIndex.index(cat,adapter);}return index;}
   function name(e){return adapter.name(e.name);}
+  // Вид (kind) и размещение (role) различаются: у коричневого карлика kind='substellar',
+  // но adapter.focus() знает только размещение — без нормализации клик молча не делает ничего.
+  function physRole(e){return e&&(e.role||e.kind);}
+  function focusSafe(e){if(!e)return;const role=physRole(e);adapter.focus(role&&role!==e.kind?{...e,kind:role}:e);}
   function button(e,text){const b=document.createElement('button');b.type='button';b.className='object-link';b.dataset.euObject=e.key;b.textContent=text||name(e);b.title=EUI18N.current()==='ru'?'Выбрать объект':'Select object';return b;}
   function update(){
    queued=false;if(!info.querySelector('h2')||info.querySelector('[data-related-objects]'))return;
    const data=db(),key=adapter.referenceKey(data),ref=data.byKey.get(key),ctx=selection();
-   info.dataset.objectKind=ref?.kind||ctx?.kind||'planet';
+   info.dataset.objectKind=physRole(ref)||physRole(ctx)||'planet';
    const system=ref?.system||ctx?.system,si=source.systems.indexOf(system);
    if(system){
     const candidates=data.entries.filter(e=>e.si===si&&e.key!==key),nodes=[...info.querySelectorAll('.chips>span:not(.biome),td,.sub')];
-    for(const n of nodes){if(n.querySelector('button,input,a')||n.closest('[data-related-objects]'))continue;const text=n.textContent.trim();let match=candidates.find(e=>text===name(e)||text===e.name||e.kind==='planet'&&text===adapter.name(e.designation));
+    for(const n of nodes){if(n.querySelector('button,input,a')||n.closest('[data-related-objects]'))continue;const text=n.textContent.trim();let match=candidates.find(e=>text===name(e)||text===e.name||physRole(e)==='planet'&&text===adapter.name(e.designation));
      if(match){n.replaceChildren(button(match,text));continue;}
      if(n.classList.contains('sub')&&text.includes(adapter.name(system.name))){const label=adapter.name(system.name),at=text.lastIndexOf(label);if(at>=0)n.replaceChildren(document.createTextNode(text.slice(0,at)),button(data.byKey.get('system:'+si),label),document.createTextNode(text.slice(at+label.length)));}
     }
@@ -25,7 +29,7 @@
    const scroller=info.querySelector('.infoScroll')||info;scroller.append(wrap);
   }
   function schedule(){if(!queued){queued=true;queueMicrotask(update);}}
-  info.addEventListener('click',e=>{const target=e.target.closest('[data-eu-object]');if(!target)return;const entry=db().byKey.get(target.dataset.euObject);if(entry){e.preventDefault();e.stopPropagation();adapter.focus(entry);}});
+  info.addEventListener('click',e=>{const target=e.target.closest('[data-eu-object]');if(!target)return;const entry=db().byKey.get(target.dataset.euObject);if(entry){e.preventDefault();e.stopPropagation();focusSafe(entry);}});
   new MutationObserver(schedule).observe(info,{childList:true});window.addEventListener('eu-lang',()=>{info.querySelector('[data-related-objects]')?.remove();schedule();});schedule();
   return{refresh:schedule};
  }

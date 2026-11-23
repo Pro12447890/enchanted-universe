@@ -249,7 +249,7 @@ try {
   </div>
 </div>
 
-<script src="js/i18n.js?v=d9c00240da"></script>
+<script src="js/i18n.js?v=f319dba127"></script>
 <script src="js/moon-facts.js?v=2"></script>
 <script src="js/generation-pools.js?v=2"></script>
 <script src="js/generation-policy.js?v=2"></script>
@@ -257,16 +257,17 @@ try {
 <script src="js/binary-policy.js?v=1"></script>
 <script src="js/planet-climate.js?v=3"></script>
 <script src="js/stellar-hierarchy.js?v=4"></script>
-<script src="js/generator.js?v=23c6e2f03d"></script>
+<script src="js/generator.js?v=a2a1a62f6d"></script>
 <script src="js/orbits.js?v=82f437652a"></script>
 <script src="js/biome-materials.js?v=2"></script>
 <script src="js/surface-facts.js?v=2"></script>
 <script src="js/texture-bake-queue.js?v=2"></script>
 <script src="js/planet-materials.js?v=4"></script>
-<script src="js/object-index.js?v=ef95a8e1d3"></script>
-<script src="js/star-browser.js?v=4"></script>
+<script src="js/object-index.js?v=bcb95c94a1"></script>
+<script src="js/star-browser.js?v=6"></script>
 <script src="js/card-navigation.js?v=1"></script>
 <script src="js/planet-clouds.js?v=3"></script>
+<script src="js/body-class.js?v=1"></script>
 <script src="js/thermal-emission.js?v=2"></script>
 <script src="js/city-lights.js?v=3"></script>
 <script src="js/binary-view.js?v=2"></script>
@@ -380,6 +381,88 @@ function starAppearance(key) {
   return whiteBlue?{...base,color:'#cbdeff',displayKey:key.endsWith('giant')?'white_blue_giant':'white_blue_star'}:{...base,displayKey:key};
 }
 function starDisplayName(key){return T('star.'+starAppearance(key).displayKey);}
+
+/* ── Коричневый карлик на карте ───────────────────────────────────────────────
+   Коричневый карлик (13–80 M_Юп) водород не жжёт, но светит собственным теплом
+   сжатия: 500–3000 K. Радиус у него ~1 R_Юп и почти не зависит от массы, поэтому
+   на карте это НЕ звёздный спрайт с белым ядром, а тёмно-вишнёвый диск с тёплым
+   ореолом. Пороги и температура — из js/body-class.js (EUBodyClass); если его нет
+   (старая страница, порядок тегов), считаем по тем же числам локально. */
+function isSubstellarKey(key) { const k = String(key || ''); return k === 'brown_dwarf' || k === 'substellar'; }
+function substellarMassMj(key) {
+  const BC = typeof window !== 'undefined' ? window.EUBodyClass : null;
+  if (BC && BC.massOf) { const m = BC.massOf({ starClass: key }); if (Number.isFinite(m) && m > 0) return m; }
+  return 57; // 0.055 M☉ из binary-policy ≈ 57.6 M_Юп — середина коричневого диапазона
+}
+/* Ключ каталога говорит «карлик», а масса не должна говорить «жгу водород». */
+function isSubstellarStar(key) {
+  if (!isSubstellarKey(key)) return false;
+  const BC = typeof window !== 'undefined' ? window.EUBodyClass : null;
+  if (!BC || !BC.classify) return true;
+  return BC.classify(substellarMassMj(key)).canFuse !== true;
+}
+/* Массы у карлика в каталоге нет, поэтому массу и возраст тянем из сида системы:
+   15–70 M_Юп и 0.4–10 млрд лет. Молодой тяжёлый — около 2900 K, старый лёгкий —
+   около 700 K. Так карлики не одинаковые, но детерминированные: тот же сид — та же карта. */
+function substellarTempK(key, seedHint) {
+  const BC = typeof window !== 'undefined' ? window.EUBodyClass : null;
+  const seed = String(seedHint || key || '');
+  const u1 = EUOrbits.unit(seed + '|bd-age'), u2 = EUOrbits.unit(seed + '|bd-mass');
+  const mass = 15 + 55 * u2, age = 0.4 + 9.6 * u1;
+  if (BC && BC.temperatureK) { const t = BC.temperatureK(mass, age); if (Number.isFinite(t) && t > 0) return t; }
+  return Math.max(300, Math.min(3200, 1750 * Math.pow(mass / 50, .45) * Math.pow(age / 3, -.3)));
+}
+/* Цвет теплового свечения по Планку. EUThermal.visible() принимает °C, поэтому
+   переводим из кельвинов. Синий канал не накачиваем: при 700–3000 K он и так мал,
+   а фиолетовый залив на карте читается как авария. */
+function substellarGlow(tK) {
+  const c = Math.max(300, Math.min(3200, tK));
+  const th = typeof window !== 'undefined' ? window.EUThermal : null;
+  if (th && th.visible) {
+    const v = th.visible(c - 273.15);
+    if (v && v.color) return { rgb: v.color.map(x => Math.min(255, Math.round(x * 255))), strength: v.strength };
+  }
+  const f = Math.max(0, Math.min(1, (c - 500) / 2500));
+  return { rgb: [255, Math.round(60 + 80 * f), Math.round(24 + 48 * f)], strength: .22 + .58 * f };
+}
+const bdRgba = (rgb, a) => 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
+/* Самосветящийся диск карлика вместо звёздного спрайта.
+   core — радиус на экране: как у самой мелкой звезды карты, но не меньше 2.2 px
+   (карлик размером с Юпитер, светимость его не раздувает). */
+function drawSubstellarDisc(key, x, y, r, alpha, now, seedHint) {
+  if (alpha <= 0.01) return;
+  const tK = substellarTempK(key, seedHint);
+  const glow = substellarGlow(tK);
+  const core = Math.max(2.2, r);
+  const heat = Math.max(0, Math.min(1, (tK - 600) / 2400));
+  const seed = String(seedHint || key || '');
+  const shimmer = .93 + .07 * Math.sin((Number(now) || 0) * .0008 + EUOrbits.unit(seed + '|bd-phase') * 6.28318);
+  const lit = glow.strength * shimmer;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // 1. Тёплый ореол: карлик не светит, а тлеет — ореол узкий и слабый.
+  const halo = ctx.createRadialGradient(x, y, core * .55, x, y, core * 3.4);
+  halo.addColorStop(0, bdRgba(glow.rgb, .34 * lit));
+  halo.addColorStop(.42, bdRgba(glow.rgb, .13 * lit));
+  halo.addColorStop(1, bdRgba(glow.rgb, 0));
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(x, y, core * 3.4, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  // 2. Диск: тёмная вишня, к центру светлее от собственного тепла. Белого ядра нет.
+  const disc = ctx.createRadialGradient(x - core * .22, y - core * .22, Math.max(.15, core * .18), x, y, core);
+  disc.addColorStop(0, 'rgb(' + Math.round(96 + 74 * heat) + ',' + Math.round(28 + 30 * heat) + ',' + Math.round(36 + 26 * heat) + ')');
+  disc.addColorStop(.55, 'rgb(' + Math.round(70 + 42 * heat) + ',' + Math.round(20 + 16 * heat) + ',' + Math.round(30 + 14 * heat) + ')');
+  disc.addColorStop(1, 'rgb(' + Math.round(34 + 12 * heat) + ',' + Math.round(9 + 4 * heat) + ',' + Math.round(16 + 5 * heat) + ')');
+  ctx.fillStyle = disc;
+  ctx.beginPath(); ctx.arc(x, y, core, 0, Math.PI * 2); ctx.fill();
+  // 3. Тепловой лимб: тонкая светлая кромка — признак собственного свечения.
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineWidth = Math.max(.35, core * .08);
+  ctx.strokeStyle = bdRgba(glow.rgb, .34 * lit);
+  ctx.beginPath(); ctx.arc(x, y, Math.max(.6, core - ctx.lineWidth * .5), 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
 
 
 function resize() {
@@ -522,7 +605,7 @@ function starRadiusUnits(s) {
    в js/orbits.js (одна игровая орбита .85, фазы строго ±π). */
 function hierarchyFrame(s,t=simTicks){if(s.generationModel!=='ClassicClimateV3'||!s.stellarHierarchy||s.id.endsWith('system_sol'))return null;return{h:s.stellarHierarchy,points:EUHierarchy.positions(s.stellarHierarchy,t,EUOrbits.isRealistic()),scale:EUHierarchy.scale(s.stellarHierarchy,s.planets)};}
 function componentWorld(index,s,id,t=simTicks){const center=systemPos(index,s),f=hierarchyFrame(s,t);if(!f)return center;const q=f.points.get(id)||{x:0,y:0,z:0};return{x:center.x+q.x*f.scale,y:center.y+(q.z*.86-q.y*.55)*f.scale};}
-function drawHierarchyCompanions(s,index,alpha,now,r){const f=hierarchyFrame(s);if(!f)return;for(const c of f.h.components){if(c.id==='A')continue;const q=componentWorld(index,s,c.id),x=screenX(q.x),y=screenY(q.y);if(x<-300||x>innerWidth+300||y<-300||y>innerHeight+300)continue;drawDetailedStar(c.star,x,y,Math.max(1.5,Math.min(240,c.radiusAu*f.scale*cam.z||r)),alpha,now);}}
+function drawHierarchyCompanions(s,index,alpha,now,r){const f=hierarchyFrame(s);if(!f)return;for(const c of f.h.components){if(c.id==='A')continue;const q=componentWorld(index,s,c.id),x=screenX(q.x),y=screenY(q.y);if(x<-300||x>innerWidth+300||y<-300||y>innerHeight+300)continue;drawDetailedStar(c.star,x,y,Math.max(1.5,Math.min(240,c.radiusAu*f.scale*cam.z||r)),alpha,now,String(s.seed||'')+'|'+c.id);}}
 function planetHostWorld(sysIdx,system,p){if(EUOrbits.hierarchyOrbit(system,p))return componentWorld(sysIdx,system,p.orbitHost);const center=systemPos(sysIdx,system),pair=binaryWorld(system),host=p.orbitHost||((String(p.archetype||'').includes('circumbinary'))?'barycenter':'primary');if(!pair||host==='barycenter')return center;const part=host==='secondary'?pair.secondary:pair.primary;return{x:center.x+part.x,y:center.y+part.y};}
 function planetPos(sysIdx, system, p) {
   const sp=planetHostWorld(sysIdx,system,p);
@@ -563,20 +646,25 @@ function moonAngle(p, k, m, moons) {
   // Строго MoonSpec: initial = phaseOffset·2π, далее 2π·ticks/periodTicks.
   return EUOrbits.moonAngle(m, simTicks);
 }
+// Размещение объекта: у коричневого карлика kind='substellar', но в системе он
+// звезда/компаньон/планета. Все переходы идут по role, иначе клик мимо.
+const physRole = e => e && (e.role || e.kind);
 function bodyKey(ref) {
   if (!ref || !ref.system) return '';
+  const refKind = physRole(ref);
   const sys = ref.system.name + '#' + ref.index;
-  if (ref.kind === 'planet') return 'p:' + sys + ':' + ref.planet.seed;
-  if (ref.kind === 'moon') return 'm:' + sys + ':' + ref.planet.seed + ':' + ref.moon.index;
-  if (ref.kind === 'star') return 's:' + sys;
+  if (refKind === 'planet') return 'p:' + sys + ':' + ref.planet.seed;
+  if (refKind === 'moon') return 'm:' + sys + ':' + ref.planet.seed + ':' + ref.moon.index;
+  if (refKind === 'star') return 's:' + sys;
   return '';
 }
 function bodyWorld(ref) {
   if (!ref || !ref.system || !catalog) return null;
-  if (ref.kind === 'planet') return planetPos(ref.index, ref.system, ref.planet);
-  if (ref.kind === 'moon') return moonWorld(ref.index, ref.system, ref.planet, ref.moon);
-  if (ref.kind === 'star') return primaryWorld(ref.index, ref.system);
-   if (ref.kind === 'companion') {const center=systemPos(ref.index,ref.system),pair=binaryWorld(ref.system);return pair?{x:center.x+pair.secondary.x,y:center.y+pair.secondary.y}:center;}
+  const refKind = physRole(ref);
+  if (refKind === 'planet') return planetPos(ref.index, ref.system, ref.planet);
+  if (refKind === 'moon') return moonWorld(ref.index, ref.system, ref.planet, ref.moon);
+  if (refKind === 'star') return primaryWorld(ref.index, ref.system);
+   if (refKind === 'companion') {const center=systemPos(ref.index,ref.system),pair=binaryWorld(ref.system);return pair?{x:center.x+pair.secondary.x,y:center.y+pair.secondary.y}:center;}
   return null;
 }
 function moonWorld(index, system, planet, moon) {
@@ -815,9 +903,13 @@ function drawPulsarStar(x, y, half, alpha, now) {
   ctx.restore();
 }
 
-function drawDetailedStar(key,x,y,r,alpha,now){
+// seedHint (необязательный) — сид системы: по нему коричневый карлик получает
+// свою массу и возраст, а все остальные светила о нём просто не спрашивают.
+function drawDetailedStar(key,x,y,r,alpha,now,seedHint){
  const data=starAppearance(key);ctx.save();
  if(key==='magnetar'){drawPulsarStar(x,y,Math.max(2.4,r*1.15),alpha,now);ctx.restore();return;}
+ // Коричневый карлик: не звёздный спрайт с белым ядром, а тёмно-вишнёвый диск.
+ if(isSubstellarStar(key)){drawSubstellarDisc(key,x,y,r,alpha,now,seedHint);ctx.restore();return;}
  ctx.globalAlpha=.20*alpha;const g=ctx.createRadialGradient(x,y,0,x,y,r*5.5);g.addColorStop(0,data.color);g.addColorStop(.35,data.color+'66');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*5.5,0,Math.PI*2);ctx.fill();
  ctx.globalAlpha=alpha;const disc=ctx.createRadialGradient(x-r*.18,y-r*.18,Math.max(.2,r*.12),x,y,r);disc.addColorStop(0,'#fffbe8');disc.addColorStop(.55,data.color);disc.addColorStop(1,shade(data.color,.7));ctx.fillStyle=disc;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
 }
@@ -838,7 +930,7 @@ function drawGalaxy(alpha, now) {
     if (innerWidth <= 700) r *= 0.78;
     ctx.save();
     const farDim=EUGalaxyDistribution.farBrightness(s.star),farAlpha=alpha*(1-(1-farDim)*(1-smooth(2.5,7,cam.z)));
-    drawDetailedStar(s.star,sx,sy,r,farAlpha,now);
+    drawDetailedStar(s.star,sx,sy,r,farAlpha,now,String(s.seed||''));
     const companionFade = smooth(0.10, 0.35, cam.z);
     if(hierarchyFrame(s)){drawHierarchyCompanions(s,i,alpha*companionFade,now,r);}else if(s.companion&&companionFade>.01){
       const cp = companionPosition(s, sx, sy, r);
@@ -847,7 +939,7 @@ function drawGalaxy(alpha, now) {
         ctx.globalAlpha = alpha * companionFade * 0.22; ctx.strokeStyle = cd.color;
         drawBinaryOrbits(s,sx,sy,r,alpha*companionFade);
         const cdim=EUGalaxyDistribution.farBrightness(s.companion.star),ca=alpha*companionFade*(1-(1-cdim)*(1-smooth(2.5,7,cam.z)));
-        drawDetailedStar(s.companion.star,cp.x,cp.y,Math.max(1,cp.r),ca,now);
+        drawDetailedStar(s.companion.star,cp.x,cp.y,Math.max(1,cp.r),ca,now,String(s.seed||'')+'|B');
       }
     }
     if (i === 0) {
@@ -1104,7 +1196,7 @@ function drawPlanets(alpha, now) {
         if (cp) {
           ctx.globalAlpha = alpha * nearFade * 0.26; ctx.strokeStyle = cd.color;
           drawBinaryOrbits(s,starX,starY,Math.max(5,starRadiusUnits(s)*cam.z),alpha*nearFade);
-          drawDetailedStar(s.companion.star,cp.x,cp.y,Math.max(1.5,cp.r),alpha*nearFade,now);
+          drawDetailedStar(s.companion.star,cp.x,cp.y,Math.max(1.5,cp.r),alpha*nearFade,now,String(s.seed||'')+'|B');
         }
       }
     }
@@ -1476,6 +1568,10 @@ function drawFocusStar(now) {
   if (best.system.star === 'magnetar') {
     // Ближний магнитар — те же слои rotating/fixed/pulse.
     drawPulsarStar(x, y, Math.max(6, r * 1.15), 1, now);
+  } else if (isSubstellarStar(best.system.star)) {
+    // Ближний коричневый карлик: тот же самосветящийся диск, только крупный.
+    // Ни белого ядра, ни короны — их у карлика нет.
+    drawSubstellarDisc(best.system.star, x, y, r, 1, now, String(best.system.seed || ''));
   } else {
     const cor = ctx.createRadialGradient(x, y, r*0.9, x, y, r*4.5);
     cor.addColorStop(0, data.color + 'cc'); cor.addColorStop(0.4, data.color + '33'); cor.addColorStop(1, 'rgba(0,0,0,0)');
@@ -1503,7 +1599,7 @@ function drawFocusStar(now) {
     if (cp) {
       ctx.globalAlpha = 0.35 * focusFade; ctx.strokeStyle = cd.color;
       drawBinaryOrbits(best.system,x,y,r,focusFade);
-      drawDetailedStar(best.system.companion.star,cp.x,cp.y,Math.max(2,cp.r),.95*focusFade,now);
+      drawDetailedStar(best.system.companion.star,cp.x,cp.y,Math.max(2,cp.r),.95*focusFade,now,String(best.system.seed||'')+'|B');
     }
   }
   // Имя звезды гаснет, когда в кадре уже видны диски/орбиты планет.
@@ -2517,11 +2613,11 @@ const browserAdapter={
  systemLy:(seed,index,d,s)=>EUOrbits.javaSystemLy(seed,index,d,['ClassicClimateV2','ClassicClimateV3'].includes(s?.generationModel)),binary:(s,t)=>EUBinary.at(s,t,EUOrbits.isRealistic()),planetAu:(s,p,t)=>EUOrbits.physicalPosition(s,p,t),moonAngle:(m,t)=>EUOrbits.moonAngle(m,t),
  referenceKey:db=>{
   if(selectedHole)return 'hole:'+selectedHole.hole.id;
-  const ref=follow||selected;if(ref?.system){const si=catalog.systems.indexOf(ref.system),pi=ref.planet?ref.system.planets.indexOf(ref.planet):-1;
-   if(ref.kind==='moon')return `moon:${si}:${pi}:${ref.moon.index}`;
-   if(ref.kind==='planet')return `planet:${si}:${pi}`;
-   if(ref.kind==='companion')return 'companion:'+si;
-   return(ref.kind==='system'?'system:':'star:')+si;
+  const ref=follow||selected;if(ref?.system){const si=catalog.systems.indexOf(ref.system),pi=ref.planet?ref.system.planets.indexOf(ref.planet):-1,rk=physRole(ref);
+   if(rk==='moon')return `moon:${si}:${pi}:${ref.moon.index}`;
+   if(rk==='planet')return `planet:${si}:${pi}`;
+   if(rk==='companion')return 'companion:'+si;
+   return(rk==='system'?'system:':'star:')+si;
   }
   return db.entries.find(e=>e.kind==='planet'&&/^(земля|earth)$/i.test(e.name))?.key||'system:0';
  },

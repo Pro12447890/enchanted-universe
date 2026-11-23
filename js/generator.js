@@ -281,7 +281,12 @@ function createPlanet(r,systemIndex,index,formal,star,worldSeed,previousOrbit=0,
    const body={id,designation:desig,name,category,atmosphere,temperatureC:temperature,gravity,radiation,gauss,rings,moons,orbitAu:orbit,diameterEarth:diameter,biomes:biomeList,composition:comp,archetype,aerosol:AEROSOL_BY_ARCH[archetype]||'none',seed,systemIndex,index,generationModel:climate?'ClassicClimateV1':'Classic'};
   if(climate&&!classicBiomes){body.biomes=NEW_POLICY.biomes(seed,category,atmosphere,orbit,Math.fround(STAR[star]),biomeList);body.moons=NEW_POLICY.moons(seed,moons,category==='gas_giant',orbit,Math.fround(STAR[star]));
    const specs=moonSpecs(body);body.customMoons=specs.map(m=>{const ms=BigInt.asIntN(64,BigInt(seed)^(0x9e3779b97f4a7c15n*BigInt(m.index+1)));return {...m,radiusKm:Math.min(m.radiusKm,6371*diameter*.45),biomes:NEW_POLICY.biomes(ms,m.category,m.atmosphere,orbit,Math.fround(STAR[star]),m.biomes)};});
-  }return body;
+  }
+  // Вид тела по массе (EUBodyClass). Только флаги для отрисовки и фильтров:
+  // размещение в системе, сиды и порядок потребления RNG не меняются.
+  const BC=typeof window!=='undefined'?window.EUBodyClass:null;
+  if(BC&&BC.classify){const cls=BC.classify(BC.massOf(body));body.bodyKind=cls.kind;body.selfLuminous=cls.selfLuminous;body.canFuse=cls.canFuse;}
+  return body;
 }
 
 function solarPlanet(index, name, category, orbit, diameter, gravity, temp, atmosphere, comp, moons, rings, biome, seed) {

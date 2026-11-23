@@ -17,19 +17,30 @@
   for(const raw of parts){const [gas,value]=raw.split(':'),amount=explicit&&value!==undefined?Math.max(0,Number(value)||0):1/parts.length;total+=amount;if(gas.trim().toUpperCase()==='O2')oxygen+=amount;}
   return total>0&&oxygen/total>=.10;
  }
+ const JOVIAN_PER_SUN=1047.566;
+ // Вид тела для каталога считает физика (EUBodyClass), а размещение в системе — `role`.
+ // Ключи, порядок обхода и поля записей не меняются: коричневый карлик проходит
+ // тот же обход, что раньше, и position() ведёт его по ветке звезды или планеты.
+ function kindOf(role,spec){
+  if(role!=='star'&&role!=='companion'&&role!=='planet')return role;
+  const starClass=String(spec.starClass||''),archetype=String(spec.archetype||''),solar=Number(spec.massSolar),C=typeof window!=='undefined'?window.EUBodyClass:null;
+  const massMj=Number.isFinite(solar)&&solar>0?solar*(C&&C.JUPITER_PER_SUN||JOVIAN_PER_SUN):null;
+  const byMass=C&&massMj!=null?C.classify(massMj).kind:null;
+  return starClass==='brown_dwarf'||archetype==='brown_dwarf'||byMass==='substellar'?'substellar':role;
+ }
  function index(catalog,adapter){
   const entries=[],byKey=new Map();
-  const put=e=>{e.name=String(e.name||e.key);e.biomes=e.biomes||[];e.gases=e.gases||[];e.search=text([e.name,e.id,e.designation,e.system?.name,e.star,e.category,e.archetype,...e.biomes,...e.gases,...(e.aliases||[]),adapter.name?.(e.name)].join(' '));entries.push(e);byKey.set(e.key,e);return e};
+  const put=e=>{e.role=e.role||e.kind;e.name=String(e.name||e.key);e.biomes=e.biomes||[];e.gases=e.gases||[];e.search=text([e.name,e.id,e.designation,e.system?.name,e.star,e.category,e.archetype,...e.biomes,...e.gases,...(e.aliases||[]),adapter.name?.(e.name)].join(' '));entries.push(e);byKey.set(e.key,e);return e};
   for(const [si,s] of catalog.systems.entries()){
    const common={system:s,si,sm:!!s.smesharia,id:s.id};
    put({...common,key:'system:'+si,kind:'system',name:s.name,star:s.star,moons:s.planets.reduce((n,p)=>n+(p.moons||0),0),planets:s.planets.length});
-   if(s.generationModel==='ClassicClimateV3'&&s.stellarHierarchy){for(const c of s.stellarHierarchy.components){const kind=c.id==='A'?'star':'companion',key=c.id==='A'?'star:'+si:c.id==='B'?'companion:'+si:'companion:'+si+':'+c.id;put({...common,key,kind,componentId:c.id,name:c.name,star:c.star,temperatureK:c.temperatureK,luminosity:c.luminosity,mass:c.mass});}}else for(const kind of ['star','companion']){
-    if(kind==='companion'&&!s.companion)continue;const key=kind==='star'?s.star:s.companion.star,d=adapter.star(key);
-    put({...common,key:kind+':'+si,kind,name:kind==='star'?s.name:s.companion.name,star:key,temperatureK:d.t,luminosity:d.lum,mass:kind==='star'?(s.massSolar||adapter.mass(key)):(s.companion.massSolar||adapter.mass(key))});
+   if(s.generationModel==='ClassicClimateV3'&&s.stellarHierarchy){for(const c of s.stellarHierarchy.components){const role=c.id==='A'?'star':'companion',key=c.id==='A'?'star:'+si:c.id==='B'?'companion:'+si:'companion:'+si+':'+c.id;put({...common,key,kind:kindOf(role,{starClass:c.star,massSolar:c.mass}),role,componentId:c.id,name:c.name,star:c.star,temperatureK:c.temperatureK,luminosity:c.luminosity,mass:c.mass});}}else for(const role of ['star','companion']){
+    if(role==='companion'&&!s.companion)continue;const key=role==='star'?s.star:s.companion.star,d=adapter.star(key),massSolar=role==='star'?(s.massSolar||adapter.mass(key)):(s.companion.massSolar||adapter.mass(key));
+    put({...common,key:role+':'+si,kind:kindOf(role,{starClass:key,massSolar}),role,name:role==='star'?s.name:s.companion.name,star:key,temperatureK:d.t,luminosity:d.lum,mass:massSolar});
    }
    for(const [pi,p] of s.planets.entries()){
     const body={...common,pi,planet:p,category:p.category,archetype:p.archetype,atmosphere:p.atmosphere,temperatureC:p.mystery?null:p.temperatureC,gravity:p.mystery?null:p.gravity,radiation:p.mystery?null:p.radiation,field:p.mystery?null:(p.gauss??p.magneticGauss),diameter:p.diameterEarth,radiusKm:p.diameterEarth*6371,moons:p.moons,rings:!!p.rings,land:p.category!=='gas_giant'&&!p.mystery&&!['forbidden','brown_dwarf'].includes(p.archetype),biomes:p.biomes,gases:(p.composition||[]).map(x=>x.split(':')[0].trim().toUpperCase()),esi:p.mystery?null:esi(p),habitable:habitable(p),life:EUSurfaceFacts.life(p)};
-    put({...body,key:`planet:${si}:${pi}`,kind:'planet',name:p.name,designation:p.designation,id:p.id,aliases:p.aliases,star:s.star});
+    put({...body,key:`planet:${si}:${pi}`,kind:kindOf('planet',{archetype:p.archetype}),role:'planet',name:p.name,designation:p.designation,id:p.id,aliases:p.aliases,star:s.star});
     for(const m of adapter.moons(p)){
      const cat=m.category||m.type,diameter=2*m.radiusKm/12742,mp={...m,category:cat,diameterEarth:diameter};
      put({...common,pi,planet:p,moon:m,key:`moon:${si}:${pi}:${m.index}`,kind:'moon',name:m.name,star:s.star,category:cat,archetype:m.archetype,temperatureC:m.temperatureC,gravity:m.gravity,radiation:m.radiation,diameter,radiusKm:m.radiusKm,atmosphere:m.atmosphere,biomes:m.biomes,gases:(m.composition||[]).map(x=>x.split(':')[0].trim().toUpperCase()),rings:false,land:cat!=='gas_giant'&&m.archetype!=='forbidden',habitable:habitable(m),life:EUSurfaceFacts.life(m),esi:esi(mp)});
@@ -42,21 +53,24 @@
   return{entries,byKey};
  }
  function position(e,catalog,adapter,ticks){
-  if(e.kind==='hole')return[e.hole.xLy,e.hole.yLy,e.hole.zLy];
+  // Ветку движения выбирает `role` (размещение), а не `kind` (вид): коричневый
+  // карлик с видом substellar остаётся звездой/планетой для орбитальной физики.
+  const role=e.role||e.kind;
+  if(role==='hole')return[e.hole.xLy,e.hole.yLy,e.hole.zLy];
   const s=e.system,pos=s.positionLy;let origin=pos?[Number(pos.x),Number(pos.y||0),Number(pos.z)]:adapter.systemLy(catalog.worldSeed,e.si,s.distanceLy,s);
   if(!origin.every(Number.isFinite))return null;
   const binary=adapter.binary(s,ticks),offset=(part)=>{
    if(!binary)return[0,0,0];const point=part==='primary'?binary.primary:binary.secondary;
    return[point.x*AU_LY,(point.z||0)*AU_LY,(point.y||0)*AU_LY];
   };
-  if(e.kind==='system')return origin;
-   if(s.generationModel==='ClassicClimateV3'&&s.stellarHierarchy){const h=s.stellarHierarchy,points=EUHierarchy.positions(h,ticks,EUOrbits.isRealistic());if(e.kind==='star'||e.kind==='companion'){const v=points.get(e.componentId||(e.kind==='star'?'A':'B'));return add(origin,[v.x*AU_LY,v.y*AU_LY,v.z*AU_LY]);}if(EUOrbits.hierarchyOrbit(s,e.planet)){const v=points.get(e.planet.orbitHost);origin=add(origin,[v.x*AU_LY,v.y*AU_LY,v.z*AU_LY]);}}
-  if(e.kind==='star')return add(origin,offset('primary'));
-  if(e.kind==='companion')return add(origin,offset('secondary'));
+  if(role==='system')return origin;
+   if(s.generationModel==='ClassicClimateV3'&&s.stellarHierarchy){const h=s.stellarHierarchy,points=EUHierarchy.positions(h,ticks,EUOrbits.isRealistic());if(role==='star'||role==='companion'){const v=points.get(e.componentId||(role==='star'?'A':'B'));return add(origin,[v.x*AU_LY,v.y*AU_LY,v.z*AU_LY]);}if(EUOrbits.hierarchyOrbit(s,e.planet)){const v=points.get(e.planet.orbitHost);origin=add(origin,[v.x*AU_LY,v.y*AU_LY,v.z*AU_LY]);}}
+  if(role==='star')return add(origin,offset('primary'));
+  if(role==='companion')return add(origin,offset('secondary'));
   const host=e.planet.orbitHost||((String(e.planet.archetype||'').includes('circumbinary'))?'barycenter':'primary');if(host!=='barycenter'&&!EUOrbits.hierarchyOrbit(s,e.planet))origin=add(origin,offset(host));
   const p=adapter.planetAu(s,e.planet,ticks);if(!p)return null;
   origin=add(origin,[p.x*AU_LY,p.z*AU_LY,p.y*AU_LY]);
-  if(e.kind==='moon'){
+  if(role==='moon'){
    const m=e.moon,parent=e.planet,tilt=(m.tiltDeg||0)*Math.PI/180,yaw=(m.yawDeg||0)*Math.PI/180,r=m.distanceKm*KM_LY;
    let period=Math.max(1,Number(m.periodTicks)||1);
    // Только скрытая 3D: точный период OrbitMode.moonPeriod, без округления экранных орбит.
