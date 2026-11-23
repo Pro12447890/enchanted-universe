@@ -92,7 +92,7 @@
           <input id="temp" type="range" min="-220" max="2600" value="-60" step="10" style="width:104px">
           <b id="tempv">-60</b>
         </span></label>
-      <label><span data-i18n="p.size">Размер</span> <select id="size">
+      <label><span data-i18n="p.size">Диаметр, px</span> <select id="size">
         <option>128</option><option selected>256</option><option>512</option>
       </select></label>
       <label><span data-i18n="p.pixel">Пиксель</span> <select id="pix">
@@ -242,7 +242,11 @@ function heatColor(h) {
 
 /* --- параметры мира из сида ------------------------------------------------- */
 /* Радиус диска с запасом под ореол атмосферы и линии поля. */
-function planetRadius(size) { return size / 2 - Math.max(4, Math.round(size * 0.07)); }
+// Выбранное «Размер» — это диаметр планеты по экватору в пикселях,
+// а холст берём на 18 % больше, чтобы в него влезли ореол и сияние.
+const DISC_PAD = 1.18;
+const sideFor = discPx => Math.round(discPx * DISC_PAD);
+function planetRadius(side) { return side / DISC_PAD / 2; }
 
 function gasParams(seed, tempC, size) {
   const s = Math.abs(Math.floor(seed)) || 1;
@@ -319,10 +323,17 @@ function pixelSizeFor(kind, size) {
   return Math.max(1, Math.round(size / 256));
 }
 
-function textureInfo(kind, size) {
-  const pixel = pixelSizeFor(kind, size);
-  const cells = Math.max(1, Math.round(size / pixel));
-  return { pixel: pixel, cells: cells, text: cells + " × " + cells + " · блок " + pixel + " px" };
+// Истинные размеры текстуры в моде: PlanetIconGenerator.SIZE = 128 для каменных,
+// SIZE_GAS = 256 для газовых, 512 — только небесный вариант. Сайт может рисовать
+// диск любого диаметра, но детализация не может быть выше исходной текстуры.
+function trueTextureSize(kind) { return kind === "gas" ? 256 : 128; }
+function textureInfo(kind, discPx) {
+  const trueSize = trueTextureSize(kind);
+  const pixel = Math.max(1, Math.round(discPx / trueSize));
+  return {
+    pixel: pixel, cells: trueSize, disc: discPx, trueSize: trueSize,
+    text: trueSize + " × " + trueSize + " (истинная) · диск " + discPx + " px · блок " + pixel + " px"
+  };
 }
 
 function render(size, seed, tempC, kind, tiltDeg) {
@@ -1072,12 +1083,12 @@ function updateInfo(c, model) {
 /* --- отрисовка: статичная база (ореол + планета), поверх — живое сияние ---- */
 function paint(now) {
   if (!params || !aurora) return;
-  const size = params.size;
+  const side = cv.width;                      // сторона холста, не диаметр диска
   const phase = reduceMotion.matches ? 0 : ((now - animStart) / AURORA_MS) * Math.PI * 2;
-  ctx.clearRect(0, 0, size, size);
+  ctx.clearRect(0, 0, side, side);
   ctx.drawImage(baseCv, 0, 0);
-  drawAurora(ctx, size, params, aurora, phase);
-  drawFieldLines(ctx, size, params, phase);
+  drawAurora(ctx, side, params, aurora, phase);
+  drawFieldLines(ctx, side, params, phase);
 }
 
 function stopAnimation() {
@@ -1112,20 +1123,21 @@ function draw() {
   ATM = atmosphereModel(c.atm, c.tempC, c.composition);
   ATM_TEMP = c.tempC;
   const model = auroraModel(c.kind, c.field, c.atm, c);
-  cv.width = c.size;
-  cv.height = c.size;
-  baseCv.width = c.size;
-  baseCv.height = c.size;
-  planetCv.width = c.size;
-  planetCv.height = c.size;
+  const SIDE = sideFor(c.size);
+  cv.width = SIDE;
+  cv.height = SIDE;
+  baseCv.width = SIDE;
+  baseCv.height = SIDE;
+  planetCv.width = SIDE;
+  planetCv.height = SIDE;
   planetCv.getContext("2d").putImageData(
-    render(c.size, c.seed, c.tempC, c.kind, c.tilt), 0, 0);
-  baseCtx.clearRect(0, 0, c.size, c.size);
-  drawAtmosphere(baseCtx, c.size, c.atm, c.tempC, c.composition, c.clouds, c.kind);
-  drawThermalGlow(baseCtx, c.size, c.tempC, c.kind);
+    render(SIDE, c.seed, c.tempC, c.kind, c.tilt), 0, 0);
+  baseCtx.clearRect(0, 0, SIDE, SIDE);
+  drawAtmosphere(baseCtx, SIDE, c.atm, c.tempC, c.composition, c.clouds, c.kind);
+  drawThermalGlow(baseCtx, SIDE, c.tempC, c.kind);
   baseCtx.drawImage(planetCv, 0, 0);
   const family = cloudFamilyFor(c);
-  drawCloudOverlay(baseCtx, c.size, c.clouds, c.composition, c.seed, family, textureInfo(c.kind, c.size).pixel);
+  drawCloudOverlay(baseCtx, SIDE, c.clouds, c.composition, c.seed, family, textureInfo(c.kind, c.size).pixel);
   params = c;
   aurora = model;
   updateControls(c);
@@ -1148,7 +1160,7 @@ document.getElementById("save").addEventListener("click", () => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     const c = current();
-    a.download = `planet_${c.kind}_${c.seed}_${c.size}.png`;
+    a.download = `planet_${c.kind}_${c.seed}_${c.size}px.png`;
     a.click();
     URL.revokeObjectURL(a.href);
   });
