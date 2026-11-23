@@ -204,8 +204,8 @@ try {
 <link rel="stylesheet" href="assets/mobile-map.css?v=3">
 <link rel="stylesheet" href="assets/star-browser.css?v=3">
 <link rel="stylesheet" href="assets/gui-tones.css?v=3">
-<link rel="stylesheet" href="assets/liquid-glass.css?v=7449c53388">
-<link rel="stylesheet" href="assets/ui-layout.css?v=d06a5196dc">
+<link rel="stylesheet" href="assets/liquid-glass.css?v=d00908be39">
+<link rel="stylesheet" href="assets/ui-layout.css?v=d65a76c514">
 </head>
 <body>
 <canvas id="map"></canvas>
@@ -249,13 +249,13 @@ try {
   </div>
 </div>
 
-<script src="js/i18n.js?v=c700ba4515"></script>
+<script src="js/i18n.js?v=fe349f6313"></script>
 <script src="js/moon-facts.js?v=2"></script>
 <script src="js/generation-pools.js?v=2"></script>
 <script src="js/generation-policy.js?v=2"></script>
 <script src="js/galaxy-distribution.js?v=2"></script>
 <script src="js/binary-policy.js?v=1"></script>
-<script src="js/planet-climate.js?v=2"></script>
+<script src="js/planet-climate.js?v=3"></script>
 <script src="js/stellar-hierarchy.js?v=4"></script>
 <script src="js/generator.js?v=23c6e2f03d"></script>
 <script src="js/orbits.js?v=82f437652a"></script>
@@ -1684,7 +1684,18 @@ function showPlanet(p, system) {
   const habState = habitabilityState(p);
   const habValue = T('trait.hab.' + habState) + (habState === 'ideal' ? '' : ' · ' + earthSimilarity(p).toFixed(2));
   const climate = EUPlanetClimate.compareEarth(p, EUPlanetClimate.earthReference(catalog));
-  const greenhouseRow = `<tr data-climate="greenhouse" title="${esc(T('card.greenhouseNote'))}"><td>${T('card.greenhouse')}</td><td>${climate.available ? EUI18N.num(climate.relativeEarth, {maximumFractionDigits:2}) + ' ' + T('card.greenhouseUnit') : '—'}</td></tr>`;
+  // Показываем сам эффект, а не только формулу: сколько градусов он добавил
+  // и какой была бы равновесная температура без него.
+  const ghWarming = climate.available ? EUPlanetClimate.warmingK(p.temperatureC, climate.opticalDepthIR) : NaN;
+  const ghEquilibrium = Number.isFinite(ghWarming) ? p.temperatureC - ghWarming : NaN;
+  const ghWarmText = Number.isFinite(ghWarming) && ghWarming >= 0.5
+    ? '+' + EUI18N.num(ghWarming, { maximumFractionDigits: 0 }) + ' ' + T('unit.c') + ' · ' : '';
+  const ghValue = climate.available
+    ? ghWarmText + EUI18N.num(climate.relativeEarth, { maximumFractionDigits: 2 }) + ' ' + T('card.greenhouseUnit')
+    : '—';
+  const ghTitle = T('card.greenhouseNote')
+    + (Number.isFinite(ghEquilibrium) ? ' · ' + (EUI18N.current() === 'ru' ? 'равновесная без него ' : 'equilibrium without it ') + EUI18N.num(ghEquilibrium, { maximumFractionDigits: 0 }) + ' ' + T('unit.c') : '');
+  const greenhouseRow = `<tr data-climate="greenhouse" title="${esc(ghTitle)}"><td>${T('card.greenhouse')}</td><td>${esc(ghValue)}</td></tr>`;
   const traits = `
       <div><span>${T('trait.suit')}</span><span>${T('trait.suit.' + suitState(p))}</span></div>
       <div><span>${T('trait.rad')}</span><span>${T('trait.rad.' + radiationState(p))}</span></div>

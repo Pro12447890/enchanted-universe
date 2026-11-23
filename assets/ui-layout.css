@@ -34,6 +34,13 @@ html .tools-dialog .tool-tile:nth-child(2) .tool-symbol { background:#b3a0ed12;b
 html .tools-dialog .tool-tile:nth-child(3) .tool-symbol { background:#eac48a12;border-color:#f0d29a30; }
 html .glass-mode { border-radius:10px!important;corner-shape:round; }
 html .timebar > button,html .mobileControls .timebar > button { border-radius:11px;corner-shape:round; }
+/* Края меню — крупные оболочки, поэтому сквиркл: на телефоне он виден на углах шторок,
+   у нижней навигации скруглены только верхние углы, потому что низ прижат к экрану. */
+html .mobileControls { border-radius:22px;corner-shape:squircle; }
+html .mobileNav { border-radius:20px 20px 0 0;corner-shape:squircle; }
+html .object-browser { border-radius:20px;corner-shape:squircle; }
+html .tools-dialog { border-radius:20px;corner-shape:squircle; }
+html .modal .card { border-radius:18px;corner-shape:squircle; }
 html .dockrow > :is(button,a):focus-visible,
 html .zoomctl > button:focus-visible,html .timebar > button:focus-visible { outline:2px solid #a8e3f6;outline-offset:3px; }
 @media(max-width:1100px) { html:not(.mobile-map-ui) .dock #hint { flex-basis:100%;max-width:none; } }

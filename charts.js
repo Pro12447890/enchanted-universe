@@ -527,7 +527,7 @@
         ch.legendRows.set(k, row);
       }
       const v = Math.max(0, ch.cur[k] || 0);
-      const color=ch.colors[k]||'#5fe6ff';row.sw.style.background=`linear-gradient(135deg,${tint(color,.46)},${color} 55%,${tint(color,-.40)})`;
+      const color=ch.colors[k]||'#5fe6ff';row.sw.style.background=`linear-gradient(135deg,${tint(color,.30)},${color} 55%,${tint(color,-.26)})`;
       row.nm.textContent = ch.labels[k] || k;
       row.nm.title = ch.labels[k] || k;
       const pct = total > 0 ? Math.round((v / total) * 100) : 0;
@@ -542,7 +542,7 @@
     else rgb=(color.match(/[\d.]+/g)||[95,230,255]).slice(0,3).map(Number);
     return 'rgb('+rgb.map(v=>Math.round(amount>=0?v+(255-v)*amount:v*(1+amount))).join(',')+')';
   }
-  function colorGradient(ctx,color,x0,y0,x1,y1){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,tint(color,.46));g.addColorStop(.52,color);g.addColorStop(1,tint(color,-.40));return g;}
+  function colorGradient(ctx,color,x0,y0,x1,y1){const g=ctx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,tint(color,.30));g.addColorStop(.52,color);g.addColorStop(1,tint(color,-.28));return g;}
 
   function roundRect(ctx, x, y, w, h, r) {
     const rr = Math.min(r, h / 2, w / 2);
@@ -632,8 +632,10 @@
   const chartMoons=makeChart('bars',document.getElementById('moonsCv'),{rowH:32});
 
   function rankColor(i, n) {
+    // Мягкий переход внутри сине-голубой гаммы: раньше верхние строки были золотыми
+    // и график читался как оранжевый градиент.
     const t = n <= 1 ? 0 : i / (n - 1);
-    const a = [216, 192, 122], b = [95, 230, 255];
+    const a = [110, 170, 226], b = [150, 214, 240];
     const c = a.map((v, k) => Math.round(v + (b[k] - v) * t));
     return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
   }

@@ -3,7 +3,12 @@
  const key=id=>String(id||'').includes(':')?String(id):'enchanted_universe:'+id;
  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
  const categories={very_hot:['Раскалённая','Scorching'],hot:['Горячая','Hot'],temperate:['Тёплая','Warm'],habitable:['Умеренная','Temperate'],cold_habitable:['Прохладная','Cool'],distant:['Холодная','Cold'],gas_giant:['Газовый гигант','Gas giant']};
- function material(id){const k=key(id),db=globalThis.EUBiomeMaterials?.biomes||{};return db[k]||{color:[125,120,112],canopy:[102,121,82],water:[63,118,228],vegetation:false,wet:/ocean|river/.test(k),ice:/iced|ice_spikes|frozen|snow/.test(k),block:null};}
+ // Только для вида сайта. В моде «Реголитовый» и «Светлый реголитовый» бассейны стоят на
+ // одном блоке smooth_regolith (средняя текстура 132), «Кратерный» и «Каменный» — на своих,
+ // но разница 132/138/143 на карте не видна. Из-за этого список биомов читался как «куча
+ // одинаковых бассейнов, а часть почему-то цветная». Разводим серые оттенком по названию.
+ const TINT={'enchanted_universe:light_regolithbasin':[158,158,154],'enchanted_universe:cratered_regolithbasin':[126,127,132],'enchanted_universe:stone_regolith':[143,146,152]};
+ function material(id){const k=key(id),db=globalThis.EUBiomeMaterials?.biomes||{},base=db[k]||{color:[125,120,112],canopy:[102,121,82],water:[63,118,228],vegetation:false,wet:/ocean|river/.test(k),ice:/iced|ice_spikes|frozen|snow/.test(k),block:null},tint=TINT[k];return tint?{...base,color:tint}:base;}
  function life(p){
   if(!p||p.mystery||(p.category||p.type)==='gas_giant')return false;
   if(typeof p.life==='boolean')return p.life;

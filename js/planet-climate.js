@@ -50,6 +50,18 @@
     return { opticalDepthIR, index: opticalDepthIR / (1 + opticalDepthIR), columnProxy,
       equilibriumK: teq, greenhouseK: surface, warmingK: surface - teq, capped: rawTau > 180 };
   }
+  /** Насколько парниковый эффект поднял температуру, °C.
+   *
+   * Модель задаёт поверхность как Teq·(1+0,75·τIR)^0,25, поэтому равновесную
+   * температуру можно восстановить точно из наблюдаемой поверхностной и τIR —
+   * без повторного выбора альбедо и без расхождения с карточкой планеты.
+   */
+  function warmingK(surfaceC, opticalDepthIR) {
+    const surface = Number(surfaceC);
+    if (!Number.isFinite(surface)) return NaN;
+    const factor = (1 + .75 * clamp(opticalDepthIR, 0, 180)) ** .25;
+    return (surface + 273.15) * (1 - 1 / factor);
+  }
   function stellarFlux(luminosity, distance) {
     return Number.isFinite(luminosity) && luminosity > 0 && Number.isFinite(distance) && distance > 0
       ? Math.min(1e12, luminosity / (distance * distance)) : 0;
@@ -83,7 +95,7 @@
       referenceSource: ref.source, earthOpticalDepthIR: ref.opticalDepthIR,
       noAtmosphere: atmosphere === 'none', noListedAbsorbers: available && atmosphere !== 'none' && climate.opticalDepthIR === 0 };
   }
-  const API = { density, fractions, estimate, equilibriumK, isEarth, earthReference, compareEarth, DENSITY, EARTH_GASES };
+  const API = { density, fractions, estimate, equilibriumK, warmingK, isEarth, earthReference, compareEarth, DENSITY, EARTH_GASES };
   if (typeof window !== 'undefined') window.EUPlanetClimate = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })();
