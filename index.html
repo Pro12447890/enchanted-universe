@@ -204,7 +204,7 @@ try {
 <link rel="stylesheet" href="assets/mobile-map.css?v=3">
 <link rel="stylesheet" href="assets/star-browser.css?v=3">
 <link rel="stylesheet" href="assets/gui-tones.css?v=3">
-<link rel="stylesheet" href="assets/liquid-glass.css?v=d00908be39">
+<link rel="stylesheet" href="assets/liquid-glass.css?v=20a24c9c52">
 <link rel="stylesheet" href="assets/ui-layout.css?v=d65a76c514">
 </head>
 <body>
@@ -240,7 +240,13 @@ try {
 <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 <div id="loading" class="loading-screen" role="status" aria-live="polite">
   <div class="loader-card">
-    <div class="loader-orbit" aria-hidden="true"><span></span><i></i><b></b></div>
+    <div class="loader-orbit" aria-hidden="true">
+      <span class="lo-frame"></span>
+      <div class="lo-plane lo-plane-a"><i class="lo-arc"></i><span class="lo-moon"></span></div>
+      <div class="lo-plane lo-plane-b"><i class="lo-arc"></i><span class="lo-moon"></span></div>
+      <div class="lo-plane lo-plane-c"><i class="lo-arc"></i><span class="lo-moon"></span></div>
+      <span class="lo-star"></span>
+    </div>
     <div class="loader-kicker">ENCHANTED UNIVERSE <span>·</span> SEED ATLAS</div>
     <h1 data-i18n="loading.title">Собираем звёздную карту</h1>
     <p id="loadingMessage" data-i18n="loading">Генерация каталога…</p>

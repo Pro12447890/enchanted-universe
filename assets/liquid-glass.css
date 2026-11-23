@@ -95,12 +95,23 @@
 #loading.is-ready *,#loading.is-ready *::before,#loading.is-ready *::after { animation-play-state:paused!important; }
 .loader-card { width:min(460px,88vw);padding:40px 32px 28px;text-align:center;border:1px solid #c0e5ff40;border-radius:30px;background:linear-gradient(145deg,#1f3a50ad,#1c1b34b8);box-shadow:0 30px 100px #0006,inset 0 1px #ffffff29; }
 .liquid-glass .loader-card { -webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px); }
-.loader-orbit { position:relative;width:90px;height:90px;margin:0 auto 28px;border:1px solid #a1e6ff55;border-radius:50%;box-shadow:inset 0 0 30px #6f9ce01a;animation:eu-loader-spin 9s linear infinite; }
-.loader-orbit::before,.loader-orbit::after { content:"";position:absolute;left:50%;top:50%;width:132px;height:43px;border:1px solid #a8ccff77;border-radius:50%;transform:translate(-50%,-50%) rotate(-32deg); }
-.loader-orbit::after { width:112px;height:53px;border-color:#89f0db66;transform:translate(-50%,-50%) rotate(47deg); }
-.loader-orbit span { position:absolute;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#9be7ff 35%,#4c82ad 80%);box-shadow:0 0 24px #73d8ff99; }
-.loader-orbit i,.loader-orbit b { position:absolute;width:7px;height:7px;border-radius:50%;background:#c2dcff;box-shadow:0 0 12px #8fb8ff88;left:9px;top:21px; }
-.loader-orbit b { left:auto;top:auto;right:8px;bottom:20px;width:5px;height:5px;background:#adf3dc;box-shadow:0 0 12px #7ceac588; }
+/* Три независимые орбиты: каждая — своя плоскость, свой период и своё направление.
+   Луны идут по эллипсам этих же орбит, скорость всё время меняется (пружинный ход). */
+.loader-orbit { position:relative;width:90px;height:90px;margin:0 auto 30px; }
+.lo-frame { position:absolute;inset:0;border:1px solid #a1e6ff44;border-radius:50%;box-shadow:inset 0 0 30px #6f9ce01a;animation:eu-lo-frame 7.4s ease-in-out infinite; }
+.lo-plane { position:absolute;inset:0;animation-timing-function:linear;animation-iteration-count:infinite; }
+.lo-plane-a { animation-name:eu-lo-sway-a;animation-duration:7.4s;animation-timing-function:ease-in-out;animation-delay:-2.1s; }
+.lo-plane-b { animation-name:eu-lo-sway-b;animation-duration:9.8s;animation-timing-function:ease-in-out;animation-delay:-5.3s; }
+.lo-plane-c { animation-name:eu-lo-plane-cw;animation-duration:26s;animation-delay:-9s; }
+.lo-arc { position:absolute;left:50%;top:50%;translate:-50% -50%;border:1px solid;border-radius:50%;-webkit-mask-image:conic-gradient(from -30deg,#0000 0deg,#000 62deg,#000 232deg,#0000 300deg,#0000 360deg);mask-image:conic-gradient(from -30deg,#0000 0deg,#000 62deg,#000 232deg,#0000 300deg,#0000 360deg); }
+.lo-plane-a .lo-arc { width:130px;height:50px;border-color:#a8ccff; }
+.lo-plane-b .lo-arc { width:108px;height:56px;border-color:#89f0db;-webkit-mask-image:conic-gradient(from 118deg,#0000 0deg,#000 54deg,#000 214deg,#0000 284deg,#0000 360deg);mask-image:conic-gradient(from 118deg,#0000 0deg,#000 54deg,#000 214deg,#0000 284deg,#0000 360deg); }
+.lo-plane-c .lo-arc { width:78px;height:78px;border-color:#c4b3ff;-webkit-mask-image:conic-gradient(from 252deg,#0000 0deg,#000 68deg,#000 248deg,#0000 318deg,#0000 360deg);mask-image:conic-gradient(from 252deg,#0000 0deg,#000 68deg,#000 248deg,#0000 318deg,#0000 360deg); }
+.lo-moon { position:absolute;left:0;top:0;border-radius:50%;offset-rotate:0deg;offset-distance:0%; }
+.lo-plane-a .lo-moon { width:6px;height:6px;margin:-3px 0 0 -3px;background:#dfeaff;box-shadow:0 0 12px #8fb8ffaa;offset-path:path("M 113,48 A 65,25 0 1 1 -17,48 A 65,25 0 1 1 113,48");animation:eu-lo-moon-a 8.4s linear infinite; }
+.lo-plane-b .lo-moon { width:5px;height:5px;margin:-2.5px 0 0 -2.5px;background:#bff7e7;box-shadow:0 0 12px #7ceac588;offset-path:path("M 101.5,47.5 A 54,28 0 1 1 -6.5,47.5 A 54,28 0 1 1 101.5,47.5");animation:eu-lo-moon-b 11.6s linear infinite reverse; }
+.lo-plane-c .lo-moon { width:4px;height:4px;margin:-2px 0 0 -2px;background:#e2d5ff;box-shadow:0 0 10px #b79cff99;offset-path:path("M 86,47 A 39,39 0 1 1 8,47 A 39,39 0 1 1 86,47");animation:eu-lo-moon-c 9.8s linear infinite; }
+.lo-star { position:absolute;left:50%;top:50%;width:18px;height:18px;translate:-50% -50%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#9be7ff 35%,#4c82ad 80%);box-shadow:0 0 24px #73d8ff99;animation:eu-lo-star 3.6s ease-in-out infinite; }
 .loader-kicker { font-size:10px;letter-spacing:.22em;color:#a6ccdf; }.loader-kicker span { padding:0 4px;color:#cfe4ff; }
 .loader-card h1 { margin:12px 0 7px;font-size:clamp(22px,5vw,29px);font-weight:600;letter-spacing:.01em;color:#e9f1ff; }
 .loader-card p { margin:0;color:#b1c3d6;font-size:13px; }
@@ -108,7 +119,50 @@
 .loader-track span { display:block;width:35%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#87e5e9,#a9cdff,#f1d096);animation:eu-loader-progress 1.5s ease-in-out infinite alternate; }
 .loader-meta { display:flex;align-items:center;justify-content:center;gap:9px;color:#99b0c6;font-size:10px;letter-spacing:.08em;text-transform:uppercase; }
 .loader-pulse { width:5px;height:5px;border-radius:50%;background:#a2ebd3;animation:eu-loader-pulse 1.2s ease-in-out infinite; }
-@keyframes eu-loader-spin { to { transform:rotate(360deg); } }
+@keyframes eu-lo-plane-cw { to { transform:rotate(360deg); } }
+@keyframes eu-lo-plane-ccw { to { transform:rotate(-360deg); } }
+/* Плоскости эллипсов не крутятся целиком, а качаются — каждая в своём ритме и со своей
+   амплитудой, поэтому дуги никогда не склеиваются в одну вращающуюся фигуру. */
+@keyframes eu-lo-sway-a { 0%,100% { transform:rotate(-32deg); } 50% { transform:rotate(-4deg); } }
+@keyframes eu-lo-sway-b { 0%,100% { transform:rotate(18deg); } 50% { transform:rotate(46deg); } }
+@keyframes eu-lo-frame { 50% { opacity:.6;box-shadow:inset 0 0 22px #6f9ce012; } }
+@keyframes eu-lo-star { 50% { box-shadow:0 0 34px #73d8ffcc; } }
+/* Пружинный ход лун. Скорость не постоянна: сжатие, разгон, длинный выбег и лёгкий
+   откат пружины. Рисунок у каждой свой, периоды не совпадают — общий узор не повторяется. */
+@keyframes eu-lo-moon-a {
+  0% { offset-distance:0%;animation-timing-function:cubic-bezier(.42,0,.58,1); }
+  9% { offset-distance:6%;animation-timing-function:cubic-bezier(.34,0,.56,1); }
+  20% { offset-distance:26%;animation-timing-function:cubic-bezier(.3,0,.5,1); }
+  32% { offset-distance:57%;animation-timing-function:cubic-bezier(.42,0,.58,1); }
+  44% { offset-distance:76%;animation-timing-function:cubic-bezier(.42,0,.58,1); }
+  58% { offset-distance:86%;animation-timing-function:cubic-bezier(.2,1.14,.4,1); }
+  72% { offset-distance:92%;animation-timing-function:cubic-bezier(.4,0,.72,.62); }
+  86% { offset-distance:97%;animation-timing-function:cubic-bezier(.4,0,.7,.7); }
+  100% { offset-distance:100%; }
+}
+@keyframes eu-lo-moon-b {
+  0% { offset-distance:0%;animation-timing-function:cubic-bezier(.45,0,.6,.85); }
+  14% { offset-distance:4%;animation-timing-function:cubic-bezier(.25,.1,.45,1); }
+  26% { offset-distance:30%;animation-timing-function:cubic-bezier(.34,0,.52,1); }
+  38% { offset-distance:58%;animation-timing-function:cubic-bezier(.42,0,.6,1); }
+  52% { offset-distance:74%;animation-timing-function:cubic-bezier(.4,0,.7,.65); }
+  64% { offset-distance:80%;animation-timing-function:cubic-bezier(.45,.05,.6,1); }
+  78% { offset-distance:89%;animation-timing-function:cubic-bezier(.42,0,.62,1); }
+  90% { offset-distance:96%;animation-timing-function:cubic-bezier(.4,0,.7,.72); }
+  100% { offset-distance:100%; }
+}
+@keyframes eu-lo-moon-c {
+  0% { offset-distance:0%;animation-timing-function:cubic-bezier(.44,0,.6,.9); }
+  10% { offset-distance:8%;animation-timing-function:cubic-bezier(.3,0,.5,1); }
+  22% { offset-distance:33%;animation-timing-function:cubic-bezier(.38,0,.55,1); }
+  32% { offset-distance:44%;animation-timing-function:cubic-bezier(.5,0,.7,.6); }
+  44% { offset-distance:52%;animation-timing-function:cubic-bezier(.26,.1,.45,1); }
+  56% { offset-distance:74%;animation-timing-function:cubic-bezier(.36,0,.55,1); }
+  68% { offset-distance:88%;animation-timing-function:cubic-bezier(.22,1.1,.4,1); }
+  80% { offset-distance:92%;animation-timing-function:cubic-bezier(.45,0,.7,.65); }
+  92% { offset-distance:97%;animation-timing-function:cubic-bezier(.4,0,.72,.7); }
+  100% { offset-distance:100%; }
+}
 @keyframes eu-loader-progress { from { transform:translateX(-5%); } to { transform:translateX(190%); } }
 @keyframes eu-loader-pulse { 50% { opacity:.3; } }
 @media (prefers-reduced-motion:reduce) { #loading *,#loading *::before,#loading *::after { animation:none!important; }#loading.loading-screen { transition:none; } }
