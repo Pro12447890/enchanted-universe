@@ -554,10 +554,12 @@ function heatRocky(col, tempC, nx, ny, seed) {
   if (H.cracks > 0.002) {
     const vein = crackMask(nx, ny, seed);
     if (vein > 0) {
-      // В жилах обнажена магма: T = max(Tпов, Tсолидус + 250 K).
+      // В жилах обнажена магма: T = max(Tпов, Tсолидус + 250 K). Жила должна быть
+      // ЯРЧЕ коры, поэтому ведём её к жёлто-оранжевому, а не к планковскому красному.
       const crackT = Math.max(Tk, 1250 + 250) - 273.15;
       const emit = thermalGlow(crackT);
-      out = lerp(out, emit.color, clamp(Math.pow(vein, 0.6) * H.cracks * 1.6, 0, 0.95));
+      const target = lerp(emit.color, [255, 208, 92], 0.65);
+      out = lerp(out, target, clamp(Math.pow(vein, 0.55) * (0.35 + 0.85 * H.cracks), 0, 0.97));
     }
   }
   if (H.orange > 0) {
